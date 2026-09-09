@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### 2026-09-09 (6차) — Peragra의 Gateway 프로바이더 추가
+#### Added
+- `GatewayProvider`: Peragra가 기본 AI 프로바이더로 쓰는 서드파티 OpenAI 호환
+  게이트웨이(factchat-cloud.mindlogic.ai)를 AI 제공자 옵션에 추가. Peragra의
+  `AIExtractionService`가 쓰는 것과 동일한 엔드포인트(`/v1/gateway/chat/completions/`,
+  트레일링 슬래시 필수)·요청 형식을 그대로 반영.
+- `GatewayModels`: 게이트웨이에서 제공하는 모델 ID 목록 (Peragra의
+  `GatewayModels.swift`를 포팅).
+- `AIProviderType`에 `.gateway` 케이스 추가 (설정 화면의 "제공자" Picker에
+  자동으로 노출됨, UI 코드 변경 없음).
+- `OpenAIProvider`와 `GatewayProvider`가 같은 OpenAI 호환 요청 로직
+  (`performOpenAICompatibleChatRequest`)을 공유하도록 정리.
+
+#### Notes
+- 기본 프로바이더는 여전히 Claude — 게이트웨이는 선택 가능한 추가 옵션으로만
+  넣었고, Peragra처럼 기본값으로 바꾸지는 않음.
+
+### 2026-09-09 (5차) — Keychain 빌드 오류 수정
+#### Fixed
+- `KeychainService`에서 실제로 존재하지 않는 `kSecService`/`kSecAccount` 상수를
+  사용해 Xcode에서 "Cannot find in scope" 오류가 발생하던 문제. 올바른 이름인
+  `kSecAttrService`/`kSecAttrAccount`로 수정 (Peragra의 실제 동작하는
+  `KeychainService.swift`와 대조해 확인).
+- 프로젝트 `LastUpgradeCheck`/`LastSwiftUpdateCheck`를 1700으로 갱신.
+
 ### 2026-09-09 (4차) — Peragra 조사 반영: Naver 직접 접근 + AI 멀티 프로바이더
 #### Changed
 - **Naver: 백엔드 프록시 폐기, 기기에서 직접 호출.** Peragra의 `NaverGeocodingService`를

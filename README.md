@@ -7,7 +7,7 @@
 ## 현재 상태
 
 - 기획/설계: ✅ 완료 (`00_프로젝트종합가이드_새세션용.md` 참고)
-- iOS 코드: 🟢 Google Places, Naver(Local Search + Geocoding), Claude/OpenAI/Gemini Vision이 모두 기기에서 직접 동작 — 백엔드 서버 없음 (Peragra 개발 경험을 반영해 프록시 방식을 폐기함, 아래 "아키텍처 개요" 참고)
+- iOS 코드: 🟢 Google Places, Naver(Local Search + Geocoding), Claude/OpenAI/Gemini/Gateway Vision이 모두 기기에서 직접 동작 — 백엔드 서버 없음 (Peragra 개발 경험을 반영해 프록시 방식을 폐기함, 아래 "아키텍처 개요" 참고)
 - Kakao 연동, Export, 오프라인 동기화: 미구현 (아래 "다음 단계" 참고)
 
 ## 빌드 방법 (macOS)
@@ -30,7 +30,7 @@ open PlaceCards.xcodeproj
 | 키 | 용도 | 발급처 |
 |---|---|---|
 | Google Places API 키 | 장소 검색/평점/영업시간 등 보강 (필수) | Google Cloud Console → Places API (New) 활성화 |
-| AI 제공자 API 키 (Claude/OpenAI/Gemini 중 택1) | 스크린샷/사진에서 장소명 추출 (Vision) | Anthropic/OpenAI/Google 각 콘솔 |
+| AI 제공자 API 키 (Claude/OpenAI/Gemini/Gateway 중 택1) | 스크린샷/사진에서 장소명 추출 (Vision) | Anthropic/OpenAI/Google 각 콘솔, Gateway는 factchat-cloud.mindlogic.ai 계정 |
 | Naver Client ID/Secret (선택) | Naver Local Search로 한글 장소명 검색 보강 | [openapi.naver.com](https://developers.naver.com) → 검색 API |
 | Naver NCP Client ID/Secret (선택) | 주소만 있는 장소의 좌표 보강 (Geocoding) | [NAVER Cloud Platform](https://www.ncloud.com) → Maps → Geocoding |
 
@@ -57,7 +57,7 @@ PlaceCards/
 - **UI**: SwiftUI + MVVM (`06_아키텍처_단순화.md`의 Service/ViewModel 계층 구조를 따름)
 - **저장**: 로컬 JSON 파일(`StorageService`) — SwiftData/CoreData 선택은 기획 문서에서 미결 항목(`07_미해결항목.md` 3.2)으로 남아 있어, iOS 버전 제약이 없고 스키마가 자주 바뀌는 현재 단계에 맞춰 단순한 방식을 선택함
 - **지도 API**: Google Places API (New)와 Naver(Local Search + Geocoding) 모두 **앱에서 직접 호출**(BYOK), 백엔드 서버 없음. 처음에는 "Naver Client Secret은 앱에 넣을 수 없다"는 전제로 프록시 서버를 계획했지만, 같은 팀의 다른 앱(Peragra)이 사용자 본인의 Client ID/Secret으로 NCP·Naver Developers API를 기기에서 직접 호출하고 있는 것을 확인하고 그 방식으로 교체함 — 네이티브 `URLSession` 요청은 웹처럼 CORS 제약이 없고, 이건 앱 공용 비밀키가 아니라 사용자가 스스로 발급받아 넣는 BYOK 키이기 때문에 안전한 절충. 자세한 내용은 `Services/NaverLocalSearchService.swift`, `Services/NaverGeocodingService.swift` 주석 참고.
-- **AI 이미지 분석**: Claude, OpenAI(GPT-4o), Gemini 모두 각 사용자 API 키로 기기에서 직접 호출하도록 구현됨(Peragra의 멀티 프로바이더 접근 방식을 그대로 반영). Peragra가 기본으로 쓰는 서드파티 게이트웨이(factchat-cloud.mindlogic.ai)는 Peragra 자체 계정에 종속된 인프라라 이번 구현에는 포함하지 않음.
+- **AI 이미지 분석**: Claude, OpenAI(GPT-4o), Gemini, 그리고 Peragra가 기본으로 쓰는 서드파티 게이트웨이(factchat-cloud.mindlogic.ai)까지 네 가지 제공자를 각 사용자 API 키로 기기에서 직접 호출하도록 구현됨(Peragra의 멀티 프로바이더 접근 방식을 그대로 반영). 기본 선택값은 여전히 Claude이고, Gateway는 설정 화면에서 선택 가능한 추가 옵션임 — 그 게이트웨이는 Peragra 자체 계정에 종속된 서드파티 인프라이므로 실제 사용 여부는 사용자 판단.
 - **Kakao**: 기획 문서의 최종 결정(`00_프로젝트종합가이드_새세션용.md` §2️⃣)에 따라 저장 정책 리스크를 피하기 위해 이번 구현에서 제외함
 
 ### 기획 문서와 다른 점 (의도적 단순화)

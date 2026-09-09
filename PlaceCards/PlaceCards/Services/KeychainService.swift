@@ -8,6 +8,7 @@ enum KeychainKey: String {
     case claudeAPIKey
     case openAIAPIKey
     case geminiAPIKey
+    case gatewayAPIKey
     case naverClientId
     case naverClientSecret
     case naverGeocodingClientId

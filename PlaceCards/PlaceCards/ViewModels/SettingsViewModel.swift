@@ -107,6 +107,7 @@ extension AIProviderType {
         case .claude: return .claudeAPIKey
         case .openai: return .openAIAPIKey
         case .gemini: return .geminiAPIKey
+        case .gateway: return .gatewayAPIKey
         }
     }
 }

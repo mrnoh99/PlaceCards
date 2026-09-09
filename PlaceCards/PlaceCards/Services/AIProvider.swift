@@ -4,6 +4,9 @@ enum AIProviderType: String, Codable, CaseIterable, Identifiable {
     case claude
     case openai
     case gemini
+    // Listed last, mirroring Peragra's own ordering — it's an available
+    // fallback, not the first thing to reach for.
+    case gateway
 
     var id: String { rawValue }
 
@@ -12,6 +15,7 @@ enum AIProviderType: String, Codable, CaseIterable, Identifiable {
         case .claude: return "Claude (Anthropic)"
         case .openai: return "ChatGPT (OpenAI)"
         case .gemini: return "Gemini (Google)"
+        case .gateway: return "Gateway (factchat-cloud)"
         }
     }
 
@@ -21,8 +25,29 @@ enum AIProviderType: String, Codable, CaseIterable, Identifiable {
         case .claude: return "claude-sonnet-5"
         case .openai: return "gpt-4o"
         case .gemini: return "gemini-2.0-flash"
+        case .gateway: return GatewayModels.defaultModel
         }
     }
+}
+
+/// Model IDs available on the factchat-cloud.mindlogic.ai gateway, as
+/// listed on its own "API Gateway" docs page (ported from Peragra, which
+/// uses this same third-party gateway as its default AI provider). Not
+/// necessarily exhaustive — nothing here stops a caller from passing a
+/// model ID that isn't listed.
+enum GatewayModels {
+    static let all: [String] = [
+        "claude-sonnet-5",
+        "claude-opus-5",
+        "claude-fable-5-1",
+        "claude-fable-5",
+        "gpt-5.6-luna",
+        "gpt-5.6-terra",
+        "gpt-5.6-sol",
+        "gpt-5.5",
+    ]
+
+    static let defaultModel = "claude-sonnet-5"
 }
 
 struct AIAnalysisResult {
@@ -44,6 +69,7 @@ enum AIProviderFactory {
         case .claude: return ClaudeProvider(apiKey: apiKey)
         case .openai: return OpenAIProvider(apiKey: apiKey)
         case .gemini: return GeminiProvider(apiKey: apiKey)
+        case .gateway: return GatewayProvider(apiKey: apiKey)
         }
     }
 }
@@ -101,6 +127,58 @@ private func mapHTTPError(statusCode: Int, data: Data, serviceLabel: String) -> 
     if statusCode == 429 { return .rateLimited(serviceLabel) }
     let message = String(data: data, encoding: .utf8) ?? "알 수 없는 오류"
     return .apiError(message, statusCode: statusCode)
+}
+
+/// OpenAI itself and the factchat-cloud gateway both speak the same
+/// OpenAI-compatible chat-completions API, so `OpenAIProvider` and
+/// `GatewayProvider` share this one request/response path (mirroring how
+/// Peragra's AIExtractionService shares its equivalent helper across every
+/// OpenAI-compatible provider it supports).
+private func performOpenAICompatibleChatRequest(
+    endpoint: URL,
+    apiKey: String,
+    model: String,
+    prompt: String,
+    imageData: Data,
+    serviceLabel: String,
+    session: URLSession
+) async throws -> AIAnalysisResult {
+    guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+    var request = URLRequest(url: endpoint)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+    let imageDataURL = "data:image/jpeg;base64,\(imageData.base64EncodedString())"
+    let body: [String: Any] = [
+        "model": model,
+        "messages": [
+            [
+                "role": "user",
+                "content": [
+                    ["type": "text", "text": prompt],
+                    ["type": "image_url", "image_url": ["url": imageDataURL]]
+                ]
+            ]
+        ]
+    ]
+    request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+    let (data, response) = try await session.data(for: request)
+    if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+        throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: serviceLabel)
+    }
+
+    guard
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let choices = json["choices"] as? [[String: Any]],
+        let message = choices.first?["message"] as? [String: Any],
+        let text = message["content"] as? String
+    else {
+        throw PlaceCardsError.decodingError("\(serviceLabel) 응답을 해석할 수 없습니다.")
+    }
+    return try parsePlaceAnalysisResult(from: text)
 }
 
 // MARK: - Claude (Anthropic Messages API)
@@ -183,43 +261,54 @@ final class OpenAIProvider: AIProvider {
     }
 
     func analyzeImage(imageData: Data, prompt: String) async throws -> AIAnalysisResult {
-        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+        try await performOpenAICompatibleChatRequest(
+            endpoint: URL(string: "https://api.openai.com/v1/chat/completions")!,
+            apiKey: apiKey,
+            model: model,
+            prompt: prompt,
+            imageData: imageData,
+            serviceLabel: "OpenAI",
+            session: session
+        )
+    }
+}
 
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+// MARK: - Gateway (factchat-cloud.mindlogic.ai, ported from Peragra)
 
-        let imageDataURL = "data:image/jpeg;base64,\(imageData.base64EncodedString())"
-        let body: [String: Any] = [
-            "model": model,
-            "messages": [
-                [
-                    "role": "user",
-                    "content": [
-                        ["type": "text", "text": prompt],
-                        ["type": "image_url", "image_url": ["url": imageDataURL]]
-                    ]
-                ]
-            ]
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+/// Routes through a third-party OpenAI-compatible gateway
+/// (factchat-cloud.mindlogic.ai) instead of any provider's own API —
+/// Peragra's default AI provider, offering Claude/GPT models through one
+/// endpoint and one API key. Its actual feature support (vision
+/// passthrough, JSON mode) is undocumented from here, so — same as every
+/// other provider in this file — this prompts for JSON in plain
+/// chat-completion form and decodes the response manually rather than
+/// relying on any provider-specific structured-output extension.
+final class GatewayProvider: AIProvider {
+    private let apiKey: String
+    private let session: URLSession
+    private let model: String
 
-        let (data, response) = try await session.data(for: request)
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: "OpenAI")
-        }
+    init(apiKey: String, model: String = GatewayModels.defaultModel, session: URLSession = .shared) {
+        self.apiKey = apiKey
+        self.model = model
+        self.session = session
+    }
 
-        guard
-            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let choices = json["choices"] as? [[String: Any]],
-            let message = choices.first?["message"] as? [String: Any],
-            let text = message["content"] as? String
-        else {
-            throw PlaceCardsError.decodingError("OpenAI 응답을 해석할 수 없습니다.")
-        }
-        return try parsePlaceAnalysisResult(from: text)
+    func analyzeImage(imageData: Data, prompt: String) async throws -> AIAnalysisResult {
+        // Trailing slash matters — the gateway's documented endpoint is
+        // "/v1/gateway/chat/completions/" and a request without one risks
+        // a 404 or a broken POST-to-GET redirect on a Django-style backend
+        // that enforces trailing slashes (this is exactly why Peragra's
+        // own client keeps it).
+        try await performOpenAICompatibleChatRequest(
+            endpoint: URL(string: "https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions/")!,
+            apiKey: apiKey,
+            model: model,
+            prompt: prompt,
+            imageData: imageData,
+            serviceLabel: "Gateway",
+            session: session
+        )
     }
 }
 
