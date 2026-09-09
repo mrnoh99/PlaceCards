@@ -21,8 +21,8 @@ struct KeychainService {
         let data = Data(value.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecService as String: service,
-            kSecAccount as String: key.rawValue
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key.rawValue
         ]
         SecItemDelete(query as CFDictionary)
 
@@ -39,8 +39,8 @@ struct KeychainService {
     static func load(_ key: KeychainKey) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecService as String: service,
-            kSecAccount as String: key.rawValue,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key.rawValue,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
@@ -56,8 +56,8 @@ struct KeychainService {
     static func delete(_ key: KeychainKey) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecService as String: service,
-            kSecAccount as String: key.rawValue
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key.rawValue
         ]
         SecItemDelete(query as CFDictionary)
     }
