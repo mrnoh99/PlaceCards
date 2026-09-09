@@ -1,0 +1,392 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		3EBF9F3C7F32FB1D6246FC3E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0586095638A0F6A8D23A7F16 /* ContentView.swift */; };
+		6F39392A1005CCB7E7B9CD93 /* PlaceCardsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE01FEFE9A9B6E63A9E38677 /* PlaceCardsApp.swift */; };
+		6D9EF9A1518470F76DA6A792 /* PlaceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79768A1E8BB24A016C492201 /* PlaceCard.swift */; };
+		C2E89A85D0A42E1E5E24DA13 /* PlaceCardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9767995F1849660205AB37EA /* PlaceCardStore.swift */; };
+		C646E32AE9B1F45291E0F1DB /* PlaceCardEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 848FC0F4A00C4D56A0FDA48B /* PlaceCardEditView.swift */; };
+		2F31EE3190A780FB665BBD98 /* PlaceCardDisplayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFE46665C6F01D62C0D65366 /* PlaceCardDisplayView.swift */; };
+		F31435B9A6398334A938BFF6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DED89A8130DBE7BEDB7515F4 /* Assets.xcassets */; };
+		678E62647DC63687E5F3D36E /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1FF32339845F11B69AE441B /* Preview Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0B1B2AA6A3716971A5B9BFAB /* PlaceCards.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PlaceCards.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AE01FEFE9A9B6E63A9E38677 /* PlaceCardsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardsApp.swift; sourceTree = "<group>"; };
+		0586095638A0F6A8D23A7F16 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		79768A1E8BB24A016C492201 /* PlaceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCard.swift; sourceTree = "<group>"; };
+		9767995F1849660205AB37EA /* PlaceCardStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardStore.swift; sourceTree = "<group>"; };
+		848FC0F4A00C4D56A0FDA48B /* PlaceCardEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardEditView.swift; sourceTree = "<group>"; };
+		DFE46665C6F01D62C0D65366 /* PlaceCardDisplayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardDisplayView.swift; sourceTree = "<group>"; };
+		DED89A8130DBE7BEDB7515F4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1FF32339845F11B69AE441B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6525013EF4D8E9E600B07801 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BFC6802B5F71996175C6CDCF = {
+			isa = PBXGroup;
+			children = (
+				BDB1C90C94805EBA32F19716 /* PlaceCards */,
+				3C6A7DCEDD075B2A871C4221 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		3C6A7DCEDD075B2A871C4221 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0B1B2AA6A3716971A5B9BFAB /* PlaceCards.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BDB1C90C94805EBA32F19716 /* PlaceCards */ = {
+			isa = PBXGroup;
+			children = (
+				AE01FEFE9A9B6E63A9E38677 /* PlaceCardsApp.swift */,
+				0586095638A0F6A8D23A7F16 /* ContentView.swift */,
+				46CC8B32F254BDD252E6E91B /* Models */,
+				221105B6AA30BFCBBFB43449 /* Store */,
+				F40848A416CB8A063C5AA100 /* Views */,
+				DED89A8130DBE7BEDB7515F4 /* Assets.xcassets */,
+				8B2D5EE63E6D606B3C06F3D2 /* Preview Content */,
+			);
+			path = PlaceCards;
+			sourceTree = "<group>";
+		};
+		46CC8B32F254BDD252E6E91B /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				79768A1E8BB24A016C492201 /* PlaceCard.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		221105B6AA30BFCBBFB43449 /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				9767995F1849660205AB37EA /* PlaceCardStore.swift */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+		F40848A416CB8A063C5AA100 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				848FC0F4A00C4D56A0FDA48B /* PlaceCardEditView.swift */,
+				DFE46665C6F01D62C0D65366 /* PlaceCardDisplayView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		8B2D5EE63E6D606B3C06F3D2 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				A1FF32339845F11B69AE441B /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		111F8CC97EA275AFF7FC0998 /* PlaceCards */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 45A0420C93260F97B6773088 /* Build configuration list for PBXNativeTarget "PlaceCards" */;
+			buildPhases = (
+				B72C61E33A21A6AB87165AA8 /* Sources */,
+				6525013EF4D8E9E600B07801 /* Frameworks */,
+				28F500E9AE47E36EE29847F4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PlaceCards;
+			productName = PlaceCards;
+			productReference = 0B1B2AA6A3716971A5B9BFAB /* PlaceCards.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F57F2C7044D210C459559737 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					111F8CC97EA275AFF7FC0998 /* PlaceCards */ = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 9DBBDF6DED3C8198CA235E77 /* Build configuration list for PBXProject "PlaceCards" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				ko,
+			);
+			mainGroup = BFC6802B5F71996175C6CDCF;
+			productRefGroup = 3C6A7DCEDD075B2A871C4221 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				111F8CC97EA275AFF7FC0998 /* PlaceCards */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		28F500E9AE47E36EE29847F4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F31435B9A6398334A938BFF6 /* Assets.xcassets in Resources */,
+				678E62647DC63687E5F3D36E /* Preview Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B72C61E33A21A6AB87165AA8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6F39392A1005CCB7E7B9CD93 /* PlaceCardsApp.swift in Sources */,
+				3EBF9F3C7F32FB1D6246FC3E /* ContentView.swift in Sources */,
+				6D9EF9A1518470F76DA6A792 /* PlaceCard.swift in Sources */,
+				C2E89A85D0A42E1E5E24DA13 /* PlaceCardStore.swift in Sources */,
+				C646E32AE9B1F45291E0F1DB /* PlaceCardEditView.swift in Sources */,
+				2F31EE3190A780FB665BBD98 /* PlaceCardDisplayView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1C58F8E93B8CF4FA58FC924A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING_PROBLEM = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		60025777A09B0E3E161546F9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING_PROBLEM = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		4C4EF000386BD8D4AE266E5B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = PlaceCards;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PlaceCards;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		690EAB195D39F0CE01CC3CE6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = PlaceCards;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PlaceCards;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9DBBDF6DED3C8198CA235E77 /* Build configuration list for PBXProject "PlaceCards" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C58F8E93B8CF4FA58FC924A /* Debug */,
+				60025777A09B0E3E161546F9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		45A0420C93260F97B6773088 /* Build configuration list for PBXNativeTarget "PlaceCards" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C4EF000386BD8D4AE266E5B /* Debug */,
+				690EAB195D39F0CE01CC3CE6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F57F2C7044D210C459559737 /* Project object */;
+}
