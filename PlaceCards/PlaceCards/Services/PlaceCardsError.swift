@@ -10,6 +10,7 @@ enum PlaceCardsError: LocalizedError {
     case keychainError(String)
     case apiKeyMissing
     case apiKeyInvalid
+    case rateLimited(String)
     case userCancelled
     case noResults
     case notImplemented(String)
@@ -35,6 +36,8 @@ enum PlaceCardsError: LocalizedError {
             return "설정에서 API 키를 먼저 등록해주세요."
         case .apiKeyInvalid:
             return "유효하지 않은 API 키입니다."
+        case .rateLimited(let service):
+            return "\(service)의 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
         case .userCancelled:
             return "사용자가 취소했습니다."
         case .noResults:

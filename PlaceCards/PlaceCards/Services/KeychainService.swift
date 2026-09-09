@@ -8,6 +8,10 @@ enum KeychainKey: String {
     case claudeAPIKey
     case openAIAPIKey
     case geminiAPIKey
+    case naverClientId
+    case naverClientSecret
+    case naverGeocodingClientId
+    case naverGeocodingClientSecret
 }
 
 struct KeychainService {

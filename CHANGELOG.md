@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### 2026-09-09 (4차) — Peragra 조사 반영: Naver 직접 접근 + AI 멀티 프로바이더
+#### Changed
+- **Naver: 백엔드 프록시 폐기, 기기에서 직접 호출.** Peragra의 `NaverGeocodingService`를
+  조사한 결과, Naver Client Secret도 사용자 본인의 BYOK 키라면 네이티브
+  `URLSession`으로 기기에서 직접 호출해도 문제없다는 것을 확인함(웹처럼 CORS 제약이
+  없음). 기존 `NaverProxyService`(존재하지 않는 백엔드를 호출하던 죽은 코드)를
+  제거하고 두 개의 새 서비스로 교체:
+  - `NaverLocalSearchService` — openapi.naver.com의 지역 검색 API를
+    `X-Naver-Client-Id`/`X-Naver-Client-Secret` 헤더로 직접 호출
+  - `NaverGeocodingService` — Peragra의 구현을 거의 그대로 포팅. NAVER Cloud
+    Platform(NCP)의 Geocoding API로 주소를 좌표로 변환 (Local Search의
+    mapx/mapy 스케일이 불확실한 문제를 회피하는 더 신뢰할 수 있는 대안)
+  - 설정 화면의 "Naver 프록시 URL" 필드를 Client ID/Secret 두 쌍(Local Search용,
+    NCP Geocoding용— 서로 다른 콘솔에서 발급됨)으로 교체
+  - `PlaceCardViewModel.search`가 이제 실제로 Naver를 먼저 조회해 이름을
+    보정한 뒤 Google로 상세정보를 보강함(기획 문서의 "Naver 발견 + Google
+    보강" 하이브리드 전략을 처음으로 실제 동작하게 함). `createManualPlaceCard`는
+    이제 NCP 키가 있으면 주소로 좌표를 자동 보강함(비동기로 변경됨).
+- **AI: OpenAI/Gemini Vision 실제 구현.** Peragra의 `AIExtractionService`가
+  Anthropic/OpenAI/Gemini를 각각 어떤 요청/응답 형식으로 직접 호출하는지 조사해
+  반영. 기존에 `notImplemented` 오류만 던지던 `OpenAIProvider`/`GeminiProvider`를
+  실제 동작하는 구현으로 교체 (OpenAI: `chat/completions` + `image_url` base64
+  data URL, Gemini: `generateContent` + `inline_data`). 401/429 응답을
+  각각 `apiKeyInvalid`/`rateLimited`로 구분하는 에러 처리도 세 프로바이더에
+  공통으로 적용.
+  - Peragra가 기본으로 쓰는 서드파티 게이트웨이(factchat-cloud.mindlogic.ai)는
+    Peragra 자체 계정에 종속된 인프라라 포팅하지 않음.
+
 ### 2026-09-09 (3차) — Peragra 개발 경험 반영 (공유 링크 파싱)
 #### Added
 - `LinkMetadataFetcher`: Google Maps 공유 링크처럼 이름이 없는 URL에서 페이지의

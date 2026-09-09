@@ -14,6 +14,15 @@ enum AIProviderType: String, Codable, CaseIterable, Identifiable {
         case .gemini: return "Gemini (Google)"
         }
     }
+
+    /// Matches the defaults Peragra ships for each provider's Vision model.
+    var defaultModel: String {
+        switch self {
+        case .claude: return "claude-sonnet-5"
+        case .openai: return "gpt-4o"
+        case .gemini: return "gemini-2.0-flash"
+        }
+    }
 }
 
 struct AIAnalysisResult {
@@ -45,14 +54,63 @@ let defaultPlaceAnalysisPrompt = """
 {"placeName": "장소명", "address": "주소 또는 null", "description": "간단한 설명 또는 null", "confidence": 0.0에서 1.0 사이 숫자}
 """
 
-// MARK: - Claude
+/// The three providers below all end up with the model's raw text reply and
+/// need the same last step: pull the JSON object out of it (models don't
+/// reliably skip prose/markdown fences despite the prompt asking for none —
+/// confirmed the hard way while building Peragra's equivalent extraction
+/// service) and decode it into an `AIAnalysisResult`.
+private func parsePlaceAnalysisResult(from text: String) throws -> AIAnalysisResult {
+    var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let fenceRange = trimmed.range(of: "```(?:json)?\\s*([\\s\\S]*?)\\s*```", options: .regularExpression) {
+        trimmed = trimmed[fenceRange]
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    guard let jsonStart = trimmed.firstIndex(of: "{"), let jsonEnd = trimmed.lastIndex(of: "}") else {
+        throw PlaceCardsError.decodingError("장소 정보를 추출하지 못했습니다.")
+    }
+    guard let data = trimmed[jsonStart...jsonEnd].data(using: .utf8) else {
+        throw PlaceCardsError.decodingError("장소 정보를 추출하지 못했습니다.")
+    }
+
+    struct ExtractedPlace: Decodable {
+        let placeName: String
+        let address: String?
+        let description: String?
+        let confidence: Double?
+    }
+
+    guard let parsed = try? JSONDecoder().decode(ExtractedPlace.self, from: data) else {
+        throw PlaceCardsError.decodingError("장소 정보를 추출하지 못했습니다.")
+    }
+    return AIAnalysisResult(
+        placeName: parsed.placeName,
+        address: parsed.address,
+        description: parsed.description,
+        confidence: parsed.confidence ?? 0.5
+    )
+}
+
+/// Maps a failed HTTP response to a typed error the same way across every
+/// provider — 401 and 429 are common enough (a bad key, a burst of
+/// requests) to deserve their own messages rather than a generic one.
+private func mapHTTPError(statusCode: Int, data: Data, serviceLabel: String) -> PlaceCardsError {
+    if statusCode == 401 || statusCode == 403 { return .apiKeyInvalid }
+    if statusCode == 429 { return .rateLimited(serviceLabel) }
+    let message = String(data: data, encoding: .utf8) ?? "알 수 없는 오류"
+    return .apiError(message, statusCode: statusCode)
+}
+
+// MARK: - Claude (Anthropic Messages API)
 
 final class ClaudeProvider: AIProvider {
     private let apiKey: String
     private let session: URLSession
     private let model: String
 
-    init(apiKey: String, model: String = "claude-sonnet-5", session: URLSession = .shared) {
+    init(apiKey: String, model: String = AIProviderType.claude.defaultModel, session: URLSession = .shared) {
         self.apiKey = apiKey
         self.model = model
         self.session = session
@@ -68,7 +126,6 @@ final class ClaudeProvider: AIProvider {
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let base64Image = imageData.base64EncodedString()
         let body: [String: Any] = [
             "model": model,
             "max_tokens": 1024,
@@ -81,13 +138,10 @@ final class ClaudeProvider: AIProvider {
                             "source": [
                                 "type": "base64",
                                 "media_type": "image/jpeg",
-                                "data": base64Image
+                                "data": imageData.base64EncodedString()
                             ]
                         ],
-                        [
-                            "type": "text",
-                            "text": prompt
-                        ]
+                        ["type": "text", "text": prompt]
                     ]
                 ]
             ]
@@ -96,32 +150,14 @@ final class ClaudeProvider: AIProvider {
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            let message = String(data: data, encoding: .utf8) ?? "알 수 없는 오류"
-            throw PlaceCardsError.apiError(message, statusCode: http.statusCode)
+            throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: "Claude")
         }
 
         let decoded = try JSONDecoder().decode(ClaudeMessageResponse.self, from: data)
         guard let text = decoded.content.first(where: { $0.type == "text" })?.text else {
             throw PlaceCardsError.decodingError("Claude 응답을 해석할 수 없습니다.")
         }
-        return try Self.parseAnalysisResult(from: text)
-    }
-
-    private static func parseAnalysisResult(from text: String) throws -> AIAnalysisResult {
-        guard let jsonStart = text.firstIndex(of: "{"), let jsonEnd = text.lastIndex(of: "}") else {
-            throw PlaceCardsError.decodingError("장소 정보를 추출하지 못했습니다.")
-        }
-        let jsonSubstring = text[jsonStart...jsonEnd]
-        guard let data = jsonSubstring.data(using: .utf8) else {
-            throw PlaceCardsError.decodingError("장소 정보를 추출하지 못했습니다.")
-        }
-        let parsed = try JSONDecoder().decode(ClaudeExtractedPlace.self, from: data)
-        return AIAnalysisResult(
-            placeName: parsed.placeName,
-            address: parsed.address,
-            description: parsed.description,
-            confidence: parsed.confidence ?? 0.5
-        )
+        return try parsePlaceAnalysisResult(from: text)
     }
 }
 
@@ -133,32 +169,115 @@ private struct ClaudeMessageResponse: Decodable {
     let content: [ContentBlock]
 }
 
-private struct ClaudeExtractedPlace: Decodable {
-    let placeName: String
-    let address: String?
-    let description: String?
-    let confidence: Double?
-}
+// MARK: - OpenAI (Chat Completions API)
 
-// MARK: - OpenAI / Gemini
-
-/// Not implemented yet — the app currently ships a working Claude Vision
-/// integration only. These exist so Settings can offer the provider choice
-/// described in the product spec without pretending the calls work today.
 final class OpenAIProvider: AIProvider {
     private let apiKey: String
-    init(apiKey: String) { self.apiKey = apiKey }
+    private let session: URLSession
+    private let model: String
+
+    init(apiKey: String, model: String = AIProviderType.openai.defaultModel, session: URLSession = .shared) {
+        self.apiKey = apiKey
+        self.model = model
+        self.session = session
+    }
 
     func analyzeImage(imageData: Data, prompt: String) async throws -> AIAnalysisResult {
-        throw PlaceCardsError.notImplemented("OpenAI 연동은 아직 지원되지 않습니다.")
+        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let imageDataURL = "data:image/jpeg;base64,\(imageData.base64EncodedString())"
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [
+                [
+                    "role": "user",
+                    "content": [
+                        ["type": "text", "text": prompt],
+                        ["type": "image_url", "image_url": ["url": imageDataURL]]
+                    ]
+                ]
+            ]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: "OpenAI")
+        }
+
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let choices = json["choices"] as? [[String: Any]],
+            let message = choices.first?["message"] as? [String: Any],
+            let text = message["content"] as? String
+        else {
+            throw PlaceCardsError.decodingError("OpenAI 응답을 해석할 수 없습니다.")
+        }
+        return try parsePlaceAnalysisResult(from: text)
     }
 }
 
+// MARK: - Gemini (Google Generative Language API)
+
 final class GeminiProvider: AIProvider {
     private let apiKey: String
-    init(apiKey: String) { self.apiKey = apiKey }
+    private let session: URLSession
+    private let model: String
+
+    init(apiKey: String, model: String = AIProviderType.gemini.defaultModel, session: URLSession = .shared) {
+        self.apiKey = apiKey
+        self.model = model
+        self.session = session
+    }
 
     func analyzeImage(imageData: Data, prompt: String) async throws -> AIAnalysisResult {
-        throw PlaceCardsError.notImplemented("Gemini 연동은 아직 지원되지 않습니다.")
+        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+        var components = URLComponents(
+            string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent"
+        )
+        components?.queryItems = [URLQueryItem(name: "key", value: apiKey)]
+        guard let url = components?.url else {
+            throw PlaceCardsError.networkError("Gemini 요청 URL을 만들 수 없습니다.")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "contents": [
+                [
+                    "role": "user",
+                    "parts": [
+                        ["text": prompt],
+                        ["inline_data": ["mime_type": "image/jpeg", "data": imageData.base64EncodedString()]]
+                    ]
+                ]
+            ]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: "Gemini")
+        }
+
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let candidates = json["candidates"] as? [[String: Any]],
+            let content = candidates.first?["content"] as? [String: Any],
+            let parts = content["parts"] as? [[String: Any]],
+            let text = parts.first?["text"] as? String
+        else {
+            throw PlaceCardsError.decodingError("Gemini 응답을 해석할 수 없습니다.")
+        }
+        return try parsePlaceAnalysisResult(from: text)
     }
 }

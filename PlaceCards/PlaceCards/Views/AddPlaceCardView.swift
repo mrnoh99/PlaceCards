@@ -72,8 +72,10 @@ struct AddPlaceCardView: View {
                     TextField("장소명", text: $manualName)
                     TextField("주소", text: $manualAddress)
                     Button("직접 입력으로 저장") {
-                        _ = viewModel.createManualPlaceCard(name: manualName, address: manualAddress)
-                        didCreateCard = true
+                        Task {
+                            _ = await viewModel.createManualPlaceCard(name: manualName, address: manualAddress)
+                            didCreateCard = true
+                        }
                     }
                     .disabled(manualName.trimmingCharacters(in: .whitespaces).isEmpty)
                 }

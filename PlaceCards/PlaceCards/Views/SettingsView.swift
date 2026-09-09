@@ -13,12 +13,30 @@ struct SettingsView: View {
                     Button("저장") { viewModel.saveGoogleAPIKey() }
                 }
 
-                Section("Naver 검색 프록시") {
-                    TextField("프록시 서버 URL (예: https://proxy.example.com)", text: $viewModel.naverProxyURL)
+                Section("Naver 검색 (Local Search API)") {
+                    SecureField("Client ID", text: $viewModel.naverClientId)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                    Button("저장") { viewModel.saveNaverProxyURL() }
+                    SecureField("Client Secret", text: $viewModel.naverClientSecret)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button("저장") { viewModel.saveNaverLocalSearchCredentials() }
+                    Text("openapi.naver.com에서 발급받은 키입니다. 앱이 기기에서 Naver API를 직접 호출하므로 별도 서버가 필요 없습니다.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Naver 좌표 보강 (Geocoding API, 선택)") {
+                    SecureField("NCP Client ID", text: $viewModel.naverGeocodingClientId)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    SecureField("NCP Client Secret", text: $viewModel.naverGeocodingClientSecret)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button("저장") { viewModel.saveNaverGeocodingCredentials() }
+                    Text("NAVER Cloud Platform(NCP)에서 발급받은, 위 검색 키와는 별도의 키입니다. 주소만 있고 좌표가 없는 장소의 좌표를 보강할 때 사용됩니다.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("AI 이미지 분석 (BYOK)") {

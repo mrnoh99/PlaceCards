@@ -4,17 +4,24 @@ import Combine
 @MainActor
 final class SettingsViewModel: ObservableObject {
     @Published var googleAPIKey: String = ""
-    @Published var naverProxyURL: String = ""
+
+    @Published var naverClientId: String = ""
+    @Published var naverClientSecret: String = ""
+    @Published var naverGeocodingClientId: String = ""
+    @Published var naverGeocodingClientSecret: String = ""
+
     @Published var aiProviderType: AIProviderType = .claude
     @Published var aiAPIKey: String = ""
     @Published var statusMessage: String?
 
-    private static let naverProxyURLDefaultsKey = "naverProxyURL"
     private static let aiProviderDefaultsKey = "aiProviderType"
 
     init() {
         googleAPIKey = KeychainService.load(.googlePlacesAPIKey) ?? ""
-        naverProxyURL = UserDefaults.standard.string(forKey: Self.naverProxyURLDefaultsKey) ?? ""
+        naverClientId = KeychainService.load(.naverClientId) ?? ""
+        naverClientSecret = KeychainService.load(.naverClientSecret) ?? ""
+        naverGeocodingClientId = KeychainService.load(.naverGeocodingClientId) ?? ""
+        naverGeocodingClientSecret = KeychainService.load(.naverGeocodingClientSecret) ?? ""
         aiProviderType = Self.currentAIProviderType()
         aiAPIKey = KeychainService.load(aiProviderType.keychainKey) ?? ""
     }
@@ -27,6 +34,27 @@ final class SettingsViewModel: ObservableObject {
             return provider
         }
         return .claude
+    }
+
+    /// Reads the saved Naver Local Search credentials without needing an
+    /// instance, mirroring `currentAIProviderType()`.
+    static func currentNaverLocalSearchCredentials() -> (clientId: String, clientSecret: String)? {
+        guard let clientId = KeychainService.load(.naverClientId), !clientId.isEmpty,
+              let clientSecret = KeychainService.load(.naverClientSecret), !clientSecret.isEmpty else {
+            return nil
+        }
+        return (clientId, clientSecret)
+    }
+
+    /// Reads the saved NCP Geocoding credentials the same way. Kept separate
+    /// from the Local Search pair above — they're two different Naver
+    /// developer consoles (openapi.naver.com vs. NAVER Cloud Platform).
+    static func currentNaverGeocodingCredentials() -> (clientId: String, clientSecret: String)? {
+        guard let clientId = KeychainService.load(.naverGeocodingClientId), !clientId.isEmpty,
+              let clientSecret = KeychainService.load(.naverGeocodingClientSecret), !clientSecret.isEmpty else {
+            return nil
+        }
+        return (clientId, clientSecret)
     }
 
     func loadAIKey(for provider: AIProviderType) {
@@ -42,9 +70,24 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
-    func saveNaverProxyURL() {
-        UserDefaults.standard.set(naverProxyURL, forKey: Self.naverProxyURLDefaultsKey)
-        statusMessage = "Naver 프록시 주소가 저장되었습니다."
+    func saveNaverLocalSearchCredentials() {
+        do {
+            try KeychainService.save(naverClientId, for: .naverClientId)
+            try KeychainService.save(naverClientSecret, for: .naverClientSecret)
+            statusMessage = "Naver 검색 API 키가 저장되었습니다."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    func saveNaverGeocodingCredentials() {
+        do {
+            try KeychainService.save(naverGeocodingClientId, for: .naverGeocodingClientId)
+            try KeychainService.save(naverGeocodingClientSecret, for: .naverGeocodingClientSecret)
+            statusMessage = "Naver Geocoding API 키가 저장되었습니다."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
     }
 
     func saveAIProviderSettings() {

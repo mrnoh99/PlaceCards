@@ -18,7 +18,8 @@
 		CCC680FA33BDBF5F6DB8BD49 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4471C1134E3C0AE75A943A9 /* StorageService.swift */; };
 		7887C1C9178ABED6AFF9E51A /* MediaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB7B3336DBCBFE8321EE4F85 /* MediaStore.swift */; };
 		404E194DDA73796570A42772 /* PlaceSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */; };
-		F0AD4DB9EBE9F0198DC3AF85 /* NaverProxyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BD9FD583ACC58A99EE9677B /* NaverProxyService.swift */; };
+		F0AD4DB9EBE9F0198DC3AF85 /* NaverLocalSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BD9FD583ACC58A99EE9677B /* NaverLocalSearchService.swift */; };
+		5141FFC4E2305293575C9D47 /* NaverGeocodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4009FB743457E8B7DA75A4E5 /* NaverGeocodingService.swift */; };
 		5BE90970A2B6B311A437C394 /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A292915AAE28BAB7E1F58622 /* AIProvider.swift */; };
 		106636699A667B5CEEE9A1CA /* PlaceCardsError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4A4FAE3C761D47BC7BDCFC2 /* PlaceCardsError.swift */; };
 		DCC2EE6496283552FC792620 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 113089F6849C738C1EA5C244 /* SettingsViewModel.swift */; };
@@ -50,7 +51,8 @@
 		F4471C1134E3C0AE75A943A9 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
 		FB7B3336DBCBFE8321EE4F85 /* MediaStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaStore.swift; sourceTree = "<group>"; };
 		3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceSearchService.swift; sourceTree = "<group>"; };
-		8BD9FD583ACC58A99EE9677B /* NaverProxyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NaverProxyService.swift; sourceTree = "<group>"; };
+		8BD9FD583ACC58A99EE9677B /* NaverLocalSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NaverLocalSearchService.swift; sourceTree = "<group>"; };
+		4009FB743457E8B7DA75A4E5 /* NaverGeocodingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NaverGeocodingService.swift; sourceTree = "<group>"; };
 		A292915AAE28BAB7E1F58622 /* AIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProvider.swift; sourceTree = "<group>"; };
 		B4A4FAE3C761D47BC7BDCFC2 /* PlaceCardsError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardsError.swift; sourceTree = "<group>"; };
 		113089F6849C738C1EA5C244 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
@@ -128,7 +130,8 @@
 				F4471C1134E3C0AE75A943A9 /* StorageService.swift */,
 				FB7B3336DBCBFE8321EE4F85 /* MediaStore.swift */,
 				3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */,
-				8BD9FD583ACC58A99EE9677B /* NaverProxyService.swift */,
+				8BD9FD583ACC58A99EE9677B /* NaverLocalSearchService.swift */,
+				4009FB743457E8B7DA75A4E5 /* NaverGeocodingService.swift */,
 				A292915AAE28BAB7E1F58622 /* AIProvider.swift */,
 				B4A4FAE3C761D47BC7BDCFC2 /* PlaceCardsError.swift */,
 				06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */,
@@ -251,7 +254,8 @@
 				CCC680FA33BDBF5F6DB8BD49 /* StorageService.swift in Sources */,
 				7887C1C9178ABED6AFF9E51A /* MediaStore.swift in Sources */,
 				404E194DDA73796570A42772 /* PlaceSearchService.swift in Sources */,
-				F0AD4DB9EBE9F0198DC3AF85 /* NaverProxyService.swift in Sources */,
+				F0AD4DB9EBE9F0198DC3AF85 /* NaverLocalSearchService.swift in Sources */,
+				5141FFC4E2305293575C9D47 /* NaverGeocodingService.swift in Sources */,
 				5BE90970A2B6B311A437C394 /* AIProvider.swift in Sources */,
 				106636699A667B5CEEE9A1CA /* PlaceCardsError.swift in Sources */,
 				DCC2EE6496283552FC792620 /* SettingsViewModel.swift in Sources */,
