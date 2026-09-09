@@ -33,6 +33,8 @@
 		DB29528D8E73BF54AD5CD27F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D653EFB11B5C301823C1537D /* SettingsView.swift */; };
 		B9FDE4568429F8DA72F21DE4 /* AddPlaceCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEB68110D01336958AFF00A2 /* AddPlaceCardView.swift */; };
 		399D8B1FE40645CA818BCCE6 /* PlaceCardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */; };
+		55A589DB25C70EF736B2A979 /* LinkMetadataFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */; };
+		B41E418C1D9CEC3EC98CCADB /* SharedLinkParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -63,6 +65,8 @@
 		D653EFB11B5C301823C1537D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		BEB68110D01336958AFF00A2 /* AddPlaceCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPlaceCardView.swift; sourceTree = "<group>"; };
 		28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardDetailView.swift; sourceTree = "<group>"; };
+		06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkMetadataFetcher.swift; sourceTree = "<group>"; };
+		F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedLinkParser.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +131,8 @@
 				8BD9FD583ACC58A99EE9677B /* NaverProxyService.swift */,
 				A292915AAE28BAB7E1F58622 /* AIProvider.swift */,
 				B4A4FAE3C761D47BC7BDCFC2 /* PlaceCardsError.swift */,
+				06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */,
+				F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -260,6 +266,8 @@
 				DB29528D8E73BF54AD5CD27F /* SettingsView.swift in Sources */,
 				B9FDE4568429F8DA72F21DE4 /* AddPlaceCardView.swift in Sources */,
 				399D8B1FE40645CA818BCCE6 /* PlaceCardDetailView.swift in Sources */,
+				55A589DB25C70EF736B2A979 /* LinkMetadataFetcher.swift in Sources */,
+				B41E418C1D9CEC3EC98CCADB /* SharedLinkParser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

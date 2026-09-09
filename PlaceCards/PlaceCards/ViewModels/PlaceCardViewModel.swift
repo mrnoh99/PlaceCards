@@ -61,16 +61,37 @@ final class PlaceCardViewModel: ObservableObject {
             return
         }
 
+        let resolvedQuery = await Self.resolveSearchQuery(from: placeName)
         let googleService = GooglePlacesService(apiKey: apiKey)
 
         do {
-            candidateResults = try await googleService.search(query: placeName, coordinates: nil)
+            candidateResults = try await googleService.search(query: resolvedQuery, coordinates: nil)
             if candidateResults.isEmpty {
                 errorMessage = PlaceCardsError.noResults.localizedDescription
             }
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Turns whatever the user pasted into a plain search query, so pasting
+    /// a Naver Map share or a Google Maps link into the place-name field
+    /// "just works" the same way typing a name does. Resolution happens
+    /// fully here, in one call, so the field is only ever shown a finished
+    /// query — never a raw, not-yet-resolved link.
+    private static func resolveSearchQuery(from input: String) async -> String {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let parsed = SharedLinkParser.parse(trimmed), let name = parsed.name {
+            return name
+        }
+
+        if let url = SharedLinkParser.extractURL(from: trimmed),
+           let title = await LinkMetadataFetcher.fetchTitle(for: url) {
+            return title
+        }
+
+        return trimmed
     }
 
     func createPlaceCard(from result: PlaceSearchResult, image: UIImage?, source: SourceType) throws -> PlaceCard {

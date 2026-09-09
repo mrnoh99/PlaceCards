@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### 2026-09-09 (3차) — Peragra 개발 경험 반영 (공유 링크 파싱)
+#### Added
+- `LinkMetadataFetcher`: Google Maps 공유 링크처럼 이름이 없는 URL에서 페이지의
+  `og:title`/`<title>`을 읽어 장소명을 알아내는 서비스. Peragra 개발 중 확인된
+  "크롤러용 User-Agent를 먼저 시도하고, 차단되면 모바일 Safari UA로 재시도" 전략을
+  그대로 적용함 (Google Maps는 크롤러에게는 장소명이 박힌 정적 페이지를,
+  일반 브라우저에게는 JS 셸을 내려줌).
+- `SharedLinkParser`: 지도 앱마다 공유 데이터 형식이 다른 문제(Google Maps는
+  이름 없는 URL만, Naver Map은 `[네이버 지도]` 같은 태그 줄 + 줄바꿈으로 구분된
+  텍스트)를 처리하는 파서.
+- `PlaceCardViewModel.search(placeName:)`가 위 두 서비스로 입력을 먼저 완전히
+  해석(resolve)한 뒤에만 검색을 수행하도록 변경 — Peragra에서 "열렸지만 비어있음"
+  버그의 원인이었던 반쪽짜리 상태 노출을 피하기 위한 atomic take-resolve-pass
+  패턴을 적용함. 기존 "장소명" 입력창에 Google/Naver 지도 공유 링크나 텍스트를
+  붙여넣으면 자동으로 해석됨 (UI 변경 없음).
+
+#### Notes
+- Peragra의 Share Extension/App Groups/딥링크 UI 자체는 이번에 가져오지 않음
+  (사용자가 UI는 적용하지 말라고 요청함). 필요해지면 `IMPLEMENTATION/외부지도앱연동_가져오기기획.md`의
+  `placecards://` URL Scheme 설계를 참고해 별도로 진행.
+
 ### 2026-09-09 (2차) — iOS 1차 구현
 #### Added
 - `PlaceCards/` Xcode 프로젝트 생성 (SwiftUI, iOS 17.0+, 외부 의존성 없음)
