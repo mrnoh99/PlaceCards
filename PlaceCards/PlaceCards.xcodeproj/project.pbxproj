@@ -43,6 +43,7 @@
 		44E9FCDFFA00BA728BAE1B90 /* PlaceCategoryIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 481D7688A4D65E5823748315 /* PlaceCategoryIcon.swift */; };
 		BB710F57850B0ACB5B361E10 /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4946F8B69968821E14AC20D3 /* Board.swift */; };
 		72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */; };
+		26281DCA1D52ED3C056FC699 /* EditBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBF0779067DD3CE85A2443D /* EditBoardSheet.swift */; };
 		BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */; };
 		7162B58255D046D5A17D8F46 /* PlaceCardListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */; };
 		FC9DFF6409F934D40EC33563 /* DuplicatePlaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */; };
@@ -88,6 +89,7 @@
 		481D7688A4D65E5823748315 /* PlaceCategoryIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCategoryIcon.swift; sourceTree = "<group>"; };
 		4946F8B69968821E14AC20D3 /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
 		5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBoardSheet.swift; sourceTree = "<group>"; };
+		1EBF0779067DD3CE85A2443D /* EditBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditBoardSheet.swift; sourceTree = "<group>"; };
 		F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardDetailView.swift; sourceTree = "<group>"; };
 		BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardListRow.swift; sourceTree = "<group>"; };
 		49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatePlaces.swift; sourceTree = "<group>"; };
@@ -189,6 +191,7 @@
 				AE9195A8E681FB51400A3DB6 /* MainTabView.swift */,
 				98E00E0CC8D64A894A3EA6AB /* HomeView.swift */,
 				5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */,
+				1EBF0779067DD3CE85A2443D /* EditBoardSheet.swift */,
 				F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */,
 				BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */,
 				778A14BCCA1249F619055685 /* GalleryView.swift */,
@@ -288,6 +291,7 @@
 				6053CAB58E1C97BA193319B3 /* SourceModels.swift in Sources */,
 				BB710F57850B0ACB5B361E10 /* Board.swift in Sources */,
 				72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */,
+				26281DCA1D52ED3C056FC699 /* EditBoardSheet.swift in Sources */,
 				BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */,
 				7162B58255D046D5A17D8F46 /* PlaceCardListRow.swift in Sources */,
 				C3406DD13ECA47C58C88ADD0 /* KeychainService.swift in Sources */,

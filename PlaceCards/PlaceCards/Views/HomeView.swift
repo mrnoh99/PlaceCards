@@ -8,6 +8,7 @@ struct HomeView: View {
     @EnvironmentObject private var storageService: StorageService
     @State private var isPresentingAddBoard = false
     @State private var boardPendingDelete: Board?
+    @State private var boardPendingEdit: Board?
 
     var body: some View {
         NavigationStack {
@@ -35,6 +36,14 @@ struct HomeView: View {
                                     }
                                 }
                             }
+                            .swipeActions(edge: .leading) {
+                                Button {
+                                    boardPendingEdit = board
+                                } label: {
+                                    Label("수정", systemImage: "pencil")
+                                }
+                                .tint(.blue)
+                            }
                         }
                     }
                 }
@@ -51,6 +60,9 @@ struct HomeView: View {
             }
             .sheet(isPresented: $isPresentingAddBoard) {
                 AddBoardSheet()
+            }
+            .sheet(item: $boardPendingEdit) { board in
+                EditBoardSheet(board: board)
             }
             .confirmationDialog(
                 "비어있는 게시판 \"\(boardPendingDelete?.name ?? "")\"을 삭제할까요?",
