@@ -12,6 +12,7 @@ struct BoardDetailView: View {
     @State private var distanceReference: DistanceReference?
     @State private var hereCoordinate: Coordinates?
     @State private var categoryFilter: String?
+    @State private var cardPendingDelete: PlaceCard?
 
     private var allCards: [PlaceCard] {
         storageService.placeCards(inBoard: board.id)
@@ -83,6 +84,13 @@ struct BoardDetailView: View {
                                 } label: {
                                     PlaceCardListRow(card: card)
                                 }
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        cardPendingDelete = card
+                                    } label: {
+                                        Label("삭제", systemImage: "trash")
+                                    }
+                                }
                             }
                         }
                         .listStyle(.plain)
@@ -103,6 +111,22 @@ struct BoardDetailView: View {
         }
         .sheet(isPresented: $isPresentingAddCard) {
             AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id))
+        }
+        .confirmationDialog(
+            "\"\(cardPendingDelete?.name ?? "")\"을 삭제할까요?",
+            isPresented: Binding(
+                get: { cardPendingDelete != nil },
+                set: { if !$0 { cardPendingDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("삭제", role: .destructive) {
+                if let card = cardPendingDelete {
+                    storageService.delete(card)
+                }
+                cardPendingDelete = nil
+            }
+            Button("취소", role: .cancel) { cardPendingDelete = nil }
         }
     }
 }
