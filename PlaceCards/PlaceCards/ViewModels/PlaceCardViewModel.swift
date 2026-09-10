@@ -127,12 +127,7 @@ final class PlaceCardViewModel: ObservableObject {
     }
 
     /// Verifies one row's current name against Google Places to get an
-    /// address, rating, and contact details worth saving. When Naver Local
-    /// Search credentials are configured, the name is resolved against
-    /// Naver first — the documented "Naver 발견 + Google 상세정보" hybrid
-    /// strategy, since Naver's Korean place-name matching is generally
-    /// better than Google's, while Google still supplies the rating/hours
-    /// Naver's Local Search doesn't return.
+    /// address, rating, and contact details worth saving.
     func search(rowID: UUID) async {
         guard let index = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
         let placeName = candidateRows[index].name
@@ -151,7 +146,7 @@ final class PlaceCardViewModel: ObservableObject {
             return
         }
 
-        let resolvedQuery = await Self.refineWithNaver(Self.resolveSearchQuery(from: placeName))
+        let resolvedQuery = await Self.resolveSearchQuery(from: placeName)
         let googleService = GooglePlacesService(apiKey: apiKey)
 
         do {
@@ -164,19 +159,6 @@ final class PlaceCardViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
-    }
-
-    /// Best-effort: if the user has entered Naver Local Search credentials
-    /// in Settings, look the query up there first and use its top match's
-    /// name in place of the raw query. Silently falls back to the original
-    /// query when no credentials are set or Naver has nothing for it — this
-    /// is a refinement step, not a required one, so it should never block
-    /// or fail the search outright.
-    private static func refineWithNaver(_ query: String) async -> String {
-        guard let credentials = SettingsViewModel.currentNaverLocalSearchCredentials() else { return query }
-        let naverService = NaverLocalSearchService(clientId: credentials.clientId, clientSecret: credentials.clientSecret)
-        guard let topResult = try? await naverService.search(query: query, display: 1).first else { return query }
-        return topResult.name
     }
 
     /// Turns whatever the user pasted into a plain search query, so pasting
@@ -304,24 +286,13 @@ final class PlaceCardViewModel: ObservableObject {
         return MediaItem(localPath: fileName, source: .unsplashSearch)
     }
 
-    /// Manually-entered places have no coordinates at all, so this makes a
-    /// best-effort attempt to fill them in via Naver's Geocoding API (see
-    /// `NaverGeocodingService`) when the user has entered NCP credentials
-    /// in Settings — the same "geocode an address that came with no
-    /// coordinates" role that API plays in Peragra. Silently skipped (not
-    /// an error) when no credentials are set or the address can't be
-    /// geocoded.
+    /// Manually-entered places have no coordinates at all — unlike a card
+    /// created from a chosen Google Places result, there's no automatic
+    /// geocoding fallback here; picking "Google에서 검색" is how a manual
+    /// entry gets coordinates.
     func createManualPlaceCard(name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput) async -> PlaceCard {
         var card = PlaceCard(boardId: boardId, name: name, address: address)
         card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
-
-        if !address.trimmingCharacters(in: .whitespaces).isEmpty,
-           let credentials = SettingsViewModel.currentNaverGeocodingCredentials(),
-           let geocoded = await NaverGeocodingService.geocode(
-               query: address, clientId: credentials.clientId, clientSecret: credentials.clientSecret
-           ) {
-            card.coordinates = Coordinates(latitude: geocoded.latitude, longitude: geocoded.longitude)
-        }
 
         for image in images {
             if let fileName = try? MediaStore.saveImage(image) {

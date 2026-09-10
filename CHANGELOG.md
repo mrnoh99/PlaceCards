@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (39차) — Naver 제거: 정보는 Google+사진 스캔, 지도는 Google+Apple만 사용
+#### Removed
+- Naver를 정보 소스·지도 제공자 양쪽에서 완전히 제거 — 이번 세션에서
+  겪은 Naver 설정 관련 혼란(콘솔 두 개가 서로 다른 API를 제공하는 등)을
+  근본적으로 없애기 위해, 정보는 이제 기본적으로 **Google Places 검색
+  + 사용자가 올리는 사진의 AI 스캔** 두 경로로만 얻고, 지도는
+  **Google Maps + Apple 지도** 두 개만 지원.
+- `Services/NaverLocalSearchService.swift`, `Services/NaverGeocodingService.swift`
+  (삭제): Naver 검색/좌표보강 API 연동 전체 제거.
+- `Services/MapOpeners.swift`: `NaverMapOpener`, `KakaoMapOpener`,
+  `TmapOpener`, `KoreaRegion`(이들만 썼음) 제거. 대신 `AppleMapsOpener`
+  (신규, `MKMapItem` 기반)를 추가 — `PlaceCard.hasAnyMapLink`도
+  Google/Apple 기준으로 재정의.
+- `Views/PlaceCardDetailView.swift`, `Views/PlaceCardListRow.swift`,
+  `Views/GalleryView.swift`: "지도에서 열기"/길찾기 메뉴가 이제
+  Google Maps + Apple 지도만 표시. 상세화면의 "Naver 지도에서 정보
+  보완" 버튼과 관련 로직도 함께 제거.
+- `ViewModels/PlaceCardViewModel.swift`: `search(rowID:)`의 "Naver
+  발견 + Google 상세정보" 하이브리드 쿼리 보정 단계 제거(이제 이름을
+  그대로 Google에 검색). `createManualPlaceCard`의 Naver Geocoding
+  좌표 보강 fallback도 제거 — 수동 입력 카드는 이제 "Google에서 검색"
+  으로 결과를 고르지 않는 한 좌표가 채워지지 않음.
+- `ViewModels/SettingsViewModel.swift`, `Views/SettingsView.swift`,
+  `Services/KeychainService.swift`: Naver 관련 BYOK 설정 UI·자격증명
+  저장/조회 코드·키체인 키 전부 제거.
+- `SourceType`(`Models/MediaModels.swift`)의 Naver/Kakao 관련 케이스는
+  기기에 이미 저장된 카드가 그 값을 갖고 있을 수 있어(디코딩 안전성)
+  그대로 유지 — 새로 만들어지지만 않을 뿐, 열거형 자체는 손대지 않음.
+  같은 이유로 `SharedLinkParser`(공유 링크에서 이름만 뽑아 Google로
+  넘기는 로컬 파싱, Naver API 호출 없음)와 "네이버 지도 스크린샷" 업로드
+  옵션(사진 스캔 경로 중 하나일 뿐)도 그대로 둠.
+
 ### 2026-09-10 (38차) — "지도에서 열기"를 Google/Naver/Kakao/Tmap 메뉴로 통일 (PERAGRA 참조)
 #### Changed
 - `Services/MapOpeners.swift`: `MapProvider`(기본 지도 앱 설정) 완전

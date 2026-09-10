@@ -118,14 +118,8 @@ struct PlaceCardListRow: View {
                     if GoogleMapsOpener.url(for: card) != nil {
                         Button("Google Maps") { GoogleMapsOpener.open(for: card, using: openURL) }
                     }
-                    if let url = NaverMapOpener.url(for: card) {
-                        Button("Naver Map") { openURL(url) }
-                    }
-                    if let url = KakaoMapOpener.url(for: card) {
-                        Button("Kakao Map") { openURL(url) }
-                    }
-                    if let url = TmapOpener.url(for: card) {
-                        Button("Tmap") { openURL(url) }
+                    if card.coordinates != nil {
+                        Button("Apple 지도") { AppleMapsOpener.open(for: card) }
                     }
                 } label: {
                     Image(systemName: "map")

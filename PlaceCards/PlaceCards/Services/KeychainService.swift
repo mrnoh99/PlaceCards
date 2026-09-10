@@ -9,10 +9,6 @@ enum KeychainKey: String {
     case openAIAPIKey
     case geminiAPIKey
     case gatewayAPIKey
-    case naverClientId
-    case naverClientSecret
-    case naverGeocodingClientId
-    case naverGeocodingClientSecret
     case unsplashAccessKey
 }
 
@@ -23,8 +19,7 @@ struct KeychainService {
     /// copying a key/secret from a developer console's web page commonly
     /// picks up a trailing newline or space, which silently doesn't match
     /// the real key and gets rejected by the server as invalid, with
-    /// nothing in the app to suggest why (e.g. Naver's Local Search API
-    /// returning a plain 401 for it).
+    /// nothing in the app to suggest why.
     static func save(_ value: String, for key: KeychainKey) throws {
         let data = Data(value.trimmingCharacters(in: .whitespacesAndNewlines).utf8)
         let query: [String: Any] = [
