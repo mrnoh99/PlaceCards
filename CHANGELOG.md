@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (74차) — 빌드 오류 수정: AutoBackupService의 actor 격리
+#### Fixed
+- `Services/AutoBackupService.swift`: `resolveFolderURL()`에 `@MainActor`
+  추가 — `BackupFolderSettings`(`@MainActor` `ObservableObject`)의
+  `folderBookmark`/`setNeedsReauthorization(_:)`/`setFolder(bookmark:
+  displayName:)`를 호출하면서 정작 자신은 격리되지 않은 `private
+  static func`라서, Xcode에서 실제로 빌드하니 "Main actor-isolated
+  property/method ... can not be referenced from a nonisolated context"
+  3건이 발생함. 유일한 호출부인 `runNow(storageService:)`가 이미
+  `@MainActor`라 이 변경으로 새로 퍼지는 격리 요구사항은 없음.
+
 ### 2026-09-10 (73차) — Google Places 검색 결과도 "앱 언어"를 따르게
 #### Changed
 - `Services/PlaceSearchService.swift`: `GooglePlacesService.search(query:

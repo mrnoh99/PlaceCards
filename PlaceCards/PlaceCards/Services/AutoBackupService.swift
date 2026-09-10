@@ -9,6 +9,7 @@ import Foundation
 /// by comparing `lastAutoBackupAt` against the configured interval so it
 /// doesn't write a fresh file every single time the app comes forward.
 enum AutoBackupService {
+    @MainActor
     private static func resolveFolderURL() -> URL? {
         guard let bookmark = BackupFolderSettings.shared.folderBookmark else { return nil }
         var isStale = false
