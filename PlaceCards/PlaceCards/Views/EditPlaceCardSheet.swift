@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// One editable row of `PlaceCard.hoursDetail` (a day and its hours text,
 /// e.g. "월요일" → "09:00-18:00") — that field is a plain `[String:
@@ -17,6 +18,14 @@ private struct HoursEntry: Identifiable {
 /// and aren't duplicated here. Unlike that first version, this one covers
 /// every field `PlaceCard` has (down to rating/coordinates/hours), not
 /// just the handful most often set by hand.
+///
+/// Also offers adding a photo here and reading it with AI to fill in
+/// still-blank fields (`photoImportSection`) — unlike `AddPlaceCardView`,
+/// which is fine turning "several places found in one photo" into
+/// several new cards, this is editing one already-named card, so a photo
+/// naming more than one place is treated as too ambiguous to apply at
+/// all, and a name that would actually change asks for confirmation
+/// first (see `handleAnalysisResults`).
 struct EditPlaceCardSheet: View {
     let card: PlaceCard
     var onSave: (PlaceCard) -> Void
@@ -41,6 +50,14 @@ struct EditPlaceCardSheet: View {
     @State private var hoursEntries: [HoursEntry]
     @State private var tagsText: String
     @State private var amenitiesText: String
+
+    @State private var photoPickerItems: [PhotosPickerItem] = []
+    @State private var pickedImages: [UIImage] = []
+    @State private var isLoadingPhotos = false
+    @State private var isAnalyzingPhotos = false
+    @State private var photoAnalysisMessage: String?
+    @State private var pendingExtractedPlace: AIAnalysisResult?
+    @State private var isConfirmingNameChange = false
 
     init(card: PlaceCard, onSave: @escaping (PlaceCard) -> Void) {
         self.card = card
@@ -81,6 +98,8 @@ struct EditPlaceCardSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                photoImportSection
+
                 Section("기본 정보") {
                     TextField("이름", text: $name)
                     HStack {
@@ -176,7 +195,169 @@ struct EditPlaceCardSheet: View {
                         .disabled(!canSave)
                 }
             }
+            .onChange(of: photoPickerItems) { _, newItems in
+                guard !newItems.isEmpty else { return }
+                Task {
+                    await loadPhotos(newItems)
+                    photoPickerItems = []
+                }
+            }
+            .alert(
+                "이름이 다릅니다",
+                isPresented: $isConfirmingNameChange
+            ) {
+                Button("변경") {
+                    if let pendingExtractedPlace {
+                        applyExtractedPlace(pendingExtractedPlace)
+                    }
+                    pendingExtractedPlace = nil
+                }
+                Button("취소", role: .cancel) { pendingExtractedPlace = nil }
+            } message: {
+                Text("사진에서는 \"\(pendingExtractedPlace?.placeName ?? "")\"(으)로 보이는데, 현재 이름 \"\(name)\"과 다릅니다. 이름을 바꿀까요?")
+            }
         }
+    }
+
+    /// Add a photo here and, optionally, have AI read it to fill in
+    /// whatever's still blank — separate from `AddPlaceCardView`'s own
+    /// AI step since the ambiguity handling here is different (see the
+    /// type's own doc comment).
+    @ViewBuilder
+    private var photoImportSection: some View {
+        Section {
+            if !pickedImages.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(pickedImages.enumerated()), id: \.offset) { index, image in
+                            ZStack(alignment: .topTrailing) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 64, height: 64)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                Button {
+                                    pickedImages.remove(at: index)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.white, .black.opacity(0.6))
+                                }
+                                .padding(4)
+                            }
+                        }
+                    }
+                }
+            }
+
+            PhotosPicker(selection: $photoPickerItems, matching: .images) {
+                if isLoadingPhotos {
+                    ProgressView()
+                } else {
+                    Label(pickedImages.isEmpty ? "사진 추가" : "사진 더 추가", systemImage: "photo.badge.plus")
+                }
+            }
+            .disabled(isLoadingPhotos)
+
+            if !pickedImages.isEmpty {
+                Button {
+                    Task { await analyzePickedPhotos() }
+                } label: {
+                    if isAnalyzingPhotos {
+                        ProgressView()
+                    } else {
+                        Text("AI로 정보 읽어오기")
+                    }
+                }
+                .disabled(isAnalyzingPhotos)
+            }
+
+            if let photoAnalysisMessage {
+                Text(photoAnalysisMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("사진 추가")
+        } footer: {
+            Text("사진은 저장 시 카드에 추가됩니다. \"AI로 정보 읽어오기\"는 비어 있는 이름·주소를 채우는데, 사진에서 여러 장소가 발견되면 적용하지 않고 알려드리고, 이름이 바뀌는 경우엔 확인 후 적용됩니다.")
+        }
+    }
+
+    private func loadPhotos(_ items: [PhotosPickerItem]) async {
+        isLoadingPhotos = true
+        defer { isLoadingPhotos = false }
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
+                pickedImages.append(image)
+            }
+        }
+    }
+
+    private func analyzePickedPhotos() async {
+        isAnalyzingPhotos = true
+        photoAnalysisMessage = nil
+        defer { isAnalyzingPhotos = false }
+
+        let imageDatas = pickedImages.compactMap { $0.jpegData(compressionQuality: 0.8) }
+        guard !imageDatas.isEmpty else { return }
+
+        let providerType = SettingsViewModel.currentAIProviderType()
+        guard let apiKey = KeychainService.load(providerType.keychainKey), !apiKey.isEmpty else {
+            photoAnalysisMessage = PlaceCardsError.apiKeyMissing.localizedDescription
+            return
+        }
+
+        let provider = await AIProviderFactory.create(type: providerType, apiKey: apiKey)
+        do {
+            let results = try await provider.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt)
+            handleAnalysisResults(results)
+        } catch {
+            photoAnalysisMessage = error.localizedDescription
+        }
+    }
+
+    /// Unlike `AddPlaceCardView` (where several places found in one photo
+    /// just become several rows to review), this is editing one specific,
+    /// already-named card — a photo naming more than one place is too
+    /// ambiguous to apply to it at all, so that case is reported and
+    /// nothing is changed. A single result whose name doesn't match the
+    /// current one is applied only after asking, since overwriting an
+    /// existing name is a real behavior change; everything else (filling
+    /// a blank name/address) applies immediately, matching how every
+    /// other "fill in" action elsewhere in this app already behaves.
+    private func handleAnalysisResults(_ results: [AIAnalysisResult]) {
+        guard !results.isEmpty else {
+            photoAnalysisMessage = "사진에서 장소 정보를 찾지 못했습니다."
+            return
+        }
+        guard results.count == 1 else {
+            let names = results.map(\.placeName).joined(separator: ", ")
+            photoAnalysisMessage = "사진에서 여러 장소(\(names))가 발견되어 적용하지 않았습니다. 한 장소가 나온 사진으로 다시 시도해주세요."
+            return
+        }
+
+        let result = results[0]
+        let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
+        let currentName = name.trimmingCharacters(in: .whitespaces)
+        if !extractedName.isEmpty, !currentName.isEmpty, extractedName != currentName {
+            pendingExtractedPlace = result
+            isConfirmingNameChange = true
+        } else {
+            applyExtractedPlace(result)
+        }
+    }
+
+    private func applyExtractedPlace(_ result: AIAnalysisResult) {
+        let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
+        if !extractedName.isEmpty {
+            name = extractedName
+        }
+        if address.trimmingCharacters(in: .whitespaces).isEmpty,
+           let extractedAddress = result.address?.trimmingCharacters(in: .whitespaces), !extractedAddress.isEmpty {
+            address = extractedAddress
+        }
+        photoAnalysisMessage = "AI가 읽은 정보를 채웠습니다."
     }
 
     private func save() {
@@ -225,6 +406,12 @@ struct EditPlaceCardSheet: View {
 
         updated.tags = tagsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         updated.amenities = amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+
+        for image in pickedImages {
+            if let fileName = try? MediaStore.saveImage(image) {
+                updated.media.onsitePhotos.append(MediaItem(localPath: fileName, source: .onsitePhoto))
+            }
+        }
 
         storageService.save(updated)
         onSave(updated)
