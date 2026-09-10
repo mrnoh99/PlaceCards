@@ -55,6 +55,7 @@
 		75C0903DDB6825E6ADBFEDDB /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D698604B0123BD5E703A0E79 /* AppNavigation.swift */; };
 		D06AA2E29ADD5F58CD65FCA1 /* PhotoMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */; };
 		3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */; };
+		82A84A011ACD3D4D8F9D475E /* CategoryPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F40099F892AE3434934111B /* CategoryPickerSheet.swift */; };
 		7CAD95219A32FED40BB70DFB /* EditPlaceCardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */; };
 		22BEC38BCC40CB1EE8204A9E /* SharedImportStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */; };
 		8716307C7083C8B1DCB62617 /* SharedPhotoBoardPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D43E9A4ADB4780134F4EECA /* SharedPhotoBoardPickerSheet.swift */; };
@@ -119,6 +120,7 @@
 		156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoMetadata.swift; sourceTree = "<group>"; };
 		783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditPlaceCardSheet.swift; sourceTree = "<group>"; };
 		5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindDuplicatesSheet.swift; sourceTree = "<group>"; };
+		5F40099F892AE3434934111B /* CategoryPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryPickerSheet.swift; sourceTree = "<group>"; };
 		03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedImportStore.swift; sourceTree = "<group>"; };
 		4D43E9A4ADB4780134F4EECA /* SharedPhotoBoardPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedPhotoBoardPickerSheet.swift; sourceTree = "<group>"; };
 		4C33C95BB876F24E926E2910 /* SharedLinkBoardPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedLinkBoardPickerSheet.swift; sourceTree = "<group>"; };
@@ -264,6 +266,7 @@
 				BEB68110D01336958AFF00A2 /* AddPlaceCardView.swift */,
 				28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */,
 				5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */,
+				5F40099F892AE3434934111B /* CategoryPickerSheet.swift */,
 				783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */,
 				4D43E9A4ADB4780134F4EECA /* SharedPhotoBoardPickerSheet.swift */,
 				4C33C95BB876F24E926E2910 /* SharedLinkBoardPickerSheet.swift */,
@@ -443,6 +446,7 @@
 				75C0903DDB6825E6ADBFEDDB /* AppNavigation.swift in Sources */,
 				D06AA2E29ADD5F58CD65FCA1 /* PhotoMetadata.swift in Sources */,
 				3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */,
+				82A84A011ACD3D4D8F9D475E /* CategoryPickerSheet.swift in Sources */,
 				7CAD95219A32FED40BB70DFB /* EditPlaceCardSheet.swift in Sources */,
 				22BEC38BCC40CB1EE8204A9E /* SharedImportStore.swift in Sources */,
 				8716307C7083C8B1DCB62617 /* SharedPhotoBoardPickerSheet.swift in Sources */,

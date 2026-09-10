@@ -4,6 +4,7 @@ struct GalleryView: View {
     @StateObject private var viewModel: GalleryViewModel
     @EnvironmentObject private var navigation: AppNavigation
     @EnvironmentObject private var storageService: StorageService
+    @State private var isPresentingCategoryPicker = false
 
     init(viewModel: GalleryViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -59,11 +60,8 @@ struct GalleryView: View {
             .toolbar {
                 if !viewModel.allCategories.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
-                        Menu {
-                            Button("전체".localized) { viewModel.categoryFilter = nil }
-                            ForEach(viewModel.allCategories, id: \.self) { category in
-                                Button(category) { viewModel.categoryFilter = category }
-                            }
+                        Button {
+                            isPresentingCategoryPicker = true
                         } label: {
                             Label("카테고리".localized, systemImage: "square.grid.2x2")
                         }
@@ -84,6 +82,9 @@ struct GalleryView: View {
                 if viewModel.filteredPlaceCards.isEmpty {
                     ContentUnavailableView.search
                 }
+            }
+            .sheet(isPresented: $isPresentingCategoryPicker) {
+                CategoryPickerSheet(categories: viewModel.allCategories, selection: $viewModel.categoryFilter)
             }
         }
     }

@@ -62,6 +62,11 @@ struct PlaceStatusFilterBar: View {
     let favoriteCount: Int
     let visitedCount: Int
 
+    /// The category chip presents `CategoryPickerSheet` (a searchable
+    /// list) rather than a plain `Menu` once there are enough categories
+    /// that scanning a dropdown by eye stops being practical.
+    @State private var isPresentingCategoryPicker = false
+
     private var referenceCard: PlaceCard? {
         guard case .card(let id) = distanceReference else { return nil }
         return referenceCandidates.first { $0.id == id }
@@ -114,29 +119,14 @@ struct PlaceStatusFilterBar: View {
     }
 
     private var categoryMenu: some View {
-        Menu {
-            Button {
-                categoryFilter = nil
-            } label: {
-                if categoryFilter == nil {
-                    Label("전체".localized, systemImage: "checkmark")
-                } else {
-                    Text("전체".localized)
-                }
-            }
-            ForEach(categories, id: \.self) { category in
-                Button {
-                    categoryFilter = category
-                } label: {
-                    if categoryFilter == category {
-                        Label(category, systemImage: "checkmark")
-                    } else {
-                        Text(category)
-                    }
-                }
-            }
+        Button {
+            isPresentingCategoryPicker = true
         } label: {
             chipLabel(title: "카테고리: ".localized + (categoryFilter ?? "전체".localized), isSelected: categoryFilter != nil)
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $isPresentingCategoryPicker) {
+            CategoryPickerSheet(categories: categories, selection: $categoryFilter)
         }
     }
 

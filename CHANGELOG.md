@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (80차) — 카테고리 메뉴 안에 검색 추가
+#### Added
+- `Views/CategoryPickerSheet.swift`(신규): 카테고리 목록이 길어지면
+  `Menu`를 눈으로 훑기 힘들어지는 문제를 해결 — `.searchable`이 붙은
+  전체화면 `List`로, 타이핑하면 카테고리 이름을 바로 필터링. "전체"
+  항목은 검색과 무관하게 항상 맨 위에 고정.
+
+#### Changed
+- `Views/PlaceStatusFilterBar.swift`의 `categoryMenu`, `Views/
+  GalleryView.swift`의 툴바 "카테고리" 버튼 — 기존 `Menu` 대신 이
+  `CategoryPickerSheet`를 `.sheet`로 띄우도록 변경(`Menu`는 콘텐츠가
+  실제 텍스트 입력 포커스를 받을 수 없어서 검색창을 넣을 수 없었음).
+  둘 다 같은 `categoryFilter` 상태를 바인딩하므로 동작은 그대로.
+
 ### 2026-09-10 (79차) — 갤러리 오른쪽 상단에도 카테고리 메뉴 추가
 #### Added
 - `Views/GalleryView.swift`: 기존 "태그" 메뉴(오른쪽 상단 툴바)
