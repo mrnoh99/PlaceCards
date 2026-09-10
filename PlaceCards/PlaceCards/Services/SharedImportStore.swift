@@ -17,6 +17,19 @@ enum SharedImportStore {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)
     }
 
+    /// Whether the App Group container actually resolves — `nil` here
+    /// (from `containerURL`, and so every call below) almost always means
+    /// the "App Groups" capability with `group.com.mrnoh99.PlaceCards`
+    /// hasn't actually been provisioned for this build (Xcode → target →
+    /// Signing & Capabilities → +Capability → App Groups, on **both** the
+    /// PlaceCards and PlaceCardsShare targets, with a team selected so
+    /// Xcode can register the group with Apple) — everything else in this
+    /// flow fails silently when that's missing, since both
+    /// `savePendingImage` and `takePendingImage` are no-ops without a
+    /// container. Exposed so Settings can surface this instead of leaving
+    /// "the shared photo never showed up" a mystery.
+    static var isAppGroupAvailable: Bool { containerURL != nil }
+
     /// Called by the Share Extension once it has the shared item's bytes.
     static func savePendingImage(_ data: Data) {
         guard let url = containerURL?.appendingPathComponent(pendingFileName) else { return }

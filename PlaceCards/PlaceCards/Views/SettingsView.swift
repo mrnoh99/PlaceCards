@@ -95,6 +95,20 @@ struct SettingsView: View {
                     Text("PlaceCards는 사용자가 등록한 API 키로 직접 Google/Naver/AI 서비스를 호출합니다(BYOK). 키는 iCloud와 동기화되지 않으며 이 기기에만 저장됩니다.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    LabeledContent("공유로 사진 가져오기") {
+                        Label(
+                            SharedImportStore.isAppGroupAvailable ? "연결됨" : "연결 안 됨",
+                            systemImage: SharedImportStore.isAppGroupAvailable
+                                ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+                        )
+                        .foregroundStyle(SharedImportStore.isAppGroupAvailable ? .green : .orange)
+                    }
+                    if !SharedImportStore.isAppGroupAvailable {
+                        Text("다른 앱에서 공유한 사진을 못 받아오는 상태입니다. Xcode에서 PlaceCards와 PlaceCardsShare 두 타겟 모두 Signing & Capabilities에 팀을 지정하고 \"App Groups\" 항목에 group.com.mrnoh99.PlaceCards가 켜져 있는지 확인해주세요.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .navigationTitle("설정")

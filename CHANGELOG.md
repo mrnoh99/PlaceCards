@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (48차) — 설정에 App Group 연결 상태 진단 표시
+#### Added
+- `Services/SharedImportStore.swift`: `isAppGroupAvailable`(신규) —
+  App Group 컨테이너가 실제로 연결되는지 여부. 안 될 경우
+  `savePendingImage`/`takePendingImage` 둘 다 조용히 아무 일도 안
+  해서, 지금까지는 "공유는 성공한 것처럼 보이는데 PlaceCards엔 사진이
+  안 와 있음" 증상의 원인을 기기에서 확인할 방법이 없었음.
+- `Views/SettingsView.swift`의 "정보" 섹션에 "공유로 사진
+  가져오기: 연결됨/연결 안 됨" 표시 추가 — 연결 안 됨이면 Xcode에서
+  PlaceCards·PlaceCardsShare 두 타겟 모두 Signing & Capabilities에
+  팀을 지정하고 "App Groups"에 group.com.mrnoh99.PlaceCards가 켜져
+  있는지 확인하라는 안내도 함께 표시. Xcode 없이 이 원인 하나(가장
+  유력한 원인 — 이 타겟을 Xcode의 "New Target" 마법사가 아니라 직접
+  project.pbxproj를 편집해 추가했어서, App Groups 기능이 Apple
+  Developer 계정에 실제로 프로비저닝된 적이 없을 가능성이 큼)를
+  기기에서 바로 확인할 수 있게 함.
+
 ### 2026-09-10 (47차) — 공유 확장에서 사진이 안 보내지던 문제 수정
 #### Fixed
 - `PlaceCardsShare/ShareViewController.swift`: 공유 항목이 `URL`로
