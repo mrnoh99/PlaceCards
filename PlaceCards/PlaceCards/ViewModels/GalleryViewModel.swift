@@ -6,7 +6,7 @@ final class GalleryViewModel: ObservableObject {
     @Published var searchQuery: String = ""
     @Published var selectedTag: String?
     @Published var categoryFilter: String?
-    @Published var statusFilter: PlaceStatusFilter = .all
+    @Published var statusFilter = PlaceStatusFilter()
     @Published var sortMode: PlaceSortMode = .byCategory
     @Published var distanceReference: DistanceReference?
     @Published var hereCoordinate: Coordinates?

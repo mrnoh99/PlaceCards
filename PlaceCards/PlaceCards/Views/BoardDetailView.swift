@@ -7,7 +7,7 @@ struct BoardDetailView: View {
     let board: Board
     @EnvironmentObject private var storageService: StorageService
     @State private var isPresentingAddCard = false
-    @State private var statusFilter: PlaceStatusFilter = .all
+    @State private var statusFilter = PlaceStatusFilter()
     @State private var sortMode: PlaceSortMode = .byCategory
     @State private var distanceReference: DistanceReference?
     @State private var hereCoordinate: Coordinates?

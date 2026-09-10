@@ -4,18 +4,22 @@ import SwiftUI
 /// "All (n)" / "⭐ Favorites (n)" / "✅ Visited (n)" chips
 /// (`TripDetailView.collectionFilterBar`), simplified to PlaceCards' plain
 /// `isFavorite`/`isVisited` flags rather than Peragra's general
-/// user-defined list system.
-enum PlaceStatusFilter: Equatable {
-    case all
-    case favorite
-    case visited
+/// user-defined list system. There, the built-in Favorites/Visited lists
+/// are just two more toggleable memberships `activeCollectionIDs`
+/// combines with AND (`allSatisfy`) — so both chips are independently
+/// toggleable here too, meaning "favorited AND visited" when both are on
+/// at once. "전체" isn't a third option alongside them; it's just what
+/// showing when neither toggle is on already means.
+struct PlaceStatusFilter: Equatable {
+    var favoriteOnly = false
+    var visitedOnly = false
+
+    var isAll: Bool { !favoriteOnly && !visitedOnly }
 
     func matches(_ card: PlaceCard) -> Bool {
-        switch self {
-        case .all: return true
-        case .favorite: return card.isFavorite
-        case .visited: return card.isVisited
-        }
+        if favoriteOnly && !card.isFavorite { return false }
+        if visitedOnly && !card.isVisited { return false }
+        return true
     }
 }
 
@@ -74,9 +78,16 @@ struct PlaceStatusFilterBar: View {
                     categoryMenu
                 }
                 Divider().frame(height: 20)
-                chip(title: "전체 (\(allCount))", isSelected: filter == .all) { filter = .all }
-                chip(title: "⭐ 즐겨찾기 (\(favoriteCount))", isSelected: filter == .favorite) { filter = .favorite }
-                chip(title: "✅ 방문 (\(visitedCount))", isSelected: filter == .visited) { filter = .visited }
+                chip(title: "전체 (\(allCount))", isSelected: filter.isAll) {
+                    filter.favoriteOnly = false
+                    filter.visitedOnly = false
+                }
+                chip(title: "⭐ 즐겨찾기 (\(favoriteCount))", isSelected: filter.favoriteOnly) {
+                    filter.favoriteOnly.toggle()
+                }
+                chip(title: "✅ 방문 (\(visitedCount))", isSelected: filter.visitedOnly) {
+                    filter.visitedOnly.toggle()
+                }
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
@@ -179,7 +190,7 @@ struct PlaceStatusFilterBar: View {
         referenceCandidates: [],
         categoryFilter: .constant(nil),
         categories: ["카페", "식당"],
-        filter: .constant(.all),
+        filter: .constant(PlaceStatusFilter()),
         allCount: 12,
         favoriteCount: 3,
         visitedCount: 5

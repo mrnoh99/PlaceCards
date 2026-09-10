@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (24차) — 즐겨찾기·방문 칩을 AND로 동시 토글 가능하게 변경
+#### Changed
+- 맨 윗줄의 "전체/⭐ 즐겨찾기/✅ 방문" 칩이 지금까지는 셋 중 하나만 고를
+  수 있는 단일 선택이었는데, 즐겨찾기와 방문을 각각 독립적으로
+  켜고 끌 수 있게 바꿈 — 둘 다 켜면 "즐겨찾기이면서 방문한" 카드만
+  AND로 필터링됨. PERAGRA의 `activeCollectionIDs`(내장 즐겨찾기/방문
+  리스트도 그냥 하나의 멤버십이라 `allSatisfy`로 AND 결합됨)를 참조.
+  "전체" 칩은 이제 별도 선택지가 아니라 두 토글이 다 꺼졌을 때의 상태를
+  가리키는 표시/리셋 버튼. `PlaceStatusFilter`를
+  `enum { all, favorite, visited }`에서
+  `struct { favoriteOnly, visitedOnly }`로 변경.
+
 ### 2026-09-10 (23차) — "중복 찾기" 추가 (PERAGRA의 FindDuplicatesSheet 참조)
 #### Added
 - 게시판 안에 카드가 2개 이상이면 툴바에 "중복 찾기" 버튼이 나타남 —
