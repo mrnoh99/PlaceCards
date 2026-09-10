@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import UIKit
 
 /// Shows every field a `PlaceCard` carries, not just the handful the list
 /// row/grid cell have room for — and the same action set Peragra's
@@ -11,6 +12,8 @@ struct PlaceCardDetailView: View {
     @EnvironmentObject private var storageService: StorageService
     @Environment(\.openURL) private var openURL
     @State private var isPresentingEdit = false
+    @State private var isPresentingPhotoViewer = false
+    @State private var photoViewerStartIndex = 0
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
@@ -60,6 +63,11 @@ struct PlaceCardDetailView: View {
                     .font(.subheadline)
                 }
                 .padding(.horizontal)
+
+                if !card.media.allItems.isEmpty {
+                    photosSection
+                        .padding(.horizontal)
+                }
 
                 if card.hasAnyAction {
                     actionRow
@@ -121,11 +129,6 @@ struct PlaceCardDetailView: View {
                 .buttonStyle(.bordered)
                 .padding(.horizontal)
 
-                if !card.sources.isEmpty || card.discoverySource != nil {
-                    sourcesSection
-                        .padding(.horizontal)
-                }
-
                 metaFooter
                     .padding(.horizontal)
             }
@@ -146,6 +149,12 @@ struct PlaceCardDetailView: View {
             EditPlaceCardSheet(card: card) { updated in
                 card = updated
             }
+        }
+        .sheet(isPresented: $isPresentingPhotoViewer) {
+            PhotoViewerSheet(
+                images: card.media.allItems.compactMap { MediaStore.loadImage(fileName: $0.localPath) },
+                selection: photoViewerStartIndex
+            )
         }
     }
 
@@ -258,33 +267,32 @@ struct PlaceCardDetailView: View {
         }
     }
 
-    /// How this card's data was populated/verified over time
-    /// (`PlaceCard.sources`) and, when it was first found on social media
-    /// before being verified against a map API (`discoverySource`) —
-    /// neither was surfaced anywhere in the UI before.
+    /// Every photo attached to this card, across all four media
+    /// categories (`MediaBundle.allItems`) — tapping one opens
+    /// `PhotoViewerSheet` for a full-screen, swipeable look, starting on
+    /// whichever thumbnail was tapped.
     @ViewBuilder
-    private var sourcesSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("정보 출처")
+    private var photosSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("사진")
                 .font(.headline)
-            if let discoverySource = card.discoverySource {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(discoverySource.platform)에서 발견")
-                        .font(.subheadline)
-                    if let originalPostUrl = discoverySource.originalPostUrl, let url = URL(string: originalPostUrl) {
-                        Link("원본 게시물 보기", destination: url)
-                            .font(.caption)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(card.media.allItems.enumerated()), id: \.element.id) { index, item in
+                        if let image = MediaStore.loadImage(fileName: item.localPath) {
+                            Button {
+                                photoViewerStartIndex = index
+                                isPresentingPhotoViewer = true
+                            } label: {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 96, height: 96)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                }
-            }
-            ForEach(card.sources) { source in
-                HStack {
-                    Text(source.sourceType.displayName)
-                        .font(.caption)
-                    Spacer()
-                    Text(source.timestamp.formatted(date: .abbreviated, time: .omitted))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -292,7 +300,6 @@ struct PlaceCardDetailView: View {
 
     private var metaFooter: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("추가한 날짜: \(card.createdAt.formatted(date: .abbreviated, time: .omitted))")
             if card.updatedAt != card.createdAt {
                 Text("수정한 날짜: \(card.updatedAt.formatted(date: .abbreviated, time: .omitted))")
             }
@@ -313,6 +320,35 @@ struct PlaceCardDetailView: View {
     private func toggleVisited() {
         card.isVisited.toggle()
         storageService.save(card)
+    }
+}
+
+/// Full-screen, swipeable photo viewer — opened from `photosSection`,
+/// starting on whichever thumbnail was tapped (`selection`).
+private struct PhotoViewerSheet: View {
+    let images: [UIImage]
+    @State var selection: Int
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            TabView(selection: $selection) {
+                ForEach(Array(images.enumerated()), id: \.offset) { index, image in
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .tag(index)
+                }
+            }
+            .tabViewStyle(.page)
+            .background(Color.black)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("닫기") { dismiss() }
+                }
+            }
+            .toolbarColorScheme(.dark, for: .navigationBar)
+        }
     }
 }
 

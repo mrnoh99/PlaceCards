@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (64차) — 상세보기에 사진 표시, 정보 출처·추가한 날짜 제거
+#### Added
+- `Views/PlaceCardDetailView.swift`: "사진" 섹션(신규) — 카드의 모든
+  미디어(`media.allItems` — 지도 스크린샷/공식 사진/현장 촬영/전달받은
+  사진 전부)를 가로 스크롤 썸네일로 표시. 탭하면 `PhotoViewerSheet`
+  (신규)로 전체화면 스와이프 뷰어가 열림. 지금까지 상세보기 화면
+  어디에도 사진이 전혀 표시되지 않고 있었음.
+
+#### Removed
+- `Views/PlaceCardDetailView.swift`: "정보 출처" 섹션(`card.sources`/
+  `discoverySource` 표시)과 메타 푸터의 "추가한 날짜" 줄 제거.
+  "수정한 날짜"는 그대로 유지.
+
 ### 2026-09-10 (63차) — 장소 단위 공유·게시판 가져오기·조용한 iCloud 백업 (Peragra 이식 마무리)
 #### Added
 - `Services/SharePlaces.swift`(신규) — Peragra의 `SharePlaces`를 이식.
