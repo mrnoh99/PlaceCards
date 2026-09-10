@@ -57,6 +57,18 @@ struct GalleryView: View {
                 viewModel.boardScopeID = newValue
             }
             .toolbar {
+                if !viewModel.allCategories.isEmpty {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button("전체".localized) { viewModel.categoryFilter = nil }
+                            ForEach(viewModel.allCategories, id: \.self) { category in
+                                Button(category) { viewModel.categoryFilter = category }
+                            }
+                        } label: {
+                            Label("카테고리".localized, systemImage: "square.grid.2x2")
+                        }
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button("전체".localized) { viewModel.selectedTag = nil }
