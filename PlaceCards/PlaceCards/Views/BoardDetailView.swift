@@ -92,7 +92,7 @@ struct BoardDetailView: View {
                                 // .onTapGesture on the row instead only
                                 // fires for points the row's own Buttons
                                 // don't already claim, so both work.
-                                PlaceCardListRow(card: card)
+                                PlaceCardListRow(card: card, referenceCoordinate: distanceReferenceCoordinate)
                                     .contentShape(Rectangle())
                                     .onTapGesture { selectedCard = card }
                                     .swipeActions(edge: .trailing) {

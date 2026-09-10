@@ -8,9 +8,17 @@ import SwiftUI
 /// stay toggleable right from here, same as the grid cell.
 struct PlaceCardListRow: View {
     let card: PlaceCard
+    /// Set only while the list is sorted by distance from a chosen
+    /// reference — shown as a "250m"/"1.3km" label alongside the
+    /// category, mirroring Peragra's `PlaceRowView` distance label.
+    var referenceCoordinate: Coordinates? = nil
 
     @EnvironmentObject private var storageService: StorageService
     @Environment(\.openURL) private var openURL
+
+    private var distanceText: String? {
+        Coordinates.distanceText(from: referenceCoordinate, to: card.coordinates)
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -36,10 +44,17 @@ struct PlaceCardListRow: View {
                     .font(.subheadline)
                 }
 
-                if let category = card.category, !category.isEmpty {
-                    Label(category, systemImage: PlaceCategoryIcon.symbolName(for: category))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                if card.category?.isEmpty == false || distanceText != nil {
+                    HStack(spacing: 4) {
+                        if let category = card.category, !category.isEmpty {
+                            Label(category, systemImage: PlaceCategoryIcon.symbolName(for: category))
+                        }
+                        if let distanceText {
+                            Text(card.category?.isEmpty == false ? "· \(distanceText)" : distanceText)
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
 
                 Text(card.address)

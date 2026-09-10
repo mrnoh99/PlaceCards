@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (20차) — "거리" 정렬 시 기준으로부터의 거리 표시 + 필터바 순서 조정
+#### Added
+- "거리" 정렬로 기준을 고르면, 게시판 리스트 행(`PlaceCardListRow`)과
+  갤러리 그리드 셀(`PlaceCardGridCell`) 모두에 카테고리 옆에
+  "250m"/"1.3km" 형태로 기준으로부터의 거리가 표시됨 — PERAGRA의
+  `PlaceRowView`("N km away")를 참조. `Coordinates.distanceText(from:to:)`
+  헬퍼를 `PlaceCardSorting.swift`에 추가해 두 화면이 같은 로직을 공유.
+  카드에 좌표가 없거나 거리 정렬 중이 아니면 자동으로 숨겨짐.
+#### Changed
+- `PlaceStatusFilterBar`에서 "거리" 정렬 시 나오는 기준 선택 메뉴를
+  카테고리 메뉴보다 앞(정렬 메뉴 바로 다음)으로 이동.
+
 ### 2026-09-10 (19차) — 게시판 리스트 행 탭 방식을 PERAGRA처럼 NavigationLink 없이 재구성
 #### Fixed
 - 직전(18차) 커밋의 "보이지 않는 NavigationLink를 겹쳐두는" 방식도

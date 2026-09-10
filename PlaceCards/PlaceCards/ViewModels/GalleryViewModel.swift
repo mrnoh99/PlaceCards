@@ -28,7 +28,7 @@ final class GalleryViewModel: ObservableObject {
         return matched.filter { $0.category == categoryFilter }
     }
 
-    private var distanceReferenceCoordinate: Coordinates? {
+    var distanceReferenceCoordinate: Coordinates? {
         switch distanceReference {
         case .here: return hereCoordinate
         case .card(let id): return storageService.placeCard(id: id)?.coordinates

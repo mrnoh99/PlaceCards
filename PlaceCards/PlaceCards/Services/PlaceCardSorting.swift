@@ -69,3 +69,19 @@ extension Array where Element == PlaceCard {
         return reference.distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
     }
 }
+
+extension Coordinates {
+    /// A short "250m"/"1.3km" label for the distance from `reference` to
+    /// `coordinates`, shown next to a card once the list is sorted by
+    /// distance — mirrors Peragra's `PlaceRowView.formattedDistance`
+    /// ("N km away"). nil whenever either coordinate is missing (not
+    /// currently distance-sorting, or this specific card has no
+    /// coordinate yet), so callers can just hide the label.
+    static func distanceText(from reference: Coordinates?, to coordinates: Coordinates?) -> String? {
+        guard let reference, let coordinates else { return nil }
+        let refLocation = CLLocation(latitude: reference.latitude, longitude: reference.longitude)
+        let pointLocation = CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude)
+        let meters = refLocation.distance(from: pointLocation)
+        return meters < 1000 ? "\(Int(meters.rounded()))m" : String(format: "%.1fkm", meters / 1000)
+    }
+}

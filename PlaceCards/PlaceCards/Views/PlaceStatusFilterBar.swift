@@ -67,11 +67,11 @@ struct PlaceStatusFilterBar: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 sortMenu
-                if !categories.isEmpty {
-                    categoryMenu
-                }
                 if sortMode == .distance {
                     referenceMenu
+                }
+                if !categories.isEmpty {
+                    categoryMenu
                 }
                 Divider().frame(height: 20)
                 chip(title: "전체 (\(allCount))", isSelected: filter == .all) { filter = .all }
