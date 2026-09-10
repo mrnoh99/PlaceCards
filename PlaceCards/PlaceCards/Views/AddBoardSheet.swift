@@ -17,12 +17,12 @@ struct AddBoardSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("게시판") {
-                    TextField("이름 (예: 도쿄 봄 여행)", text: $name)
-                    TextField("부제목 (예: 2026년 4월 · 도쿄)", text: $subtitle)
+                Section("게시판".localized) {
+                    TextField("이름 (예: 도쿄 봄 여행)".localized, text: $name)
+                    TextField("부제목 (예: 2026년 4월 · 도쿄)".localized, text: $subtitle)
                 }
 
-                Section("아이콘") {
+                Section("아이콘".localized) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
                         ForEach(Board.coverIconChoices, id: \.self) { icon in
                             Button {
@@ -47,14 +47,14 @@ struct AddBoardSheet: View {
                     .padding(.vertical, 4)
                 }
             }
-            .navigationTitle("새 게시판")
+            .navigationTitle("새 게시판".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button("취소".localized) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("만들기") { createBoard() }
+                    Button("만들기".localized) { createBoard() }
                         .disabled(!canSubmit)
                 }
             }

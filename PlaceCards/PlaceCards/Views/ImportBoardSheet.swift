@@ -25,27 +25,27 @@ struct ImportBoardSheet: View {
                     Section {
                         ForEach(preview.boards) { board in
                             let count = preview.placeCards.filter { $0.boardId == board.id }.count
-                            LabeledContent(board.name, value: "장소 \(count)개")
+                            LabeledContent(board.name, value: "장소 ".localized + "\(count)" + "개".localized)
                         }
                     } header: {
-                        Text("가져올 내용")
+                        Text("가져올 내용".localized)
                     } footer: {
-                        Text("기존 게시판·장소는 그대로 두고, 새 게시판으로 추가됩니다.")
+                        Text("기존 게시판·장소는 그대로 두고, 새 게시판으로 추가됩니다.".localized)
                     }
                 } else {
                     Section {
                         TextEditor(text: $pastedText)
                             .frame(minHeight: 160)
-                        Button("붙여넣은 텍스트 확인") { parse(pastedText) }
+                        Button("붙여넣은 텍스트 확인".localized) { parse(pastedText) }
                             .disabled(pastedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     } header: {
-                        Text("텍스트 붙여넣기")
+                        Text("텍스트 붙여넣기".localized)
                     }
 
                     Section {
-                        Button("파일 선택…") { showingFileImporter = true }
+                        Button("파일 선택…".localized) { showingFileImporter = true }
                     } header: {
-                        Text("또는 파일에서")
+                        Text("또는 파일에서".localized)
                     }
                 }
 
@@ -55,15 +55,15 @@ struct ImportBoardSheet: View {
                         .foregroundStyle(.red)
                 }
             }
-            .navigationTitle("게시판 가져오기")
+            .navigationTitle("게시판 가져오기".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
+                    Button("닫기".localized) { dismiss() }
                 }
                 if preview != nil {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("가져오기") { performImport() }
+                        Button("가져오기".localized) { performImport() }
                     }
                 }
             }
@@ -80,7 +80,7 @@ struct ImportBoardSheet: View {
 
     private func parse(_ text: String) {
         guard let data = text.data(using: .utf8) else {
-            errorMessage = "읽을 수 없는 텍스트입니다."
+            errorMessage = "읽을 수 없는 텍스트입니다.".localized
             return
         }
         applyDecoded(data)
@@ -92,12 +92,12 @@ struct ImportBoardSheet: View {
             let accessed = url.startAccessingSecurityScopedResource()
             defer { if accessed { url.stopAccessingSecurityScopedResource() } }
             guard let data = try? Data(contentsOf: url) else {
-                errorMessage = "파일을 읽지 못했습니다."
+                errorMessage = "파일을 읽지 못했습니다.".localized
                 return
             }
             applyDecoded(data)
         case .failure:
-            errorMessage = "파일을 읽지 못했습니다."
+            errorMessage = "파일을 읽지 못했습니다.".localized
         }
     }
 
@@ -106,7 +106,7 @@ struct ImportBoardSheet: View {
             preview = try BackupService.decode(data)
             errorMessage = nil
         } catch {
-            errorMessage = (error as? BackupService.BackupError)?.errorDescription ?? "게시판 파일이 아닙니다."
+            errorMessage = (error as? BackupService.BackupError)?.errorDescription ?? "게시판 파일이 아닙니다.".localized
         }
     }
 

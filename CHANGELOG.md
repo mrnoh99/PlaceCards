@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (72차) — 앱 UI 자체의 언어도 변경 가능하게
+#### Added
+- `Services/Localization.swift`(신규): `AppLanguage`(한국어/English) —
+  앱 화면 전체의 언어. `LocalizationObserver`(싱글턴 `ObservableObject`)
+  는 `ContentView`가 `.id(localization.language)`로 구독해, 언어를
+  바꾸면 앱 전체 뷰 트리를 즉시 다시 마운트 — 재실행 없이 바로 반영됨.
+  `String.localized`(신규 extension) — 어디서든 `"한글 문구".localized`
+  로 호출하면 현재 `AppLanguage`에 맞는 번역, 없으면 원문(한국어)을
+  반환. `Localization.englishTranslations`에 앱 전역 약 280개 한국어
+  UI 문구 전체의 영어 번역을 보관.
+  Xcode 없이 검증해야 하는 이 환경 특성상 String Catalog(`.xcstrings`)
+  대신 평범한 Swift 딕셔너리로 구현 — 스키마 실수가 조용히 무시되는
+  대신 이 환경이 실제로 검사할 수 있는 형태(중괄호/괄호 균형, 중복
+  선언 스캔)를 유지하기 위함.
+- `Views/SettingsView.swift`: 맨 위에 "앱 언어" Picker 섹션 추가.
+
+#### Changed
+- 21개 View 파일 + 다수 Service/ViewModel 파일: 하드코딩되어 있던
+  한국어 UI 문구(네비게이션 타이틀, 버튼, 라벨, 섹션 헤더/푸터, 알림,
+  플레이스홀더, 탭 이름 등) 전부에 `.localized` 적용. 이름/주소/메모
+  등 사용자가 입력한 실제 데이터는 그대로 두고 건드리지 않음.
+  `Views/GoogleMapWebView.swift`/`NaverMapWebView.swift`: WKWebView에
+  내장된 HTML/JS 안의 안내 문구·버튼 라벨(지도를 못 불러왔을 때 표시,
+  "카드 보기", "Google/Naver/Kakao/Tmap에서 열기")도 Swift 쪽에서
+  `.localized`로 번역해 JSON으로 주입하도록 변경.
+- `Services/PlaceCardSorting.swift`: `PlaceSortMode`의 `rawValue`(정렬
+  기준 식별자, 유지되어야 함)는 그대로 두고, 화면에 보여줄 `displayName`
+  (신규, `rawValue.localized`)을 따로 추가 — enum의 raw value 자체는
+  컴파일타임 상수여야 해서 `.localized`를 직접 쓸 수 없었음.
+- `PlaceCards.xcodeproj/project.pbxproj`: `Localization.swift` 등록.
+
+#### Note
+- 자동 변환 스크립트로 1차 처리한 뒤, 이스케이프된 따옴표나 문자열
+  보간이 섞인 ~45곳은 전부 손으로 다시 확인·수정 — 그 과정에서
+  `PlaceSortMode`의 raw value에 `.localized`가 잘못 붙어 컴파일이 깨질
+  뻔한 문제, 그리고 자동 변환 스크립트 자체의 정규식이 이스케이프된
+  따옴표를 오인식해 문자열이 깨질 뻔한 사례 몇 건을 발견해 바로잡음.
+
 ### 2026-09-10 (71차) — 설정에 "AI 응답 언어" 추가
 #### Added
 - `Services/AIProvider.swift`: `ScanResultLanguage`(신규, 한국어/영어/

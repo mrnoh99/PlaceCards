@@ -19,9 +19,9 @@ struct SharedLinkBoardPickerSheet: View {
             Group {
                 if storageService.boards.isEmpty {
                     ContentUnavailableView {
-                        Label("게시판이 없습니다", systemImage: "square.stack")
+                        Label("게시판이 없습니다".localized, systemImage: "square.stack")
                     } description: {
-                        Text("먼저 홈에서 게시판을 만들어주세요.")
+                        Text("먼저 홈에서 게시판을 만들어주세요.".localized)
                     }
                 } else {
                     List(storageService.boards) { board in
@@ -34,11 +34,11 @@ struct SharedLinkBoardPickerSheet: View {
                     }
                 }
             }
-            .navigationTitle("공유한 링크를 추가할 게시판")
+            .navigationTitle("공유한 링크를 추가할 게시판".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button("취소".localized) { dismiss() }
                 }
             }
         }

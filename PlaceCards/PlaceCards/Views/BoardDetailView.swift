@@ -110,9 +110,9 @@ struct BoardDetailView: View {
         Group {
             if allCards.isEmpty {
                 ContentUnavailableView {
-                    Label("장소가 없습니다", systemImage: "mappin.slash")
+                    Label("장소가 없습니다".localized, systemImage: "mappin.slash")
                 } description: {
-                    Text("오른쪽 위 + 버튼으로 이 게시판에 첫 장소를 추가해보세요.")
+                    Text("오른쪽 위 + 버튼으로 이 게시판에 첫 장소를 추가해보세요.".localized)
                 }
             } else {
                 VStack(spacing: 0) {
@@ -133,9 +133,9 @@ struct BoardDetailView: View {
                             ContentUnavailableView.search
                         } else {
                             ContentUnavailableView {
-                                Label("해당하는 장소가 없습니다", systemImage: "line.3.horizontal.decrease.circle")
+                                Label("해당하는 장소가 없습니다".localized, systemImage: "line.3.horizontal.decrease.circle")
                             } description: {
-                                Text("다른 필터를 선택해보세요.")
+                                Text("다른 필터를 선택해보세요.".localized)
                             }
                         }
                     } else {
@@ -180,7 +180,7 @@ struct BoardDetailView: View {
                                         Button(role: .destructive) {
                                             cardPendingDelete = card
                                         } label: {
-                                            Label("삭제", systemImage: "trash")
+                                            Label("삭제".localized, systemImage: "trash")
                                         }
                                     }
                                 }
@@ -205,14 +205,14 @@ struct BoardDetailView: View {
         .onAppear { navigation.currentHomeBoardID = board.id }
         .navigationTitle(board.name)
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $searchQuery, prompt: "이름, 주소로 검색")
+        .searchable(text: $searchQuery, prompt: "이름, 주소로 검색".localized)
         .toolbar {
             if !isSelecting {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         isPresentingAddCard = true
                     } label: {
-                        Label("장소 추가", systemImage: "plus")
+                        Label("장소 추가".localized, systemImage: "plus")
                     }
                 }
                 if allCards.count > 1 {
@@ -220,7 +220,7 @@ struct BoardDetailView: View {
                         Button {
                             isPresentingFindDuplicates = true
                         } label: {
-                            Label("중복 찾기", systemImage: "arrow.triangle.merge")
+                            Label("중복 찾기".localized, systemImage: "arrow.triangle.merge")
                         }
                     }
                 }
@@ -236,7 +236,7 @@ struct BoardDetailView: View {
                         isSelecting.toggle()
                         if !isSelecting { selectedIDs.removeAll() }
                     } label: {
-                        Text(isSelecting ? "취소" : "선택")
+                        Text(isSelecting ? "취소".localized : "선택".localized)
                     }
                 }
             }
@@ -256,38 +256,38 @@ struct BoardDetailView: View {
             PlaceCardDetailView(card: card)
         }
         .confirmationDialog(
-            "\"\(cardPendingDelete?.name ?? "")\"을 삭제할까요?",
+            "\"" + (cardPendingDelete?.name ?? "") + "\"을 삭제할까요?".localized,
             isPresented: Binding(
                 get: { cardPendingDelete != nil },
                 set: { if !$0 { cardPendingDelete = nil } }
             ),
             titleVisibility: .visible
         ) {
-            Button("삭제", role: .destructive) {
+            Button("삭제".localized, role: .destructive) {
                 if let card = cardPendingDelete {
                     storageService.delete(card)
                 }
                 cardPendingDelete = nil
             }
-            Button("취소", role: .cancel) { cardPendingDelete = nil }
+            Button("취소".localized, role: .cancel) { cardPendingDelete = nil }
         }
         .confirmationDialog(
-            "\(selectedIDs.count)개 장소를 삭제할까요?",
+            "\(selectedIDs.count)" + "개 장소를 삭제할까요?".localized,
             isPresented: $isConfirmingBulkDelete,
             titleVisibility: .visible
         ) {
-            Button("\(selectedIDs.count)개 삭제", role: .destructive) {
+            Button("\(selectedIDs.count)" + "개 삭제".localized, role: .destructive) {
                 deleteSelected()
             }
-            Button("취소", role: .cancel) {}
+            Button("취소".localized, role: .cancel) {}
         }
-        .alert("카테고리 입력", isPresented: $isPresentingCustomCategoryInput) {
-            TextField("카테고리", text: $customCategoryInput)
-            Button("변경") {
+        .alert("카테고리 입력".localized, isPresented: $isPresentingCustomCategoryInput) {
+            TextField("카테고리".localized, text: $customCategoryInput)
+            Button("변경".localized) {
                 applyCategory(customCategoryInput)
                 customCategoryInput = ""
             }
-            Button("취소", role: .cancel) { customCategoryInput = "" }
+            Button("취소".localized, role: .cancel) { customCategoryInput = "" }
         }
     }
 
@@ -304,15 +304,15 @@ struct BoardDetailView: View {
             Button {
                 copyPlacesAsText()
             } label: {
-                Label("텍스트로 복사", systemImage: "doc.on.doc")
+                Label("텍스트로 복사".localized, systemImage: "doc.on.doc")
             }
             if let exportPlacesFileURL {
                 ShareLink(item: exportPlacesFileURL) {
-                    Label("파일로 공유", systemImage: "square.and.arrow.up")
+                    Label("파일로 공유".localized, systemImage: "square.and.arrow.up")
                 }
             }
         } label: {
-            Label("내보내기", systemImage: "square.and.arrow.up")
+            Label("내보내기".localized, systemImage: "square.and.arrow.up")
         }
     }
 
@@ -329,7 +329,7 @@ struct BoardDetailView: View {
     /// mirrors Peragra's `PlaceListingView.bulkActionBar`.
     private var bulkActionBar: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(selectedIDs.isEmpty ? "수정할 장소를 선택하세요" : "\(selectedIDs.count)개 선택됨")
+            Text(selectedIDs.isEmpty ? "수정할 장소를 선택하세요".localized : "\(selectedIDs.count)" + "개 선택됨".localized)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -348,7 +348,7 @@ struct BoardDetailView: View {
         Button {
             toggleSelectAll()
         } label: {
-            Text(selectedIDs.count == cards.count ? "전체 해제" : "전체 선택")
+            Text(selectedIDs.count == cards.count ? "전체 해제".localized : "전체 선택".localized)
                 .font(.subheadline.weight(.medium))
         }
         .disabled(cards.isEmpty)
@@ -356,7 +356,7 @@ struct BoardDetailView: View {
         Button(role: .destructive) {
             isConfirmingBulkDelete = true
         } label: {
-            Label("삭제", systemImage: "trash")
+            Label("삭제".localized, systemImage: "trash")
                 .font(.subheadline.weight(.medium))
         }
         .disabled(selectedIDs.isEmpty)
@@ -365,9 +365,9 @@ struct BoardDetailView: View {
             ForEach(categories, id: \.self) { category in
                 Button(category) { applyCategory(category) }
             }
-            Button("직접 입력…") { isPresentingCustomCategoryInput = true }
+            Button("직접 입력…".localized) { isPresentingCustomCategoryInput = true }
         } label: {
-            Label("카테고리 변경", systemImage: "tag")
+            Label("카테고리 변경".localized, systemImage: "tag")
                 .font(.subheadline.weight(.medium))
         }
         .disabled(selectedIDs.isEmpty)
@@ -382,7 +382,7 @@ struct BoardDetailView: View {
                     }
                 }
             } label: {
-                Label("게시판 이동", systemImage: "arrow.right.square")
+                Label("게시판 이동".localized, systemImage: "arrow.right.square")
                     .font(.subheadline.weight(.medium))
             }
             .disabled(selectedIDs.isEmpty)
@@ -392,7 +392,7 @@ struct BoardDetailView: View {
             navigation.showOnMap(selectedIDs)
             exitSelection()
         } label: {
-            Label("지도에서 보기", systemImage: "map")
+            Label("지도에서 보기".localized, systemImage: "map")
                 .font(.subheadline.weight(.medium))
         }
         .disabled(selectedIDs.isEmpty)
@@ -400,7 +400,7 @@ struct BoardDetailView: View {
         Button {
             isPresentingMergeSelection = true
         } label: {
-            Label("병합", systemImage: "arrow.triangle.merge")
+            Label("병합".localized, systemImage: "arrow.triangle.merge")
                 .font(.subheadline.weight(.medium))
         }
         .disabled(selectedIDs.count < 2)
@@ -460,7 +460,7 @@ struct BoardDetailView: View {
 
 #Preview {
     NavigationStack {
-        BoardDetailView(board: Board(name: "도쿄 봄 여행", subtitle: "2026년 4월", coverIcon: "airplane"))
+        BoardDetailView(board: Board(name: "도쿄 봄 여행".localized, subtitle: "2026년 4월".localized, coverIcon: "airplane"))
             .environmentObject(StorageService())
             .environmentObject(AppNavigation())
     }

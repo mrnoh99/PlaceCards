@@ -8,6 +8,12 @@ enum PlaceSortMode: String, CaseIterable, Identifiable {
     case distance = "거리"
 
     var id: String { rawValue }
+
+    /// `rawValue` itself must stay a fixed Korean literal (enum raw values
+    /// have to be compile-time constants, and this one's also read back
+    /// via `Picker`/`@AppStorage`-style persistence elsewhere) — this is
+    /// the one to actually show in UI.
+    var displayName: String { rawValue.localized }
 }
 
 extension Array where Element == PlaceCard {

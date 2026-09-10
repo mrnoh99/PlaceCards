@@ -39,6 +39,7 @@
 		85842E834E1732A0B124144B /* PlaceCardSorting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BD2FA4433F73A530867558 /* PlaceCardSorting.swift */; };
 		01528318FFDC7D00B3F951D5 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 546F4B4EF47BC64FE89F026B /* LocationService.swift */; };
 		44E9FCDFFA00BA728BAE1B90 /* PlaceCategoryIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 481D7688A4D65E5823748315 /* PlaceCategoryIcon.swift */; };
+		D31D4380CFB6C9B5B0A1B4FA /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = F81F2EBD097E7DA5F16DCE3D /* Localization.swift */; };
 		BB710F57850B0ACB5B361E10 /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4946F8B69968821E14AC20D3 /* Board.swift */; };
 		B03C8BE8D6017F4DD50F81F5 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 726A7E627D6573ABD7C7C9D7 /* BackupService.swift */; };
 		B45C0F564E059AC4CEA37FFD /* BackupFolderSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F3227E6B4A834912F0707B /* BackupFolderSettings.swift */; };
@@ -101,6 +102,7 @@
 		94BD2FA4433F73A530867558 /* PlaceCardSorting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardSorting.swift; sourceTree = "<group>"; };
 		546F4B4EF47BC64FE89F026B /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		481D7688A4D65E5823748315 /* PlaceCategoryIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCategoryIcon.swift; sourceTree = "<group>"; };
+		F81F2EBD097E7DA5F16DCE3D /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		4946F8B69968821E14AC20D3 /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
 		726A7E627D6573ABD7C7C9D7 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
 		48F3227E6B4A834912F0707B /* BackupFolderSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupFolderSettings.swift; sourceTree = "<group>"; };
@@ -220,6 +222,7 @@
 				94BD2FA4433F73A530867558 /* PlaceCardSorting.swift */,
 				546F4B4EF47BC64FE89F026B /* LocationService.swift */,
 				481D7688A4D65E5823748315 /* PlaceCategoryIcon.swift */,
+				F81F2EBD097E7DA5F16DCE3D /* Localization.swift */,
 				49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */,
 				D698604B0123BD5E703A0E79 /* AppNavigation.swift */,
 				156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */,
@@ -430,6 +433,7 @@
 				85842E834E1732A0B124144B /* PlaceCardSorting.swift in Sources */,
 				01528318FFDC7D00B3F951D5 /* LocationService.swift in Sources */,
 				44E9FCDFFA00BA728BAE1B90 /* PlaceCategoryIcon.swift in Sources */,
+				D31D4380CFB6C9B5B0A1B4FA /* Localization.swift in Sources */,
 				B03C8BE8D6017F4DD50F81F5 /* BackupService.swift in Sources */,
 				AA5685E9E95EB70CCA220256 /* AutoBackupService.swift in Sources */,
 				DB00C929557F5AFA39997B04 /* SharePlaces.swift in Sources */,

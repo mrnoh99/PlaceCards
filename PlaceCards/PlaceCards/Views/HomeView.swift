@@ -46,7 +46,7 @@ struct HomeView: View {
                                     Button(role: .destructive) {
                                         boardPendingDelete = board
                                     } label: {
-                                        Label("삭제", systemImage: "trash")
+                                        Label("삭제".localized, systemImage: "trash")
                                     }
                                 }
                             }
@@ -54,7 +54,7 @@ struct HomeView: View {
                                 Button {
                                     boardPendingEdit = board
                                 } label: {
-                                    Label("수정", systemImage: "pencil")
+                                    Label("수정".localized, systemImage: "pencil")
                                 }
                                 .tint(.blue)
                                 ExportBoardMenu(board: board, storageService: storageService)
@@ -73,22 +73,22 @@ struct HomeView: View {
             // user has actually left every board, not on every transient
             // onDisappear inside one. See `AppNavigation.currentHomeBoardID`.
             .onAppear { navigation.currentHomeBoardID = nil }
-            .searchable(text: $searchQuery, prompt: "게시판 검색")
+            .searchable(text: $searchQuery, prompt: "게시판 검색".localized)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button {
                             isPresentingAddBoard = true
                         } label: {
-                            Label("새 게시판", systemImage: "plus")
+                            Label("새 게시판".localized, systemImage: "plus")
                         }
                         Button {
                             isPresentingImportBoard = true
                         } label: {
-                            Label("게시판 가져오기", systemImage: "square.and.arrow.down")
+                            Label("게시판 가져오기".localized, systemImage: "square.and.arrow.down")
                         }
                     } label: {
-                        Label("추가", systemImage: "plus")
+                        Label("추가".localized, systemImage: "plus")
                     }
                 }
             }
@@ -102,31 +102,31 @@ struct HomeView: View {
                 EditBoardSheet(board: board)
             }
             .confirmationDialog(
-                "비어있는 게시판 \"\(boardPendingDelete?.name ?? "")\"을 삭제할까요?",
+                "비어있는 게시판 \"".localized + (boardPendingDelete?.name ?? "") + "\"을 삭제할까요?".localized,
                 isPresented: Binding(
                     get: { boardPendingDelete != nil },
                     set: { if !$0 { boardPendingDelete = nil } }
                 ),
                 titleVisibility: .visible
             ) {
-                Button("삭제", role: .destructive) {
+                Button("삭제".localized, role: .destructive) {
                     if let board = boardPendingDelete {
                         storageService.deleteBoard(board)
                     }
                     boardPendingDelete = nil
                 }
-                Button("취소", role: .cancel) { boardPendingDelete = nil }
+                Button("취소".localized, role: .cancel) { boardPendingDelete = nil }
             }
         }
     }
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("게시판이 없습니다", systemImage: "square.stack")
+            Label("게시판이 없습니다".localized, systemImage: "square.stack")
         } description: {
-            Text("먼저 게시판을 만들고, 그 안에 장소 카드를 추가해보세요.")
+            Text("먼저 게시판을 만들고, 그 안에 장소 카드를 추가해보세요.".localized)
         } actions: {
-            Button("첫 게시판 만들기") { isPresentingAddBoard = true }
+            Button("첫 게시판 만들기".localized) { isPresentingAddBoard = true }
                 .buttonStyle(.borderedProminent)
         }
     }
@@ -153,7 +153,7 @@ private struct BoardRow: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                Text("장소 \(cardCount)개")
+                Text("장소 ".localized + "\(cardCount)" + "개".localized)
                     .font(.caption)
                     .foregroundStyle(Color.accentColor)
             }
@@ -180,15 +180,15 @@ private struct ExportBoardMenu: View {
             Button {
                 copyAsText()
             } label: {
-                Label("텍스트로 복사", systemImage: "doc.on.doc")
+                Label("텍스트로 복사".localized, systemImage: "doc.on.doc")
             }
             if let exportFileURL {
                 ShareLink(item: exportFileURL) {
-                    Label("파일로 공유", systemImage: "square.and.arrow.up")
+                    Label("파일로 공유".localized, systemImage: "square.and.arrow.up")
                 }
             }
         } label: {
-            Label("내보내기", systemImage: "square.and.arrow.up")
+            Label("내보내기".localized, systemImage: "square.and.arrow.up")
         }
         .tint(.blue)
         .task { prepareFile() }

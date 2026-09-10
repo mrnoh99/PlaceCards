@@ -37,19 +37,19 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $navigation.selectedTab) {
             HomeView()
-                .tabItem { Label("홈", systemImage: "house") }
+                .tabItem { Label("홈".localized, systemImage: "house") }
                 .tag(AppTab.home)
 
             GalleryView(viewModel: GalleryViewModel(storageService: storageService))
-                .tabItem { Label("갤러리", systemImage: "square.grid.2x2") }
+                .tabItem { Label("갤러리".localized, systemImage: "square.grid.2x2") }
                 .tag(AppTab.gallery)
 
             PlacesMapView(viewModel: MapViewModel(storageService: storageService))
-                .tabItem { Label("지도", systemImage: "map") }
+                .tabItem { Label("지도".localized, systemImage: "map") }
                 .tag(AppTab.map)
 
             SettingsView()
-                .tabItem { Label("설정", systemImage: "gearshape") }
+                .tabItem { Label("설정".localized, systemImage: "gearshape") }
                 .tag(AppTab.settings)
         }
         .environmentObject(navigation)
@@ -83,10 +83,10 @@ struct MainTabView: View {
                 SharedLinkBoardPickerSheet(linkText: pendingLinkText)
             }
         }
-        .alert("iCloud에서 복원됨", isPresented: $showingCloudRestoreAlert) {
-            Button("확인", role: .cancel) {}
+        .alert("iCloud에서 복원됨".localized, isPresented: $showingCloudRestoreAlert) {
+            Button("확인".localized, role: .cancel) {}
         } message: {
-            Text("iCloud에서 이전 백업을 찾아 게시판과 장소를 자동으로 복원했습니다.")
+            Text("iCloud에서 이전 백업을 찾아 게시판과 장소를 자동으로 복원했습니다.".localized)
         }
     }
 

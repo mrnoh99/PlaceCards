@@ -31,20 +31,20 @@ enum SourceType: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .naverMapScreenshot: return "네이버 지도 스크린샷"
-        case .googleMapScreenshot: return "구글 지도 스크린샷"
-        case .kakaoMapScreenshot: return "카카오맵 스크린샷"
-        case .naverMapShare: return "네이버 지도 공유"
-        case .googleMapShare: return "구글 지도 공유"
-        case .kakaoMapShare: return "카카오맵 공유"
+        case .naverMapScreenshot: return "네이버 지도 스크린샷".localized
+        case .googleMapScreenshot: return "구글 지도 스크린샷".localized
+        case .kakaoMapScreenshot: return "카카오맵 스크린샷".localized
+        case .naverMapShare: return "네이버 지도 공유".localized
+        case .googleMapShare: return "구글 지도 공유".localized
+        case .kakaoMapShare: return "카카오맵 공유".localized
         case .googleDirectLookup: return "Google Places API"
         case .naverDirectLookup: return "Naver API"
         case .kakaoDirectLookup: return "Kakao API"
-        case .onsitePhoto: return "현장 촬영"
-        case .receivedPhoto: return "전달받은 사진"
-        case .instagramScreenshot: return "인스타그램 스크린샷"
-        case .userManualInput: return "직접 입력"
-        case .unsplashSearch: return "Unsplash 검색"
+        case .onsitePhoto: return "현장 촬영".localized
+        case .receivedPhoto: return "전달받은 사진".localized
+        case .instagramScreenshot: return "인스타그램 스크린샷".localized
+        case .userManualInput: return "직접 입력".localized
+        case .unsplashSearch: return "Unsplash 검색".localized
         }
     }
 }

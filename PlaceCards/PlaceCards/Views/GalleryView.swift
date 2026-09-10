@@ -46,8 +46,8 @@ struct GalleryView: View {
                     .padding()
                 }
             }
-            .navigationTitle(scopedBoard.map { "갤러리 · \($0.name)" } ?? "갤러리")
-            .searchable(text: $viewModel.searchQuery, prompt: "이름, 주소로 검색")
+            .navigationTitle(scopedBoard.map { "갤러리 · ".localized + $0.name } ?? "갤러리".localized)
+            .searchable(text: $viewModel.searchQuery, prompt: "이름, 주소로 검색".localized)
             // Home tab's board (if any) is only known once this tab
             // itself becomes visible — synced here rather than read once
             // at init, since the user may navigate around Home first and
@@ -59,12 +59,12 @@ struct GalleryView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
-                        Button("전체") { viewModel.selectedTag = nil }
+                        Button("전체".localized) { viewModel.selectedTag = nil }
                         ForEach(viewModel.allTags, id: \.self) { tag in
                             Button(tag) { viewModel.selectedTag = tag }
                         }
                     } label: {
-                        Label("태그", systemImage: "tag")
+                        Label("태그".localized, systemImage: "tag")
                     }
                 }
             }
@@ -177,7 +177,7 @@ struct PlaceCardGridCell: View {
                                 }
                             }
                             if card.coordinates != nil {
-                                Button("Apple 지도") {
+                                Button("Apple 지도".localized) {
                                     MapOpenContext.recordMapOpen(cardID: card.id)
                                     AppleMapsOpener.open(for: card)
                                 }

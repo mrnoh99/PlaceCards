@@ -70,7 +70,7 @@ final class SettingsViewModel: ObservableObject {
     func saveGoogleAPIKey() {
         do {
             try KeychainService.save(googleAPIKey, for: .googlePlacesAPIKey)
-            statusMessage = "Google API 키가 저장되었습니다."
+            statusMessage = "Google API 키가 저장되었습니다.".localized
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -79,7 +79,7 @@ final class SettingsViewModel: ObservableObject {
     func saveNaverMapClientId() {
         do {
             try KeychainService.save(naverMapClientId, for: .naverMapClientId)
-            statusMessage = "Naver Maps Client ID가 저장되었습니다."
+            statusMessage = "Naver Maps Client ID가 저장되었습니다.".localized
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -94,7 +94,7 @@ final class SettingsViewModel: ObservableObject {
         )
         do {
             try KeychainService.save(aiAPIKey, for: aiProviderType.keychainKey)
-            statusMessage = "\(aiProviderType.displayName) API 키가 저장되었습니다."
+            statusMessage = aiProviderType.displayName + " API 키가 저장되었습니다.".localized
         } catch {
             statusMessage = error.localizedDescription
         }

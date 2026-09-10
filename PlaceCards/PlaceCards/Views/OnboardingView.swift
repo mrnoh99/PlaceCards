@@ -6,11 +6,11 @@ struct OnboardingView: View {
 
     private let steps: [(systemImage: String, title: String, description: String)] = [
         ("mappin.and.ellipse", "PlaceCards",
-         "지도 앱, SNS, 직접 찍은 사진에서 발견한 장소를 하나의 카드로 모아보세요."),
-        ("photo.on.rectangle.angled", "사진으로 바로 추가",
-         "스크린샷이나 사진을 넣으면 AI가 장소명을 찾아주고, Google 지도 정보로 자동 보강됩니다."),
-        ("key", "API 키는 내 것만",
-         "Google, Claude/ChatGPT/Gemini API 키를 설정에서 등록하세요. 키는 이 기기의 키체인에만 저장됩니다.")
+         "지도 앱, SNS, 직접 찍은 사진에서 발견한 장소를 하나의 카드로 모아보세요.".localized),
+        ("photo.on.rectangle.angled", "사진으로 바로 추가".localized,
+         "스크린샷이나 사진을 넣으면 AI가 장소명을 찾아주고, Google 지도 정보로 자동 보강됩니다.".localized),
+        ("key", "API 키는 내 것만".localized,
+         "Google, Claude/ChatGPT/Gemini API 키를 설정에서 등록하세요. 키는 이 기기의 키체인에만 저장됩니다.".localized)
     ]
 
     var body: some View {
@@ -41,7 +41,7 @@ struct OnboardingView: View {
                 }
             }
 
-            Button(step < steps.count - 1 ? "다음" : "시작하기") {
+            Button(step < steps.count - 1 ? "다음".localized : "시작하기".localized) {
                 if step < steps.count - 1 {
                     step += 1
                 } else {

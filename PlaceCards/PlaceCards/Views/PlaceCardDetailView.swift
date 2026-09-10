@@ -57,7 +57,7 @@ struct PlaceCardDetailView: View {
                                 .foregroundStyle(.orange)
                         }
                         if let reviewCount = card.reviewCount {
-                            Text("리뷰 \(reviewCount)개")
+                            Text("리뷰 ".localized + "\(reviewCount)" + "개".localized)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -82,13 +82,13 @@ struct PlaceCardDetailView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     if !card.amenities.isEmpty {
-                        Text("편의시설")
+                        Text("편의시설".localized)
                             .font(.headline)
                         WrapTagsView(tags: card.amenities)
                     }
 
                     if !card.tags.isEmpty {
-                        Text("태그")
+                        Text("태그".localized)
                             .font(.headline)
                         WrapTagsView(tags: card.tags)
                     }
@@ -120,7 +120,7 @@ struct PlaceCardDetailView: View {
                 }
 
                 ShareLink(item: shareText) {
-                    Label("공유", systemImage: "square.and.arrow.up")
+                    Label("공유".localized, systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(.bordered)
                 .padding(.horizontal)
@@ -137,7 +137,7 @@ struct PlaceCardDetailView: View {
                 Button {
                     isPresentingEdit = true
                 } label: {
-                    Label("편집", systemImage: "pencil")
+                    Label("편집".localized, systemImage: "pencil")
                 }
             }
         }
@@ -171,21 +171,21 @@ struct PlaceCardDetailView: View {
                 Button {
                     openURL(callURL)
                 } label: {
-                    Label("전화", systemImage: "phone")
+                    Label("전화".localized, systemImage: "phone")
                 }
             }
             if let website = card.website, let url = URL(string: website) {
                 Button {
                     openURL(url)
                 } label: {
-                    Label("웹사이트", systemImage: "link")
+                    Label("웹사이트".localized, systemImage: "link")
                 }
             }
             if let instagramURL = card.instagramURL, let url = URL(string: instagramURL) {
                 Button {
                     openURL(url)
                 } label: {
-                    Label("인스타그램", systemImage: "camera")
+                    Label("인스타그램".localized, systemImage: "camera")
                 }
                 .tint(.pink)
             }
@@ -209,7 +209,7 @@ struct PlaceCardDetailView: View {
                 }
             }
             if card.coordinates != nil {
-                Button("Apple 지도") {
+                Button("Apple 지도".localized) {
                     MapOpenContext.recordMapOpen(cardID: card.id)
                     AppleMapsOpener.open(for: card)
                 }
@@ -233,7 +233,7 @@ struct PlaceCardDetailView: View {
                 }
             }
         } label: {
-            Label("지도에서 열기", systemImage: "map")
+            Label("지도에서 열기".localized, systemImage: "map")
         }
         .buttonStyle(.bordered)
     }
@@ -245,7 +245,7 @@ struct PlaceCardDetailView: View {
     @ViewBuilder
     private var hoursSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("영업 정보")
+            Text("영업 정보".localized)
                 .font(.headline)
             if let hoursDetail = card.hoursDetail, !hoursDetail.isEmpty {
                 ForEach(hoursDetail.sorted(by: { $0.key < $1.key }), id: \.key) { day, hours in
@@ -258,12 +258,12 @@ struct PlaceCardDetailView: View {
                 }
             }
             if let closingTime = card.closingTime, !closingTime.isEmpty {
-                Label("마감 \(closingTime)", systemImage: "clock")
+                Label("마감 ".localized + closingTime, systemImage: "clock")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             if let holidays = card.holidays, !holidays.isEmpty {
-                Label("휴무일 \(holidays)", systemImage: "calendar")
+                Label("휴무일 ".localized + holidays, systemImage: "calendar")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -277,7 +277,7 @@ struct PlaceCardDetailView: View {
     @ViewBuilder
     private var photosSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("사진")
+            Text("사진".localized)
                 .font(.headline)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -309,13 +309,13 @@ struct PlaceCardDetailView: View {
     @ViewBuilder
     private var memoSection: some View {
         HStack {
-            Text("메모")
+            Text("메모".localized)
                 .font(.headline)
             Spacer()
             Button {
                 isPresentingMemoEdit = true
             } label: {
-                Label("편집", systemImage: "pencil")
+                Label("편집".localized, systemImage: "pencil")
                     .labelStyle(.iconOnly)
             }
             .buttonStyle(.plain)
@@ -325,7 +325,7 @@ struct PlaceCardDetailView: View {
             Text(memo)
                 .font(.body)
         } else {
-            Text("메모 없음")
+            Text("메모 없음".localized)
                 .font(.body)
                 .foregroundStyle(.secondary)
         }
@@ -334,7 +334,7 @@ struct PlaceCardDetailView: View {
     private var metaFooter: some View {
         VStack(alignment: .leading, spacing: 2) {
             if card.updatedAt != card.createdAt {
-                Text("수정한 날짜: \(card.updatedAt.formatted(date: .abbreviated, time: .omitted))")
+                Text("수정한 날짜: ".localized + card.updatedAt.formatted(date: .abbreviated, time: .omitted))
             }
         }
         .font(.caption2)
@@ -377,7 +377,7 @@ private struct PhotoViewerSheet: View {
             .background(Color.black)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
+                    Button("닫기".localized) { dismiss() }
                 }
             }
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -405,14 +405,14 @@ private struct MemoEditSheet: View {
                 TextEditor(text: $draft)
                     .frame(minHeight: 160)
             }
-            .navigationTitle("메모 편집")
+            .navigationTitle("메모 편집".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button("취소".localized) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("저장") {
+                    Button("저장".localized) {
                         onSave(draft)
                         dismiss()
                     }
@@ -442,7 +442,7 @@ private struct WrapTagsView: View {
 
 #Preview {
     NavigationStack {
-        PlaceCardDetailView(card: PlaceCard(boardId: "preview", name: "샘플 카페", address: "서울시 강남구"))
+        PlaceCardDetailView(card: PlaceCard(boardId: "preview", name: "샘플 카페".localized, address: "서울시 강남구".localized))
     }
     .environmentObject(StorageService())
 }

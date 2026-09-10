@@ -33,7 +33,7 @@ enum BackupService {
         case invalidFile
 
         var errorDescription: String? {
-            "PlaceCards 백업 파일이 아닙니다."
+            "PlaceCards 백업 파일이 아닙니다.".localized
         }
     }
 

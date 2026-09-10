@@ -94,12 +94,40 @@ struct GoogleMapWebView: UIViewRepresentable {
         }
     }
 
+    /// The handful of user-facing strings baked into this embedded HTML/JS
+    /// page (as opposed to `MarkerPlace.name`/`.address`, which are plain
+    /// place data) — resolved here in Swift, via `.localized`, since the
+    /// JS template below has no access to the app's own language setting.
+    private struct LocalizedStrings: Encodable {
+        let loadError: String
+        let viewCard: String
+        let openGoogleMaps: String
+        let openNaverMap: String
+        let openKakaoMap: String
+        let openTmap: String
+    }
+
     private static func html(apiKey: String, places: [MarkerPlace]) -> String {
         let placesJSON: String
         if let data = try? JSONEncoder().encode(places), let json = String(data: data, encoding: .utf8) {
             placesJSON = json.replacingOccurrences(of: "</", with: "<\\/")
         } else {
             placesJSON = "[]"
+        }
+
+        let strings = LocalizedStrings(
+            loadError: "Google 지도를 불러오지 못했습니다 — 설정의 API 키를 확인해주세요.".localized,
+            viewCard: "📋 카드 보기".localized,
+            openGoogleMaps: "Google Maps에서 열기".localized,
+            openNaverMap: "Naver Map에서 열기".localized,
+            openKakaoMap: "Kakao Map에서 열기".localized,
+            openTmap: "Tmap에서 열기".localized
+        )
+        let stringsJSON: String
+        if let data = try? JSONEncoder().encode(strings), let json = String(data: data, encoding: .utf8) {
+            stringsJSON = json.replacingOccurrences(of: "</", with: "<\\/")
+        } else {
+            stringsJSON = "{}"
         }
 
         return """
@@ -115,6 +143,7 @@ struct GoogleMapWebView: UIViewRepresentable {
           <div id="map"></div>
           <script>
             const places = \(placesJSON);
+            const L = \(stringsJSON);
             let mapReady = false;
 
             // A bad/restricted API key never calls initMap and doesn't
@@ -123,10 +152,11 @@ struct GoogleMapWebView: UIViewRepresentable {
             // forever with no feedback.
             setTimeout(() => {
               if (mapReady) return;
-              document.getElementById("map").outerHTML =
-                '<div style="display:flex;align-items:center;justify-content:center;' +
-                'height:100%;padding:24px;text-align:center;font:14px -apple-system,sans-serif;' +
-                'color:#a3a3a3;">Google 지도를 불러오지 못했습니다 — 설정의 API 키를 확인해주세요.</div>';
+              const errorDiv = document.createElement("div");
+              errorDiv.style.cssText = "display:flex;align-items:center;justify-content:center;" +
+                "height:100%;padding:24px;text-align:center;font:14px -apple-system,sans-serif;color:#a3a3a3;";
+              errorDiv.textContent = L.loadError;
+              document.getElementById("map").replaceWith(errorDiv);
             }, 10000);
 
             function initMap() {
@@ -221,7 +251,7 @@ struct GoogleMapWebView: UIViewRepresentable {
                   };
                   const viewCardEl = document.createElement("button");
                   viewCardEl.type = "button";
-                  viewCardEl.textContent = "📋 카드 보기";
+                  viewCardEl.textContent = L.viewCard;
                   viewCardEl.style.display = "block";
                   viewCardEl.style.marginTop = "4px";
                   viewCardEl.style.fontSize = "12px";
@@ -233,10 +263,10 @@ struct GoogleMapWebView: UIViewRepresentable {
                   viewCardEl.style.cursor = "pointer";
                   viewCardEl.onclick = () => window.webkit.messageHandlers.selectPlace.postMessage(place.id);
                   content.appendChild(viewCardEl);
-                  content.appendChild(makeMapLink(mapsUrl, "Google Maps에서 열기"));
-                  if (place.naverMapUrlString) content.appendChild(makeMapLink(place.naverMapUrlString, "Naver Map에서 열기"));
-                  if (place.kakaoMapUrlString) content.appendChild(makeMapLink(place.kakaoMapUrlString, "Kakao Map에서 열기"));
-                  if (place.tmapUrlString) content.appendChild(makeMapLink(place.tmapUrlString, "Tmap에서 열기"));
+                  content.appendChild(makeMapLink(mapsUrl, L.openGoogleMaps));
+                  if (place.naverMapUrlString) content.appendChild(makeMapLink(place.naverMapUrlString, L.openNaverMap));
+                  if (place.kakaoMapUrlString) content.appendChild(makeMapLink(place.kakaoMapUrlString, L.openKakaoMap));
+                  if (place.tmapUrlString) content.appendChild(makeMapLink(place.tmapUrlString, L.openTmap));
                   infoWindow.setContent(content);
                   infoWindow.open(map, marker);
                 });

@@ -105,10 +105,10 @@ struct EditPlaceCardSheet: View {
             Form {
                 photoImportSection
 
-                Section("기본 정보") {
-                    TextField("이름", text: $name)
+                Section("기본 정보".localized) {
+                    TextField("이름".localized, text: $name)
                     HStack {
-                        TextField("카테고리", text: $category)
+                        TextField("카테고리".localized, text: $category)
                         if !existingCategories.isEmpty {
                             Menu {
                                 ForEach(existingCategories, id: \.self) { option in
@@ -119,94 +119,94 @@ struct EditPlaceCardSheet: View {
                             }
                         }
                     }
-                    TextField("주소", text: $address)
+                    TextField("주소".localized, text: $address)
                 }
 
                 webSearchSection
 
                 Section {
-                    TextField("위도", text: $latitudeText)
+                    TextField("위도".localized, text: $latitudeText)
                         .keyboardType(.numbersAndPunctuation)
-                    TextField("경도", text: $longitudeText)
+                    TextField("경도".localized, text: $longitudeText)
                         .keyboardType(.numbersAndPunctuation)
                 } header: {
-                    Text("좌표")
+                    Text("좌표".localized)
                 } footer: {
-                    Text("둘 다 비우면 좌표가 삭제됩니다. 하나만 채워지면 원래 값이 그대로 유지됩니다.")
+                    Text("둘 다 비우면 좌표가 삭제됩니다. 하나만 채워지면 원래 값이 그대로 유지됩니다.".localized)
                 }
 
-                Section("연락처") {
-                    TextField("전화번호", text: $phone)
+                Section("연락처".localized) {
+                    TextField("전화번호".localized, text: $phone)
                         .keyboardType(.phonePad)
-                    TextField("웹사이트 URL", text: $website)
+                    TextField("웹사이트 URL".localized, text: $website)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
-                    TextField("인스타그램 URL", text: $instagramURL)
+                    TextField("인스타그램 URL".localized, text: $instagramURL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
                 }
 
-                Section("평가") {
-                    TextField("평점 (0~5)", text: $ratingText)
+                Section("평가".localized) {
+                    TextField("평점 (0~5)".localized, text: $ratingText)
                         .keyboardType(.decimalPad)
-                    TextField("리뷰 수", text: $reviewCountText)
+                    TextField("리뷰 수".localized, text: $reviewCountText)
                         .keyboardType(.numberPad)
                 }
 
-                Section("상태") {
-                    Toggle("즐겨찾기", isOn: $isFavorite)
-                    Toggle("방문함", isOn: $isVisited)
+                Section("상태".localized) {
+                    Toggle("즐겨찾기".localized, isOn: $isFavorite)
+                    Toggle("방문함".localized, isOn: $isVisited)
                 }
 
                 Section {
                     ForEach($hoursEntries) { $entry in
                         HStack {
-                            TextField("요일", text: $entry.day)
+                            TextField("요일".localized, text: $entry.day)
                                 .frame(width: 70)
                             Divider()
-                            TextField("영업시간 (예: 09:00-18:00)", text: $entry.hours)
+                            TextField("영업시간 (예: 09:00-18:00)".localized, text: $entry.hours)
                         }
                     }
                     .onDelete { hoursEntries.remove(atOffsets: $0) }
-                    Button("+ 요일 추가") {
+                    Button("+ 요일 추가".localized) {
                         hoursEntries.append(HoursEntry(day: "", hours: ""))
                     }
-                    TextField("마감 시간", text: $closingTime)
-                    TextField("휴무일", text: $holidays)
+                    TextField("마감 시간".localized, text: $closingTime)
+                    TextField("휴무일".localized, text: $holidays)
                 } header: {
-                    Text("영업 정보")
+                    Text("영업 정보".localized)
                 }
 
                 Section {
-                    TextField("쉼표로 구분", text: $tagsText, axis: .vertical)
+                    TextField("쉼표로 구분".localized, text: $tagsText, axis: .vertical)
                 } header: {
-                    Text("태그")
+                    Text("태그".localized)
                 }
 
                 Section {
-                    TextField("쉼표로 구분", text: $amenitiesText, axis: .vertical)
+                    TextField("쉼표로 구분".localized, text: $amenitiesText, axis: .vertical)
                 } header: {
-                    Text("편의시설")
+                    Text("편의시설".localized)
                 }
 
                 Section {
-                    TextField("메모", text: $memoText, axis: .vertical)
+                    TextField("메모".localized, text: $memoText, axis: .vertical)
                 } header: {
-                    Text("메모")
+                    Text("메모".localized)
                 } footer: {
-                    Text("위 항목 어디에도 맞지 않는 정보를 자유롭게 적어두는 곳입니다.")
+                    Text("위 항목 어디에도 맞지 않는 정보를 자유롭게 적어두는 곳입니다.".localized)
                 }
             }
-            .navigationTitle("장소 정보 수정")
+            .navigationTitle("장소 정보 수정".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button("취소".localized) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("저장") { save() }
+                    Button("저장".localized) { save() }
                         .disabled(!canSave)
                 }
             }
@@ -218,18 +218,18 @@ struct EditPlaceCardSheet: View {
                 }
             }
             .alert(
-                "이름이 다릅니다",
+                "이름이 다릅니다".localized,
                 isPresented: $isConfirmingNameChange
             ) {
-                Button("변경") {
+                Button("변경".localized) {
                     if let pendingExtractedPlace {
                         applyExtractedPlace(pendingExtractedPlace)
                     }
                     pendingExtractedPlace = nil
                 }
-                Button("취소", role: .cancel) { pendingExtractedPlace = nil }
+                Button("취소".localized, role: .cancel) { pendingExtractedPlace = nil }
             } message: {
-                Text("사진에서는 \"\(pendingExtractedPlace?.placeName ?? "")\"(으)로 보이는데, 현재 이름 \"\(name)\"과 다릅니다. 이름을 바꿀까요?")
+                Text("사진에서는 \"".localized + (pendingExtractedPlace?.placeName ?? "") + "\"(으)로 보이는데, 현재 이름 \"".localized + name + "\"과 다릅니다. 이름을 바꿀까요?".localized)
             }
         }
     }
@@ -269,7 +269,7 @@ struct EditPlaceCardSheet: View {
                 if isLoadingPhotos {
                     ProgressView()
                 } else {
-                    Label(pickedImages.isEmpty ? "사진 추가" : "사진 더 추가", systemImage: "photo.badge.plus")
+                    Label(pickedImages.isEmpty ? "사진 추가".localized : "사진 더 추가".localized, systemImage: "photo.badge.plus")
                 }
             }
             .disabled(isLoadingPhotos)
@@ -281,7 +281,7 @@ struct EditPlaceCardSheet: View {
                     if isAnalyzingPhotos {
                         ProgressView()
                     } else {
-                        Text("AI로 정보 읽어오기")
+                        Text("AI로 정보 읽어오기".localized)
                     }
                 }
                 .disabled(isAnalyzingPhotos)
@@ -293,9 +293,9 @@ struct EditPlaceCardSheet: View {
                     .foregroundStyle(.secondary)
             }
         } header: {
-            Text("사진 추가")
+            Text("사진 추가".localized)
         } footer: {
-            Text("사진은 저장 시 카드에 추가됩니다. \"AI로 정보 읽어오기\"는 비어 있는 이름·주소를 채우는데, 사진에서 여러 장소가 발견되면 적용하지 않고 알려드리고, 이름이 바뀌는 경우엔 확인 후 적용됩니다.")
+            Text("사진은 저장 시 카드에 추가됩니다. \"AI로 정보 읽어오기\"는 비어 있는 이름·주소를 채우는데, 사진에서 여러 장소가 발견되면 적용하지 않고 알려드리고, 이름이 바뀌는 경우엔 확인 후 적용됩니다.".localized)
         }
     }
 
@@ -315,7 +315,7 @@ struct EditPlaceCardSheet: View {
                 if isSearchingWeb {
                     ProgressView()
                 } else {
-                    Label("웹 검색으로 채우기", systemImage: "magnifyingglass")
+                    Label("웹 검색으로 채우기".localized, systemImage: "magnifyingglass")
                 }
             }
             .disabled(isSearchingWeb || name.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -326,7 +326,7 @@ struct EditPlaceCardSheet: View {
                     .foregroundStyle(.secondary)
             }
         } footer: {
-            Text("이름·주소로 AI가 웹을 검색해 전화번호·웹사이트·영업시간 등 비어 있는 항목만 채웁니다. 이미 값이 있는 항목은 바뀌지 않습니다.")
+            Text("이름·주소로 AI가 웹을 검색해 전화번호·웹사이트·영업시간 등 비어 있는 항목만 채웁니다. 이미 값이 있는 항목은 바뀌지 않습니다.".localized)
         }
     }
 
@@ -374,12 +374,12 @@ struct EditPlaceCardSheet: View {
     /// other "fill in" action elsewhere in this app already behaves.
     private func handleAnalysisResults(_ results: [AIAnalysisResult]) {
         guard !results.isEmpty else {
-            photoAnalysisMessage = "사진에서 장소 정보를 찾지 못했습니다."
+            photoAnalysisMessage = "사진에서 장소 정보를 찾지 못했습니다.".localized
             return
         }
         guard results.count == 1 else {
             let names = results.map(\.placeName).joined(separator: ", ")
-            photoAnalysisMessage = "사진에서 여러 장소(\(names))가 발견되어 적용하지 않았습니다. 한 장소가 나온 사진으로 다시 시도해주세요."
+            photoAnalysisMessage = "사진에서 여러 장소(".localized + names + ")가 발견되어 적용하지 않았습니다. 한 장소가 나온 사진으로 다시 시도해주세요.".localized
             return
         }
 
@@ -406,7 +406,7 @@ struct EditPlaceCardSheet: View {
         if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: result.description) {
             memoText = combined
         }
-        photoAnalysisMessage = "AI가 읽은 정보를 채웠습니다."
+        photoAnalysisMessage = "AI가 읽은 정보를 채웠습니다.".localized
     }
 
     private func searchWebForDetails() async {
@@ -438,27 +438,27 @@ struct EditPlaceCardSheet: View {
 
         if phone.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.phone, !value.isEmpty {
             phone = value
-            filledFields.append("전화번호")
+            filledFields.append("전화번호".localized)
         }
         if website.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.website, !value.isEmpty {
             website = value
-            filledFields.append("웹사이트")
+            filledFields.append("웹사이트".localized)
         }
         if category.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.category, !value.isEmpty {
             category = value
-            filledFields.append("카테고리")
+            filledFields.append("카테고리".localized)
         }
         if hoursEntries.isEmpty, let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
             hoursEntries = hoursDetail.sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) }
-            filledFields.append("영업시간")
+            filledFields.append("영업시간".localized)
         }
         if closingTime.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.closingTime, !value.isEmpty {
             closingTime = value
-            filledFields.append("마감 시간")
+            filledFields.append("마감 시간".localized)
         }
         if holidays.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.holidays, !value.isEmpty {
             holidays = value
-            filledFields.append("휴무일")
+            filledFields.append("휴무일".localized)
         }
         if !details.amenities.isEmpty {
             let existing = Set(amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
@@ -467,17 +467,17 @@ struct EditPlaceCardSheet: View {
                 amenitiesText = amenitiesText.trimmingCharacters(in: .whitespaces).isEmpty
                     ? newOnes.joined(separator: ", ")
                     : amenitiesText + ", " + newOnes.joined(separator: ", ")
-                filledFields.append("편의시설")
+                filledFields.append("편의시설".localized)
             }
         }
         if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: details.note), combined != memoText {
             memoText = combined
-            filledFields.append("메모")
+            filledFields.append("메모".localized)
         }
 
         webSearchMessage = filledFields.isEmpty
-            ? "웹 검색에서 새로 채울 정보를 찾지 못했습니다."
-            : "\(filledFields.joined(separator: ", ")) 정보를 채웠습니다."
+            ? "웹 검색에서 새로 채울 정보를 찾지 못했습니다.".localized
+            : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
     }
 
     private func save() {
@@ -543,6 +543,6 @@ struct EditPlaceCardSheet: View {
 }
 
 #Preview {
-    EditPlaceCardSheet(card: PlaceCard(boardId: "preview", name: "샘플 카페", address: "서울시 강남구")) { _ in }
+    EditPlaceCardSheet(card: PlaceCard(boardId: "preview", name: "샘플 카페".localized, address: "서울시 강남구".localized)) { _ in }
         .environmentObject(StorageService())
 }

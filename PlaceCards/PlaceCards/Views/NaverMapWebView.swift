@@ -138,9 +138,13 @@ struct NaverMapWebView: UIViewRepresentable {
         }
 
         private func reportLoadFailure(_ error: Error, on webView: WKWebView) {
+            let message = "Naver 지도 페이지에 연결할 수 없습니다 — 인터넷 연결을 확인해주세요.".localized
+                .replacingOccurrences(of: "&", with: "&amp;")
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
             webView.loadHTMLString(
                 """
-                <body style="display:flex;align-items:center;justify-content:center;height:100%;margin:0;padding:24px;text-align:center;font:14px -apple-system,sans-serif;color:#a3a3a3;">Naver 지도 페이지에 연결할 수 없습니다 — 인터넷 연결을 확인해주세요.</body>
+                <body style="display:flex;align-items:center;justify-content:center;height:100%;margin:0;padding:24px;text-align:center;font:14px -apple-system,sans-serif;color:#a3a3a3;">\(message)</body>
                 """,
                 baseURL: nil
             )

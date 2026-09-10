@@ -99,7 +99,7 @@ final class PlaceCardViewModel: ObservableObject {
                 PlaceCandidateRow(name: $0.placeName, address: $0.address ?? "", scannedNote: $0.description)
             }
             if candidateRows.isEmpty {
-                errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요."
+                errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요.".localized
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -192,7 +192,7 @@ final class PlaceCardViewModel: ObservableObject {
             candidateRows[index].searchResults = results
             if results.isEmpty {
                 errorMessage = (!address.isEmpty && !rawResults.isEmpty)
-                    ? "\"\(address)\" 근처 100m 이내에서 찾지 못했습니다."
+                    ? "\"" + address + "\" 근처 100m 이내에서 찾지 못했습니다.".localized
                     : PlaceCardsError.noResults.localizedDescription
             }
         } catch {

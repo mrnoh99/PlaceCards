@@ -72,9 +72,9 @@ struct PlacesMapView: View {
     }
 
     private var mapNavigationTitle: String {
-        if navigation.mapFilterIDs != nil { return "선택한 장소" }
+        if navigation.mapFilterIDs != nil { return "선택한 장소".localized }
         if let scopedBoard { return scopedBoard.name }
-        return "지도"
+        return "지도".localized
     }
 
     var body: some View {
@@ -93,7 +93,7 @@ struct PlacesMapView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Picker("지도", selection: $displayProviderRaw) {
+                    Picker("지도".localized, selection: $displayProviderRaw) {
                         ForEach(MapDisplayProvider.allCases) { provider in
                             Text(provider.label).tag(provider.rawValue)
                         }
@@ -103,7 +103,7 @@ struct PlacesMapView: View {
                 }
                 if navigation.mapFilterIDs != nil {
                     ToolbarItem(placement: .primaryAction) {
-                        Button("전체 보기") { navigation.mapFilterIDs = nil }
+                        Button("전체 보기".localized) { navigation.mapFilterIDs = nil }
                     }
                 }
             }
@@ -115,12 +115,12 @@ struct PlacesMapView: View {
                             // (unlike `.sheet`, which this replaced), so
                             // this is the only way back out.
                             ToolbarItem(placement: .cancellationAction) {
-                                Button("닫기") { selectedCard = nil }
+                                Button("닫기".localized) { selectedCard = nil }
                             }
                         }
                 }
             }
-            .searchable(text: $searchQuery, prompt: "장소 검색")
+            .searchable(text: $searchQuery, prompt: "장소 검색".localized)
             // Only the Apple map has a SwiftUI-owned camera
             // (`viewModel.region`) this can recenter directly — the
             // Google/Naver maps are WKWebViews with no such hook from
@@ -166,7 +166,7 @@ struct PlacesMapView: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
-                    Button("카드 보기") {
+                    Button("카드 보기".localized) {
                         selectedCard = card
                     }
                     .font(.caption)
@@ -207,8 +207,8 @@ struct PlacesMapView: View {
             )
         } else {
             missingKeyState(
-                title: "Google API 키가 필요합니다",
-                message: "설정에서 Google Places API 키를 등록해주세요."
+                title: "Google API 키가 필요합니다".localized,
+                message: "설정에서 Google Places API 키를 등록해주세요.".localized
             )
         }
     }
@@ -223,8 +223,8 @@ struct PlacesMapView: View {
             )
         } else {
             missingKeyState(
-                title: "Naver Client ID가 필요합니다",
-                message: "설정에서 Naver 지도 표시용 NCP Client ID를 등록해주세요."
+                title: "Naver Client ID가 필요합니다".localized,
+                message: "설정에서 Naver 지도 표시용 NCP Client ID를 등록해주세요.".localized
             )
         }
     }

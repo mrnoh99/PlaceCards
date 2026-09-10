@@ -119,7 +119,7 @@ final class GooglePlacesService: PlaceSearchService {
             URLQueryItem(name: "maxWidthPx", value: String(maxWidthPx)),
             URLQueryItem(name: "skipHttpRedirect", value: "true")
         ]
-        guard let url = components.url else { throw PlaceCardsError.networkError("잘못된 사진 URL") }
+        guard let url = components.url else { throw PlaceCardsError.networkError("잘못된 사진 URL".localized) }
 
         struct PhotoMediaResponse: Decodable { let photoUri: String }
         let (data, response) = try await session.data(from: url)
@@ -127,7 +127,7 @@ final class GooglePlacesService: PlaceSearchService {
 
         let decoded = try JSONDecoder().decode(PhotoMediaResponse.self, from: data)
         guard let photoURL = URL(string: decoded.photoUri) else {
-            throw PlaceCardsError.networkError("잘못된 사진 URL")
+            throw PlaceCardsError.networkError("잘못된 사진 URL".localized)
         }
         let (photoBytes, photoResponse) = try await session.data(from: photoURL)
         try Self.validate(response: photoResponse, data: photoBytes)
@@ -137,7 +137,7 @@ final class GooglePlacesService: PlaceSearchService {
     private static func validate(response: URLResponse, data: Data) throws {
         guard let http = response as? HTTPURLResponse else { return }
         guard (200..<300).contains(http.statusCode) else {
-            let message = String(data: data, encoding: .utf8) ?? "알 수 없는 오류"
+            let message = String(data: data, encoding: .utf8) ?? "알 수 없는 오류".localized
             throw PlaceCardsError.apiError(message, statusCode: http.statusCode)
         }
     }

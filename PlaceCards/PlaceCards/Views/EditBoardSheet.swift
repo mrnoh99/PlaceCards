@@ -26,12 +26,12 @@ struct EditBoardSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("게시판") {
-                    TextField("이름 (예: 도쿄 봄 여행)", text: $name)
-                    TextField("부제목 (예: 2026년 4월 · 도쿄)", text: $subtitle)
+                Section("게시판".localized) {
+                    TextField("이름 (예: 도쿄 봄 여행)".localized, text: $name)
+                    TextField("부제목 (예: 2026년 4월 · 도쿄)".localized, text: $subtitle)
                 }
 
-                Section("아이콘") {
+                Section("아이콘".localized) {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
                         ForEach(Board.coverIconChoices, id: \.self) { icon in
                             Button {
@@ -56,14 +56,14 @@ struct EditBoardSheet: View {
                     .padding(.vertical, 4)
                 }
             }
-            .navigationTitle("게시판 수정")
+            .navigationTitle("게시판 수정".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button("취소".localized) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("저장") { save() }
+                    Button("저장".localized) { save() }
                         .disabled(!canSubmit)
                 }
             }
@@ -81,6 +81,6 @@ struct EditBoardSheet: View {
 }
 
 #Preview {
-    EditBoardSheet(board: Board(name: "도쿄 봄 여행", subtitle: "2026년 4월", coverIcon: "airplane"))
+    EditBoardSheet(board: Board(name: "도쿄 봄 여행".localized, subtitle: "2026년 4월".localized, coverIcon: "airplane"))
         .environmentObject(StorageService())
 }

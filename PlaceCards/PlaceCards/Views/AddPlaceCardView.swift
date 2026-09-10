@@ -59,16 +59,16 @@ struct AddPlaceCardView: View {
                         .foregroundStyle(.red)
                 }
             }
-            .navigationTitle("장소 추가")
+            .navigationTitle("장소 추가".localized)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
+                    Button("닫기".localized) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if viewModel.isSaving {
                         ProgressView()
                     } else {
-                        Button("추가 (\(viewModel.selectedRowCount))") {
+                        Button("추가 (".localized + "\(viewModel.selectedRowCount)" + ")") {
                             Task {
                                 _ = await viewModel.createCards(source: sourceType)
                                 didCreateCards = true
@@ -92,7 +92,7 @@ struct AddPlaceCardView: View {
     }
 
     private var photosSection: some View {
-        Section("사진 선택") {
+        Section("사진 선택".localized) {
             if pickedImages.count < Self.maxPhotos {
                 PhotosPicker(
                     selection: $photoPickerItems,
@@ -102,17 +102,17 @@ struct AddPlaceCardView: View {
                     if isLoadingPhotos {
                         ProgressView()
                     } else {
-                        Text(pickedImages.isEmpty ? "갤러리에서 사진 선택 (여러 장 가능)" : "사진 더 추가")
+                        Text(pickedImages.isEmpty ? "갤러리에서 사진 선택 (여러 장 가능)".localized : "사진 더 추가".localized)
                     }
                 }
                 .disabled(isLoadingPhotos)
             }
 
-            Picker("출처", selection: $sourceType) {
-                Text("인스타그램 스크린샷").tag(SourceType.instagramScreenshot)
-                Text("구글 지도 스크린샷").tag(SourceType.googleMapScreenshot)
-                Text("네이버 지도 스크린샷").tag(SourceType.naverMapScreenshot)
-                Text("현장 촬영").tag(SourceType.onsitePhoto)
+            Picker("출처".localized, selection: $sourceType) {
+                Text("인스타그램 스크린샷".localized).tag(SourceType.instagramScreenshot)
+                Text("구글 지도 스크린샷".localized).tag(SourceType.googleMapScreenshot)
+                Text("네이버 지도 스크린샷".localized).tag(SourceType.naverMapScreenshot)
+                Text("현장 촬영".localized).tag(SourceType.onsitePhoto)
             }
 
             if !pickedImages.isEmpty {
@@ -145,7 +145,7 @@ struct AddPlaceCardView: View {
                     if viewModel.isLoading {
                         ProgressView()
                     } else {
-                        Text("AI로 장소 분석하기 (\(pickedImages.count)장)")
+                        Text("AI로 장소 분석하기 (".localized + "\(pickedImages.count)" + "장)".localized)
                     }
                 }
                 .disabled(viewModel.isLoading)
@@ -164,11 +164,11 @@ struct AddPlaceCardView: View {
                 }
             }
 
-            Button("+ 장소 추가") { viewModel.addBlankRow() }
+            Button("+ 장소 추가".localized) { viewModel.addBlankRow() }
         } header: {
-            Text("추가할 장소 (\(viewModel.selectedRowCount)개 선택)")
+            Text("추가할 장소 (".localized + "\(viewModel.selectedRowCount)" + "개 선택)".localized)
         } footer: {
-            Text("AI가 찾은 장소를 검토·수정하거나 직접 추가하세요. \"Google에서 검색\"으로 정확한 주소·평점·연락처를 채울 수 있습니다.")
+            Text("AI가 찾은 장소를 검토·수정하거나 직접 추가하세요. \"Google에서 검색\"으로 정확한 주소·평점·연락처를 채울 수 있습니다.".localized)
         }
     }
 
@@ -185,7 +185,7 @@ struct AddPlaceCardView: View {
             .padding(.top, 4)
 
             VStack(alignment: .leading, spacing: 6) {
-                TextField("장소명", text: row.name)
+                TextField("장소명".localized, text: row.name)
                     .font(.subheadline.weight(.medium))
                     .onChange(of: row.wrappedValue.name) { _, newValue in
                         // `chooseResult` itself writes its result's name onto
@@ -197,7 +197,7 @@ struct AddPlaceCardView: View {
                             viewModel.clearChosenResult(id: row.wrappedValue.id)
                         }
                     }
-                TextField("주소", text: row.address)
+                TextField("주소".localized, text: row.address)
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -206,7 +206,7 @@ struct AddPlaceCardView: View {
                 // it's still just a draft, and folded into the saved
                 // card's memo field at `createCards()` either way.
                 TextField(
-                    "메모 (선택)",
+                    "메모 (선택)".localized,
                     text: Binding(
                         get: { row.wrappedValue.scannedNote ?? "" },
                         set: { row.wrappedValue.scannedNote = $0.isEmpty ? nil : $0 }
@@ -217,7 +217,7 @@ struct AddPlaceCardView: View {
                 .foregroundStyle(.secondary)
 
                 if row.wrappedValue.chosenResult != nil {
-                    Label("Google 지도에서 확인됨", systemImage: "checkmark.seal")
+                    Label("Google 지도에서 확인됨".localized, systemImage: "checkmark.seal")
                         .font(.caption2)
                         .foregroundStyle(.green)
                 }
@@ -228,7 +228,7 @@ struct AddPlaceCardView: View {
                     if row.wrappedValue.isSearching {
                         ProgressView()
                     } else {
-                        Text("Google에서 검색")
+                        Text("Google에서 검색".localized)
                     }
                 }
                 .font(.caption)

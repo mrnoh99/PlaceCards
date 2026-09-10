@@ -78,14 +78,14 @@ struct PlaceStatusFilterBar: View {
                     categoryMenu
                 }
                 Divider().frame(height: 20)
-                chip(title: "전체 (\(allCount))", isSelected: filter.isAll) {
+                chip(title: "전체 (".localized + "\(allCount))", isSelected: filter.isAll) {
                     filter.favoriteOnly = false
                     filter.visitedOnly = false
                 }
-                chip(title: "⭐ 즐겨찾기 (\(favoriteCount))", isSelected: filter.favoriteOnly) {
+                chip(title: "⭐ 즐겨찾기 (".localized + "\(favoriteCount))", isSelected: filter.favoriteOnly) {
                     filter.favoriteOnly.toggle()
                 }
-                chip(title: "✅ 방문 (\(visitedCount))", isSelected: filter.visitedOnly) {
+                chip(title: "✅ 방문 (".localized + "\(visitedCount))", isSelected: filter.visitedOnly) {
                     filter.visitedOnly.toggle()
                 }
             }
@@ -102,14 +102,14 @@ struct PlaceStatusFilterBar: View {
                     if mode != .distance { distanceReference = nil }
                 } label: {
                     if sortMode == mode {
-                        Label(mode.rawValue, systemImage: "checkmark")
+                        Label(mode.displayName, systemImage: "checkmark")
                     } else {
-                        Text(mode.rawValue)
+                        Text(mode.displayName)
                     }
                 }
             }
         } label: {
-            chipLabel(title: "정렬: \(sortMode.rawValue)", isSelected: sortMode != .byCategory)
+            chipLabel(title: "정렬: ".localized + sortMode.displayName, isSelected: sortMode != .byCategory)
         }
     }
 
@@ -119,9 +119,9 @@ struct PlaceStatusFilterBar: View {
                 categoryFilter = nil
             } label: {
                 if categoryFilter == nil {
-                    Label("전체", systemImage: "checkmark")
+                    Label("전체".localized, systemImage: "checkmark")
                 } else {
-                    Text("전체")
+                    Text("전체".localized)
                 }
             }
             ForEach(categories, id: \.self) { category in
@@ -136,7 +136,7 @@ struct PlaceStatusFilterBar: View {
                 }
             }
         } label: {
-            chipLabel(title: "카테고리: \(categoryFilter ?? "전체")", isSelected: categoryFilter != nil)
+            chipLabel(title: "카테고리: ".localized + (categoryFilter ?? "전체".localized), isSelected: categoryFilter != nil)
         }
     }
 
@@ -146,7 +146,7 @@ struct PlaceStatusFilterBar: View {
                 distanceReference = .here
                 Task { hereCoordinate = await LocationService.currentLocation() }
             } label: {
-                Label("현재 위치", systemImage: "location")
+                Label("현재 위치".localized, systemImage: "location")
             }
             ForEach(referenceCandidates) { card in
                 Button(card.name) { distanceReference = .card(card.id) }
@@ -158,9 +158,9 @@ struct PlaceStatusFilterBar: View {
 
     private var referenceTitle: String {
         switch distanceReference {
-        case .here: return "기준: 현재 위치"
-        case .card: return referenceCard.map { "기준: \($0.name)" } ?? "장소 선택…"
-        case nil: return "장소 선택…"
+        case .here: return "기준: 현재 위치".localized
+        case .card: return referenceCard.map { "기준: ".localized + $0.name } ?? "장소 선택…".localized
+        case nil: return "장소 선택…".localized
         }
     }
 
@@ -189,7 +189,7 @@ struct PlaceStatusFilterBar: View {
         hereCoordinate: .constant(nil),
         referenceCandidates: [],
         categoryFilter: .constant(nil),
-        categories: ["카페", "식당"],
+        categories: ["카페".localized, "식당".localized],
         filter: .constant(PlaceStatusFilter()),
         allCount: 12,
         favoriteCount: 3,

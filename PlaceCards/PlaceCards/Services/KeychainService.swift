@@ -38,7 +38,7 @@ struct KeychainService {
 
         let status = SecItemAdd(newItem as CFDictionary, nil)
         guard status == errSecSuccess else {
-            throw PlaceCardsError.keychainError("저장 실패 (코드 \(status))")
+            throw PlaceCardsError.keychainError("저장 실패 (코드 ".localized + "\(status))")
         }
     }
 

@@ -34,20 +34,20 @@ struct FindDuplicatesSheet: View {
             Group {
                 if groups.isEmpty {
                     ContentUnavailableView {
-                        Label("중복이 없습니다", systemImage: "checkmark.circle")
+                        Label("중복이 없습니다".localized, systemImage: "checkmark.circle")
                     } description: {
-                        Text("이름이 같고 위치나 주소가 가까워야 중복으로 표시됩니다.")
+                        Text("이름이 같고 위치나 주소가 가까워야 중복으로 표시됩니다.".localized)
                     }
                 } else if remainingCount == 0 {
                     ContentUnavailableView {
-                        Label("모두 병합했습니다", systemImage: "checkmark.circle")
+                        Label("모두 병합했습니다".localized, systemImage: "checkmark.circle")
                     } description: {
-                        Text("찾아낸 중복을 모두 병합했습니다.")
+                        Text("찾아낸 중복을 모두 병합했습니다.".localized)
                     }
                 } else {
                     List {
                         Section {
-                            Text("같은 장소가 두 번 이상 저장된 것으로 보이는 \(remainingCount)개 그룹을 찾았습니다. 남길 카드를 고른 뒤 병합하세요 — 나머지의 전화번호·링크·사진은 남는 카드로 옮겨진 뒤 삭제됩니다.")
+                            Text("같은 장소가 두 번 이상 저장된 것으로 보이는 ".localized + "\(remainingCount)" + "개 그룹을 찾았습니다. 남길 카드를 고른 뒤 병합하세요 — 나머지의 전화번호·링크·사진은 남는 카드로 옮겨진 뒤 삭제됩니다.".localized)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -59,11 +59,11 @@ struct FindDuplicatesSheet: View {
                     }
                 }
             }
-            .navigationTitle("중복 찾기")
+            .navigationTitle("중복 찾기".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
+                    Button("닫기".localized) { dismiss() }
                 }
             }
         }
@@ -96,7 +96,7 @@ struct FindDuplicatesSheet: View {
                 }
                 .buttonStyle(.plain)
             }
-            Button("\"\(group.first(where: { $0.id == selectedID })?.name ?? "")\"(으)로 병합") {
+            Button("\"" + (group.first(where: { $0.id == selectedID })?.name ?? "") + "\"(으)로 병합".localized) {
                 merge(groupIndex: groupIndex, group: group)
             }
             .font(.subheadline.weight(.medium))

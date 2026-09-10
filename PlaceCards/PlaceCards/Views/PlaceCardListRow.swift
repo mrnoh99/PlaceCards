@@ -122,7 +122,7 @@ struct PlaceCardListRow: View {
                         }
                     }
                     if card.coordinates != nil {
-                        Button("Apple 지도") {
+                        Button("Apple 지도".localized) {
                             MapOpenContext.recordMapOpen(cardID: card.id)
                             AppleMapsOpener.open(for: card)
                         }
@@ -180,7 +180,7 @@ struct PlaceCardListRow: View {
 
 #Preview {
     List {
-        PlaceCardListRow(card: PlaceCard(boardId: "preview", name: "샘플 카페", category: "카페", address: "서울시 강남구"))
+        PlaceCardListRow(card: PlaceCard(boardId: "preview", name: "샘플 카페".localized, category: "카페".localized, address: "서울시 강남구".localized))
     }
     .environmentObject(StorageService())
 }

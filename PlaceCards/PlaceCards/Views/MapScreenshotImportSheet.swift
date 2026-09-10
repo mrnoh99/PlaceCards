@@ -54,9 +54,9 @@ struct MapScreenshotImportSheet: View {
                         }
                     }
                 } header: {
-                    Text("이 카드에 추가할까요?")
+                    Text("이 카드에 추가할까요?".localized)
                 } footer: {
-                    Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, AI로 읽어 비어 있는 이름·주소를 채웁니다.")
+                    Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, AI로 읽어 비어 있는 이름·주소를 채웁니다.".localized)
                 }
 
                 if let statusMessage {
@@ -67,40 +67,40 @@ struct MapScreenshotImportSheet: View {
                     }
                 }
             }
-            .navigationTitle("사진 가져오기")
+            .navigationTitle("사진 가져오기".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button("취소".localized) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if isProcessing {
                         ProgressView()
                     } else if didProcess {
-                        Button("완료") { dismiss() }
+                        Button("완료".localized) { dismiss() }
                     } else {
-                        Button("추가하기") { Task { await process() } }
+                        Button("추가하기".localized) { Task { await process() } }
                     }
                 }
             }
             .alert(
-                "이름이 다릅니다",
+                "이름이 다릅니다".localized,
                 isPresented: $isConfirmingNameChange
             ) {
-                Button("변경") {
+                Button("변경".localized) {
                     if let pendingResult {
                         applyExtracted(pendingResult, applyName: true)
                     }
                     pendingResult = nil
                 }
-                Button("이름은 유지", role: .cancel) {
+                Button("이름은 유지".localized, role: .cancel) {
                     if let pendingResult {
                         applyExtracted(pendingResult, applyName: false)
                     }
                     pendingResult = nil
                 }
             } message: {
-                Text("사진에서는 \"\(pendingResult?.placeName ?? "")\"(으)로 보이는데, 현재 이름 \"\(card.name)\"과 다릅니다. 이름을 바꿀까요?")
+                Text("사진에서는 \"".localized + (pendingResult?.placeName ?? "") + "\"(으)로 보이는데, 현재 이름 \"".localized + card.name + "\"과 다릅니다. 이름을 바꿀까요?".localized)
             }
         }
     }
@@ -123,13 +123,13 @@ struct MapScreenshotImportSheet: View {
         onApplied(card)
 
         guard let jpegData = previewImage?.jpegData(compressionQuality: 0.8) else {
-            statusMessage = "사진을 카드에 추가했습니다."
+            statusMessage = "사진을 카드에 추가했습니다.".localized
             return
         }
 
         let providerType = SettingsViewModel.currentAIProviderType()
         guard let apiKey = KeychainService.load(providerType.keychainKey), !apiKey.isEmpty else {
-            statusMessage = "사진을 카드에 추가했습니다."
+            statusMessage = "사진을 카드에 추가했습니다.".localized
             return
         }
 
@@ -138,18 +138,18 @@ struct MapScreenshotImportSheet: View {
             let results = try await provider.analyzePlaces(imageDatas: [jpegData], prompt: defaultPlaceAnalysisPrompt())
             handleAnalysisResults(results)
         } catch {
-            statusMessage = "사진을 카드에 추가했습니다. (정보 읽기 실패: \(error.localizedDescription))"
+            statusMessage = "사진을 카드에 추가했습니다. (정보 읽기 실패: ".localized + error.localizedDescription + ")"
         }
     }
 
     private func handleAnalysisResults(_ results: [AIAnalysisResult]) {
         guard !results.isEmpty else {
-            statusMessage = "사진을 카드에 추가했습니다. (장소 정보는 찾지 못했습니다.)"
+            statusMessage = "사진을 카드에 추가했습니다. (장소 정보는 찾지 못했습니다.)".localized
             return
         }
         guard results.count == 1 else {
             let names = results.map(\.placeName).joined(separator: ", ")
-            statusMessage = "사진을 카드에 추가했습니다. 사진에서 여러 장소(\(names))가 발견되어 정보는 채우지 않았습니다."
+            statusMessage = "사진을 카드에 추가했습니다. 사진에서 여러 장소(".localized + names + ")가 발견되어 정보는 채우지 않았습니다.".localized
             return
         }
 
@@ -178,13 +178,13 @@ struct MapScreenshotImportSheet: View {
         card.memo = PlaceCard.combinedMemo(card.memo, appending: result.description)
         storageService.save(card)
         onApplied(card)
-        statusMessage = "AI가 읽은 정보를 채웠습니다."
+        statusMessage = "AI가 읽은 정보를 채웠습니다.".localized
     }
 }
 
 #Preview {
     MapScreenshotImportSheet(
-        card: PlaceCard(boardId: "preview", name: "샘플 카페", address: "서울시 강남구"),
+        card: PlaceCard(boardId: "preview", name: "샘플 카페".localized, address: "서울시 강남구".localized),
         imageData: Data()
     ) { _ in }
     .environmentObject(StorageService())

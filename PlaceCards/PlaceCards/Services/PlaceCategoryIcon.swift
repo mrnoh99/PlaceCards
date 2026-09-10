@@ -133,6 +133,6 @@ enum PlaceCategoryIcon {
     /// Everything else passes through unchanged — there's no fixed
     /// taxonomy to normalize the rest into here.
     static func normalizedLabel(for category: String) -> String {
-        isCafe(category.lowercased()) ? "카페" : category
+        isCafe(category.lowercased()) ? "카페".localized : category
     }
 }
