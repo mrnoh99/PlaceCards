@@ -11,6 +11,38 @@ enum KoreaRegion {
     }
 }
 
+/// The user's default map app for the single-tap "지도에서 열기" action
+/// (`PlaceCardDetailView`), chosen in Settings. The card cell's own map
+/// menu (Google/Naver/Kakao/Tmap) is unaffected — it always offers an
+/// explicit choice regardless of this default.
+enum MapProvider: String, CaseIterable, Identifiable {
+    case apple
+    case google
+    case naver
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .apple: return "Apple 지도"
+        case .google: return "Google Maps"
+        case .naver: return "Naver Map"
+        }
+    }
+
+    /// The link to open for this provider, or nil when it has nothing
+    /// usable for this card (e.g. Naver outside Korea, or Apple — which
+    /// opens via `MKMapItem` instead of a URL, so callers should check
+    /// `self == .apple` first).
+    func url(for card: PlaceCard) -> URL? {
+        switch self {
+        case .apple: return nil
+        case .google: return GoogleMapsOpener.url(for: card)
+        case .naver: return NaverMapOpener.url(for: card)
+        }
+    }
+}
+
 /// Builds a Google Maps link that opens the native app on devices where
 /// it's installed, or maps.google.com otherwise. Searches by "name,
 /// address" when both are known, falling back to the name alone, or the

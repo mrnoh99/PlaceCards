@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (10차) — 설정에 기본 지도 앱(Apple/Google/Naver) 선택 추가
+#### Added
+- 설정 화면에 "기본 지도 앱" 섹션 추가 — Apple 지도(기본값)/Google
+  Maps/Naver Map 중 선택. 키 입력이 없는 단순 선택이라 별도 저장 버튼
+  없이 선택 즉시 저장됨(`SettingsViewModel.saveMapProvider()`,
+  UserDefaults).
+- `Services/MapOpeners.swift`에 `MapProvider` enum(apple/google/naver)
+  추가 — 게시판/갤러리 카드 셀의 지도 메뉴(Google/Naver/Kakao/Tmap 항상
+  전부 제공)는 그대로 두고, 상세화면의 "지도에서 열기" 버튼만 이 기본값을
+  따르도록 변경. Naver는 한국 밖에서는 쓸 수 있는 데이터가 없어(기존
+  `KoreaRegion` 체크) 그 경우 Google Maps로 대체.
+
 ### 2026-09-10 (9차) — Sort By 옆에 카테고리 필터 드롭다운 추가
 #### Added
 - `PlaceStatusFilterBar`의 "정렬" 메뉴 옆에 "카테고리" 드롭다운을 추가 —

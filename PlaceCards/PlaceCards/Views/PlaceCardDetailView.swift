@@ -4,6 +4,8 @@ import MapKit
 struct PlaceCardDetailView: View {
     let card: PlaceCard
 
+    @Environment(\.openURL) private var openURL
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -84,7 +86,7 @@ struct PlaceCardDetailView: View {
                     .allowsHitTesting(false)
 
                     Button {
-                        openInMaps(coordinates: coordinates, name: card.name)
+                        openInPreferredMap(coordinates: coordinates)
                     } label: {
                         Label("지도에서 열기", systemImage: "map")
                     }
@@ -108,7 +110,24 @@ struct PlaceCardDetailView: View {
         "\(card.name)\n\(card.address)"
     }
 
-    private func openInMaps(coordinates: Coordinates, name: String) {
+    /// Opens the map app chosen in Settings — Apple Maps directly via
+    /// `MKMapItem`, or Google/Naver Maps via their own "open in..." link.
+    /// Naver has no useful data outside Korea, so falls back to Google
+    /// Maps there instead of silently doing nothing.
+    private func openInPreferredMap(coordinates: Coordinates) {
+        let provider = SettingsViewModel.currentMapProvider()
+        guard provider != .apple else {
+            openInAppleMaps(coordinates: coordinates, name: card.name)
+            return
+        }
+        if let url = provider.url(for: card) {
+            openURL(url)
+        } else if let url = GoogleMapsOpener.url(for: card) {
+            openURL(url)
+        }
+    }
+
+    private func openInAppleMaps(coordinates: Coordinates, name: String) {
         let placemark = MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude))
         let mapItem = MKMapItem(placemark: placemark)
         mapItem.name = name

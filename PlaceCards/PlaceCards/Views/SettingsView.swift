@@ -58,6 +58,20 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("기본 지도 앱") {
+                    Picker("지도", selection: $viewModel.mapProvider) {
+                        ForEach(MapProvider.allCases) { provider in
+                            Text(provider.label).tag(provider)
+                        }
+                    }
+                    .onChange(of: viewModel.mapProvider) { _, _ in
+                        viewModel.saveMapProvider()
+                    }
+                    Text("장소 상세화면의 \"지도에서 열기\"가 이 앱으로 열립니다. Naver Map은 한국 밖 장소에서는 Google Maps로 대신 열립니다.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("AI 이미지 분석 (BYOK)") {
                     Picker("제공자", selection: $viewModel.aiProviderType) {
                         ForEach(AIProviderType.allCases) { provider in

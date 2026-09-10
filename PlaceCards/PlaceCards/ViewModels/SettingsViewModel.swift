@@ -17,10 +17,12 @@ final class SettingsViewModel: ObservableObject {
     /// list, or Custom…" model picker. Kept independent of `aiProviderType`
     /// so switching providers and back doesn't lose it.
     @Published var gatewayModel: String = ""
+    @Published var mapProvider: MapProvider = .apple
     @Published var statusMessage: String?
 
     private static let aiProviderDefaultsKey = "aiProviderType"
     private static let gatewayModelDefaultsKey = "gatewayModel"
+    private static let mapProviderDefaultsKey = "mapProvider"
 
     init() {
         googleAPIKey = KeychainService.load(.googlePlacesAPIKey) ?? ""
@@ -31,6 +33,7 @@ final class SettingsViewModel: ObservableObject {
         aiProviderType = Self.currentAIProviderType()
         aiAPIKey = KeychainService.load(aiProviderType.keychainKey) ?? ""
         gatewayModel = Self.currentGatewayModel()
+        mapProvider = Self.currentMapProvider()
     }
 
     /// Reads the saved AI provider choice without needing an instance, so
@@ -49,6 +52,17 @@ final class SettingsViewModel: ObservableObject {
     /// provider choice above) rather than Keychain.
     static func currentGatewayModel() -> String {
         UserDefaults.standard.string(forKey: gatewayModelDefaultsKey) ?? GatewayModels.defaultModel
+    }
+
+    /// Reads the saved default map app without needing an instance, so
+    /// `PlaceCardDetailView` can look it up right before opening "지도에서
+    /// 열기". Not a secret, so plain UserDefaults, like the choices above.
+    static func currentMapProvider() -> MapProvider {
+        if let stored = UserDefaults.standard.string(forKey: mapProviderDefaultsKey),
+           let provider = MapProvider(rawValue: stored) {
+            return provider
+        }
+        return .apple
     }
 
     /// Reads the saved Naver Local Search credentials without needing an
@@ -103,6 +117,13 @@ final class SettingsViewModel: ObservableObject {
         } catch {
             statusMessage = error.localizedDescription
         }
+    }
+
+    /// Saves immediately on selection, unlike the API key sections above —
+    /// there's no key to enter alongside it, so a separate "저장" button
+    /// would just be an extra tap for nothing.
+    func saveMapProvider() {
+        UserDefaults.standard.set(mapProvider.rawValue, forKey: Self.mapProviderDefaultsKey)
     }
 
     func saveAIProviderSettings() {
