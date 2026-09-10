@@ -15,6 +15,8 @@ struct GalleryView: View {
                     distanceReference: $viewModel.distanceReference,
                     hereCoordinate: $viewModel.hereCoordinate,
                     locatableCards: viewModel.locatableCards,
+                    categoryFilter: $viewModel.categoryFilter,
+                    categories: viewModel.allCategories,
                     filter: $viewModel.statusFilter,
                     allCount: viewModel.totalCount,
                     favoriteCount: viewModel.favoriteCount,

@@ -30,8 +30,11 @@ enum DistanceReference: Equatable {
 /// place list (board detail, gallery) — mirrors Peragra's `PlaceFilterBar`
 /// (sort menu + reference-place menu) followed by
 /// `TripDetailView.collectionFilterBar` (its All/Favorites/Visited chips),
-/// combined into a single row since PlaceCards has no category chips of
-/// its own to separate them from.
+/// combined into a single row. The category dropdown next to the sort menu
+/// filters by `PlaceCard.category`'s free-text value rather than Peragra's
+/// fixed `PlaceCategory` enum, since Google Places categories aren't a
+/// closed set here — it only lists categories actually present, and hides
+/// itself when there are none.
 struct PlaceStatusFilterBar: View {
     @Binding var sortMode: PlaceSortMode
     @Binding var distanceReference: DistanceReference?
@@ -40,6 +43,11 @@ struct PlaceStatusFilterBar: View {
     @Binding var hereCoordinate: Coordinates?
     /// Cards with a resolved coordinate, offered as choices for "Distance from…".
     let locatableCards: [PlaceCard]
+
+    /// nil means no category filter is applied ("전체").
+    @Binding var categoryFilter: String?
+    /// Distinct categories present in the current list, offered as dropdown choices.
+    let categories: [String]
 
     @Binding var filter: PlaceStatusFilter
     let allCount: Int
@@ -55,6 +63,9 @@ struct PlaceStatusFilterBar: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 sortMenu
+                if !categories.isEmpty {
+                    categoryMenu
+                }
                 if sortMode == .distance {
                     referenceMenu
                 }
@@ -84,6 +95,33 @@ struct PlaceStatusFilterBar: View {
             }
         } label: {
             chipLabel(title: "정렬: \(sortMode.rawValue)", isSelected: sortMode != .byCategory)
+        }
+    }
+
+    private var categoryMenu: some View {
+        Menu {
+            Button {
+                categoryFilter = nil
+            } label: {
+                if categoryFilter == nil {
+                    Label("전체", systemImage: "checkmark")
+                } else {
+                    Text("전체")
+                }
+            }
+            ForEach(categories, id: \.self) { category in
+                Button {
+                    categoryFilter = category
+                } label: {
+                    if categoryFilter == category {
+                        Label(category, systemImage: "checkmark")
+                    } else {
+                        Text(category)
+                    }
+                }
+            }
+        } label: {
+            chipLabel(title: "카테고리: \(categoryFilter ?? "전체")", isSelected: categoryFilter != nil)
         }
     }
 
@@ -135,6 +173,8 @@ struct PlaceStatusFilterBar: View {
         distanceReference: .constant(nil),
         hereCoordinate: .constant(nil),
         locatableCards: [],
+        categoryFilter: .constant(nil),
+        categories: ["카페", "식당"],
         filter: .constant(.all),
         allCount: 12,
         favoriteCount: 3,

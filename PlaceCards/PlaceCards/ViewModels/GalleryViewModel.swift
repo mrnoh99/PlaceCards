@@ -5,6 +5,7 @@ import Combine
 final class GalleryViewModel: ObservableObject {
     @Published var searchQuery: String = ""
     @Published var selectedTag: String?
+    @Published var categoryFilter: String?
     @Published var statusFilter: PlaceStatusFilter = .all
     @Published var sortMode: PlaceSortMode = .byCategory
     @Published var distanceReference: DistanceReference?
@@ -22,7 +23,9 @@ final class GalleryViewModel: ObservableObject {
     /// stale next to them (mirrors Peragra's `preCategoryFiltered`).
     private var searchFilteredPlaceCards: [PlaceCard] {
         let tags = selectedTag.map { [$0] } ?? []
-        return storageService.search(query: searchQuery, tags: tags)
+        let matched = storageService.search(query: searchQuery, tags: tags)
+        guard let categoryFilter else { return matched }
+        return matched.filter { $0.category == categoryFilter }
     }
 
     private var distanceReferenceCoordinate: Coordinates? {
@@ -57,6 +60,10 @@ final class GalleryViewModel: ObservableObject {
 
     var allTags: [String] {
         Array(Set(storageService.placeCards.flatMap { $0.tags })).sorted()
+    }
+
+    var allCategories: [String] {
+        Array(Set(storageService.placeCards.compactMap { $0.category?.isEmpty == false ? $0.category : nil })).sorted()
     }
 
     func delete(_ card: PlaceCard) {

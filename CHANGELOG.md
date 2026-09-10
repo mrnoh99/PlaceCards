@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (9차) — Sort By 옆에 카테고리 필터 드롭다운 추가
+#### Added
+- `PlaceStatusFilterBar`의 "정렬" 메뉴 옆에 "카테고리" 드롭다운을 추가 —
+  현재 목록(게시판 상세는 그 보드, 갤러리는 검색/태그 필터까지 반영된
+  전체)에 실제로 존재하는 카테고리만 선택지로 나열하고, "전체"로
+  초기화 가능. 카테고리가 하나도 없으면 드롭다운 자체가 나타나지 않음.
+- `GalleryViewModel.categoryFilter`/`allCategories`, `BoardDetailView`의
+  `categoryFilter`/`categories`를 추가해 각 화면의 카드 목록에 카테고리
+  필터를 적용 — `PlaceCard.category`가 자유 텍스트(Google Places
+  카테고리)라 Peragra의 고정 `PlaceCategory` enum 대신 데이터에 실제
+  존재하는 값만 동적으로 모아서 씀.
+
 ### 2026-09-10 (8차) — 나머지 화면 아이콘도 외곽선 톤으로 통일
 #### Changed
 - 카드 셀/상세화면/필터바/온보딩의 장식용(순수 표시용) 아이콘을
