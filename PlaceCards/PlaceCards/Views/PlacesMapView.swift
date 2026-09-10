@@ -262,7 +262,7 @@ struct PlacesMapView: View {
             id: card.id,
             name: card.name,
             address: card.address,
-            emoji: PlaceCategoryIcon.markerGlyphHTML(for: card.category),
+            emoji: naverMarkerContentHTML(for: card),
             visited: card.isVisited,
             latitude: coordinate.latitude,
             longitude: coordinate.longitude,
@@ -270,6 +270,34 @@ struct PlacesMapView: View {
             naverMapUrlString: NaverMapOpener.url(for: card)?.absoluteString,
             tmapUrlString: TmapOpener.url(for: card)?.absoluteString
         )
+    }
+
+    /// The category badge (`PlaceCategoryIcon.markerGlyphHTML`) with the
+    /// place's name added as a label underneath — matching Apple/Google's
+    /// "name below the pin" look. Plugged into `MarkerPlace.emoji`, which
+    /// the *shared* Naver embed page (not this app's own — see that
+    /// page's own doc comment; not editable from here) concatenates
+    /// directly as raw HTML into a fixed 24×24 container. Rather than
+    /// depending on that fixed box (whose exact overflow/centering
+    /// behavior for taller content isn't something this app controls or
+    /// can verify without the page itself), the badge sits in its own
+    /// `position: relative` 24×24 wrapper — identical in size to the
+    /// plain badge this replaces, so the page's own anchor math is
+    /// unaffected — and the label is `position: absolute; top: 100%`
+    /// under it, which lays out purely relative to that wrapper and
+    /// isn't constrained by the page's outer box at all.
+    private func naverMarkerContentHTML(for card: PlaceCard) -> String {
+        let escapedName = card.name
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+        return """
+        <div style="position:relative;width:24px;height:24px;">\
+        \(PlaceCategoryIcon.markerGlyphHTML(for: card.category))\
+        <div style="position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:2px;font:11px -apple-system,sans-serif;padding:2px 6px;background:rgba(255,255,255,0.9);border-radius:10px;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">\(escapedName)</div>\
+        </div>
+        """
     }
 }
 

@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (70차) — Naver 지도 마커 아래에도 이름 표시
+#### Changed
+- `Views/PlacesMapView.swift`: `naverMarkerContentHTML(for:)`(신규) —
+  카테고리 배지(`PlaceCategoryIcon.markerGlyphHTML`) 아래에 장소
+  이름을 캡슐 라벨로 추가. Naver 지도는 PlaceCards 소유가 아닌
+  Peragra 저장소가 호스팅하는 공용 페이지(`naver-map-embed.html`)를
+  그대로 쓰고 있어서(이번에 Peragra 저장소는 건드리지 않기로 함) —
+  그 페이지가 고정된 24×24 박스에 raw HTML로 끼워 넣는 방식이라,
+  배지는 이전과 동일한 24×24 `position: relative` 박스에 그대로 두고
+  라벨은 `position: absolute; top: 100%`로 그 박스 아래에 얹는 방식을
+  써서, 페이지 쪽의 앵커 좌표·정렬 계산을 전혀 건드리지 않고도
+  라벨을 붙임.
+- `Views/NaverMapWebView.swift`: `MarkerPlace.emoji`의 문서 주석을
+  실제로 채우는 함수(`PlacesMapView.naverMarkerContentHTML`)에 맞게
+  갱신.
+
 ### 2026-09-10 (69차) — Google 지도 마커 아래에도 이름 표시
 #### Changed
 - `Views/GoogleMapWebView.swift`: `NameLabelOverlay`(JS, 신규) — Apple

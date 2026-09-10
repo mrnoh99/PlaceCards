@@ -31,9 +31,11 @@ struct NaverMapWebView: UIViewRepresentable {
         /// no nil-check on the page's side, since it was written for
         /// Peragra, where this field is never missing). Despite the name
         /// (kept to match that page's payload shape), this is populated
-        /// with `PlaceCategoryIcon.markerGlyphHTML(for:)` — an inline-SVG
-        /// outline icon, not a literal emoji character — since the page
-        /// only ever uses it as raw HTML, never as text.
+        /// with `PlacesMapView.naverMarkerContentHTML(for:)` — an
+        /// inline-SVG outline icon (`PlaceCategoryIcon.markerGlyphHTML`)
+        /// plus the place's own name as a label underneath, not a
+        /// literal emoji character — since the page only ever uses it as
+        /// raw HTML, never as text.
         let emoji: String
         let visited: Bool
         let latitude: Double
