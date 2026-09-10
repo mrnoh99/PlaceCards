@@ -33,23 +33,35 @@ extension Array where Element == PlaceCard {
             // No fixed category taxonomy here (unlike Peragra's
             // PlaceCategory enum) — Google Places' category text is
             // grouped alphabetically instead, then by name within a group.
-            return sorted { a, b in
-                let categoryA = a.category ?? ""
-                let categoryB = b.category ?? ""
-                if categoryA != categoryB {
-                    return categoryA.localizedCaseInsensitiveCompare(categoryB) == .orderedAscending
-                }
-                return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
-            }
+            return sorted { isByCategoryAscending($0, $1) }
         case .name:
             return sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         case .distance:
             guard let reference else { return self }
             let refLocation = CLLocation(latitude: reference.latitude, longitude: reference.longitude)
-            return sorted {
-                distance(from: refLocation, to: $0.coordinates) < distance(from: refLocation, to: $1.coordinates)
+            // Ties (same distance — most commonly several cards with no
+            // coordinate at all, which all fall back to the same
+            // greatestFiniteMagnitude placeholder) fall back to the same
+            // category/name order "카테고리별" uses, rather than being left
+            // in whatever arbitrary order they happened to start in.
+            return sorted { a, b in
+                let distanceA = distance(from: refLocation, to: a.coordinates)
+                let distanceB = distance(from: refLocation, to: b.coordinates)
+                if distanceA != distanceB {
+                    return distanceA < distanceB
+                }
+                return isByCategoryAscending(a, b)
             }
         }
+    }
+
+    private func isByCategoryAscending(_ a: PlaceCard, _ b: PlaceCard) -> Bool {
+        let categoryA = a.category ?? ""
+        let categoryB = b.category ?? ""
+        if categoryA != categoryB {
+            return categoryA.localizedCaseInsensitiveCompare(categoryB) == .orderedAscending
+        }
+        return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
     }
 
     private func distance(from reference: CLLocation, to coordinates: Coordinates?) -> Double {
