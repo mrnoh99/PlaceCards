@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (73차) — Google Places 검색 결과도 "앱 언어"를 따르게
+#### Changed
+- `Services/PlaceSearchService.swift`: `GooglePlacesService.search(query:
+  coordinates:)`(요청 body)와 `.details(placeId:)`(쿼리 파라미터)에
+  Google Places API (New)의 `languageCode`를 명시적으로 추가 —
+  `AppLanguage.current().googlePlacesLanguageCode`(신규 private
+  extension, 한국어→"ko", English→"en"). 이전에는 이 필드가 비어 있어
+  Google이 요청의 `Accept-Language` 헤더(iOS 시스템 언어를 따라
+  `URLSession`이 자동으로 붙이는 값, 이 앱의 설정과 무관)에 맡겨져,
+  "앱 언어"를 English로 바꿔도 검색으로 채워지는 가게 이름·주소는
+  기기 시스템 언어를 따라가던 불일치가 있었음. 이제 앱 화면·AI
+  응답·Google 검색 결과 세 경로 모두 이 앱 자체의 언어 설정을 따름.
+
 ### 2026-09-10 (72차) — 앱 UI 자체의 언어도 변경 가능하게
 #### Added
 - `Services/Localization.swift`(신규): `AppLanguage`(한국어/English) —

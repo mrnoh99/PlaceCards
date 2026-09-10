@@ -31,6 +31,21 @@ protocol PlaceSearchService {
     func details(placeId: String) async throws -> PlaceDetails
 }
 
+private extension AppLanguage {
+    /// Google Places API (New) `languageCode` for this app language.
+    /// Passed explicitly on every request below so a place's returned
+    /// `displayName`/`formattedAddress` follow this app's own "앱 언어"
+    /// setting — without it, Google falls back to whatever `Accept-Language`
+    /// the device's system language produces, which has nothing to do with
+    /// this app's own language setting.
+    var googlePlacesLanguageCode: String {
+        switch self {
+        case .korean: return "ko"
+        case .english: return "en"
+        }
+    }
+}
+
 /// Talks to the Google Places API (New) directly from the app, using the
 /// user's own API key (BYOK). Google's terms allow direct client calls when
 /// the key is restricted to the app's bundle ID.
@@ -56,7 +71,10 @@ final class GooglePlacesService: PlaceSearchService {
         )
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        var body: [String: Any] = ["textQuery": query]
+        var body: [String: Any] = [
+            "textQuery": query,
+            "languageCode": AppLanguage.current().googlePlacesLanguageCode
+        ]
         if let coordinates {
             body["locationBias"] = [
                 "circle": [
@@ -90,8 +108,11 @@ final class GooglePlacesService: PlaceSearchService {
     func details(placeId: String) async throws -> PlaceDetails {
         guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 
-        let url = URL(string: "https://places.googleapis.com/v1/places/\(placeId)")!
-        var request = URLRequest(url: url)
+        var components = URLComponents(string: "https://places.googleapis.com/v1/places/\(placeId)")!
+        components.queryItems = [
+            URLQueryItem(name: "languageCode", value: AppLanguage.current().googlePlacesLanguageCode)
+        ]
+        var request = URLRequest(url: components.url!)
         request.httpMethod = "GET"
         request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.setValue(
