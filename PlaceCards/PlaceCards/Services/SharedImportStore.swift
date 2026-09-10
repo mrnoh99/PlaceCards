@@ -12,6 +12,7 @@ import Foundation
 enum SharedImportStore {
     private static let appGroupID = "group.com.mrnoh99.PlaceCards"
     private static let pendingFileName = "pending-shared-image.jpg"
+    private static let debugStatusFileName = "share-debug-status.txt"
 
     private static var containerURL: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)
@@ -44,5 +45,27 @@ enum SharedImportStore {
               let data = try? Data(contentsOf: url) else { return nil }
         try? FileManager.default.removeItem(at: url)
         return data
+    }
+
+    /// Written by the Share Extension at every branch of its handling
+    /// (found/not found, load error, unreadable data, success) — since the
+    /// extension has no visible console once installed on-device, this is
+    /// the only way to see *why* a share didn't produce a pending image
+    /// (as opposed to `isAppGroupAvailable`, which only says whether the
+    /// container itself resolves). Read-only from the app side via
+    /// `lastDebugStatus()`; not cleared automatically so it always shows
+    /// the most recent share attempt, successful or not.
+    static func recordDebugStatus(_ message: String) {
+        guard let url = containerURL?.appendingPathComponent(debugStatusFileName) else { return }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd HH:mm:ss"
+        let stamped = "\(formatter.string(from: Date())) — \(message)"
+        try? stamped.data(using: .utf8)?.write(to: url, options: .atomic)
+    }
+
+    static func lastDebugStatus() -> String? {
+        guard let url = containerURL?.appendingPathComponent(debugStatusFileName),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 }

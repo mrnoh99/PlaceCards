@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (50차) — 공유 확장 진단 로그 추가
+#### Added
+- `Services/SharedImportStore.swift`: `recordDebugStatus(_:)`/
+  `lastDebugStatus()`(신규) — App Group 컨테이너는 연결되어("연결됨"
+  으로 표시) 있는데도 사진이 여전히 안 들어오는 것으로 보고되어,
+  공유 확장이 실제로 어느 단계에서 실패하는지(첨부에서 이미지
+  타입을 못 찾음/loadItem 실패/데이터를 못 읽음/저장 성공) 기기에서
+  바로 확인할 수 있도록 App Group에 타임스탬프가 찍힌 상태 문자열을
+  기록. 확장 프로세스는 기기에 설치된 뒤엔 콘솔을 볼 방법이 없어서
+  실패 지점을 추측하는 대신 직접 기록해 확인하기 위함.
+- `PlaceCardsShare/ShareViewController.swift`: `handleSharedItem()`의
+  모든 분기(NSExtensionItem 없음 / 이미지 타입 첨부 없음 / loadItem
+  에러 / 데이터 읽기 실패 / 저장 성공)에서 `recordDebugStatus` 호출
+  추가.
+- `Views/SettingsView.swift`: "정보" 섹션에 "마지막 공유 시도" 표시
+  추가 — 위 상태 문자열을 그대로 노출.
+
 ### 2026-09-10 (49차) — 상세보기에 메모 필드 추가
 #### Added
 - `Models/PlaceCard.swift`: `memo: String?`(신규) — 어떤 항목에도

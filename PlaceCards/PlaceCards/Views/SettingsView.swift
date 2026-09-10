@@ -109,6 +109,17 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+
+                    if let lastShareStatus = SharedImportStore.lastDebugStatus() {
+                        LabeledContent("마지막 공유 시도") {
+                            Text(lastShareStatus)
+                        }
+                        .font(.caption)
+                    } else {
+                        Text("아직 공유 시도 기록이 없습니다. 사진 공유 시트에서 PlaceCards를 선택하면 여기에 결과가 표시됩니다.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .navigationTitle("설정")
