@@ -14,6 +14,7 @@ struct PlaceCardDetailView: View {
     @State private var isPresentingEdit = false
     @State private var isPresentingPhotoViewer = false
     @State private var photoViewerStartIndex = 0
+    @State private var isPresentingMemoEdit = false
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
@@ -92,12 +93,7 @@ struct PlaceCardDetailView: View {
                         WrapTagsView(tags: card.tags)
                     }
 
-                    if let memo = card.memo, !memo.isEmpty {
-                        Text("메모")
-                            .font(.headline)
-                        Text(memo)
-                            .font(.body)
-                    }
+                    memoSection
                 }
                 .padding(.horizontal)
 
@@ -155,6 +151,13 @@ struct PlaceCardDetailView: View {
                 images: card.media.allItems.compactMap { MediaStore.loadImage(fileName: $0.localPath) },
                 selection: photoViewerStartIndex
             )
+        }
+        .sheet(isPresented: $isPresentingMemoEdit) {
+            MemoEditSheet(memo: card.memo ?? "") { updatedMemo in
+                let trimmed = updatedMemo.trimmingCharacters(in: .whitespacesAndNewlines)
+                card.memo = trimmed.isEmpty ? nil : trimmed
+                storageService.save(card)
+            }
         }
     }
 
@@ -298,6 +301,36 @@ struct PlaceCardDetailView: View {
         }
     }
 
+    /// Always shown (unlike amenities/tags above it, which hide entirely
+    /// when empty) since the edit button is how a memo gets *added* in
+    /// the first place, not just changed — hiding the whole section
+    /// until there's already a memo would leave no way to start one from
+    /// here at all.
+    @ViewBuilder
+    private var memoSection: some View {
+        HStack {
+            Text("메모")
+                .font(.headline)
+            Spacer()
+            Button {
+                isPresentingMemoEdit = true
+            } label: {
+                Label("편집", systemImage: "pencil")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+        }
+        if let memo = card.memo, !memo.isEmpty {
+            Text(memo)
+                .font(.body)
+        } else {
+            Text("메모 없음")
+                .font(.body)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var metaFooter: some View {
         VStack(alignment: .leading, spacing: 2) {
             if card.updatedAt != card.createdAt {
@@ -348,6 +381,43 @@ private struct PhotoViewerSheet: View {
                 }
             }
             .toolbarColorScheme(.dark, for: .navigationBar)
+        }
+    }
+}
+
+/// Opened from `memoSection`'s edit button — a small, dedicated sheet
+/// for just the memo field, rather than routing through the full
+/// `EditPlaceCardSheet` for a one-line change. `onSave` receives the
+/// draft text as-is (untrimmed); the caller decides how to store it.
+private struct MemoEditSheet: View {
+    @State private var draft: String
+    let onSave: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    init(memo: String, onSave: @escaping (String) -> Void) {
+        _draft = State(initialValue: memo)
+        self.onSave = onSave
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextEditor(text: $draft)
+                    .frame(minHeight: 160)
+            }
+            .navigationTitle("메모 편집")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("취소") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("저장") {
+                        onSave(draft)
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (66차) — 상세보기에서 메모 바로 편집
+#### Added
+- `Views/PlaceCardDetailView.swift`: `memoSection`이 메모가 없어도
+  항상 표시되도록 바뀌고("메모 없음" 플레이스홀더), 옆에 편집(연필)
+  버튼이 생김 — 눌러서 나오는 `MemoEditSheet`(신규)로 메모만 바로
+  작성/수정하고 저장. 전체 편집 시트(`EditPlaceCardSheet`)를 열지
+  않고도 메모 한 줄을 고칠 수 있게 함.
+
 ### 2026-09-10 (65차) — Unsplash 연동 삭제
 #### Removed
 - `Services/UnsplashImageService.swift` 파일 삭제.
