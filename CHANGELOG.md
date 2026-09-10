@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (7차) — 카테고리 아이콘을 미니멀 외곽선으로 추가
+#### Added
+- `Services/PlaceCategoryIcon.swift`(신규): 카테고리 텍스트(Google Places의
+  자유 텍스트라 고정 목록이 없음)를 키워드로 매칭해 outline SF Symbol로
+  변환(`.fill`이 아닌 일반 버전만 사용 — 카페→`cup.and.saucer`,
+  식당→`fork.knife`, 호텔→`bed.double`, 술집→`wineglass`, 쇼핑→`bag`,
+  박물관→`building.columns`, 공원→`tree`, 그 외→`tag`).
+- 카드 셀의 카테고리 캡슐과 상세화면의 카테고리 표시에 이 아이콘을 추가
+  (기존엔 텍스트만 있었음) — 방금 바꾼 미니멀 외곽선 앱 아이콘과 톤을
+  맞춤.
+
 ### 2026-09-10 (6차) — "거리" 정렬에 현재 위치(Here) 추가
 #### Added
 - "거리" 정렬 선택 시 기준 장소 메뉴 맨 위에 **현재 위치** 항목 추가 —

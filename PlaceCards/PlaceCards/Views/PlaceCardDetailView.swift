@@ -25,7 +25,7 @@ struct PlaceCardDetailView: View {
                     Text(card.name)
                         .font(.title.bold())
                     if let category = card.category, !category.isEmpty {
-                        Text(category)
+                        Label(category, systemImage: PlaceCategoryIcon.symbolName(for: category))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

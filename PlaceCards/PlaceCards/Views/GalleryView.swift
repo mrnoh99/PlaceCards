@@ -91,12 +91,16 @@ struct PlaceCardGridCell: View {
 
                 HStack(alignment: .top) {
                     if let category = card.category, !category.isEmpty {
-                        Text(category)
-                            .font(.caption2.weight(.semibold))
-                            .lineLimit(1)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.thinMaterial, in: Capsule())
+                        Label {
+                            Text(category)
+                        } icon: {
+                            Image(systemName: PlaceCategoryIcon.symbolName(for: category))
+                        }
+                        .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.thinMaterial, in: Capsule())
                     }
                     Spacer()
                     HStack(spacing: 8) {
