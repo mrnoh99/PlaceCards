@@ -20,6 +20,13 @@ struct MediaStore {
         guard let data = image.jpegData(compressionQuality: compressionQuality) else {
             throw PlaceCardsError.invalidImage
         }
+        return try saveImage(data: data)
+    }
+
+    /// Writes already-encoded image bytes directly, with no `UIImage`
+    /// round-trip — used for Google Places photo downloads, which arrive
+    /// as ready-to-store JPEG data.
+    static func saveImage(data: Data) throws -> String {
         let fileName = "\(UUID().uuidString).jpg"
         let url = directoryURL.appendingPathComponent(fileName)
         try data.write(to: url, options: .atomic)

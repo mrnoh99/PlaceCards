@@ -213,7 +213,7 @@ final class PlaceCardViewModel: ObservableObject {
         var created: [PlaceCard] = []
         for row in candidateRows where row.selected && !row.name.trimmingCharacters(in: .whitespaces).isEmpty {
             if let chosen = row.chosenResult {
-                if let card = try? createPlaceCard(from: chosen, images: selectedImages, source: source) {
+                if let card = try? await createPlaceCard(from: chosen, images: selectedImages, source: source) {
                     created.append(card)
                 }
             } else {
@@ -226,7 +226,7 @@ final class PlaceCardViewModel: ObservableObject {
         return created
     }
 
-    func createPlaceCard(from result: PlaceSearchResult, images: [UIImage], source: SourceType) throws -> PlaceCard {
+    func createPlaceCard(from result: PlaceSearchResult, images: [UIImage], source: SourceType) async throws -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId,
             name: result.name,
@@ -255,6 +255,8 @@ final class PlaceCardViewModel: ObservableObject {
             }
         }
 
+        await fetchOfficialPhoto(for: result, into: &card)
+
         card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
         card.sources.append(
             SourceRecord(sourceType: .googleDirectLookup, dataProvided: ["rating", "reviewCount", "phone", "website"])
@@ -262,6 +264,23 @@ final class PlaceCardViewModel: ObservableObject {
 
         storageService.save(card)
         return card
+    }
+
+    /// Best-effort: pulls Google's own photo for this place (if it has one)
+    /// into `officialPhotos`, so the card has a usable thumbnail even when
+    /// the user attached none of their own — the card list/gallery prefer
+    /// this over user-uploaded screenshots for exactly that reason. Silently
+    /// skipped when the place has no Google photo, no API key is set, or
+    /// the download fails.
+    private func fetchOfficialPhoto(for result: PlaceSearchResult, into card: inout PlaceCard) async {
+        guard let photoName = result.photoName else { return }
+        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return }
+
+        let googleService = GooglePlacesService(apiKey: apiKey)
+        guard let data = try? await googleService.photoData(photoName: photoName),
+              let fileName = try? MediaStore.saveImage(data: data) else { return }
+
+        card.media.officialPhotos.append(MediaItem(localPath: fileName, source: .googleDirectLookup))
     }
 
     /// Manually-entered places have no coordinates at all, so this makes a

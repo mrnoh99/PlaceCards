@@ -10,6 +10,11 @@ struct PlaceSearchResult: Identifiable {
     let phone: String?
     let website: String?
     let category: String?
+    /// The resource name of this place's first Google Places photo, if it
+    /// has one (e.g. `"places/ChIJ.../photos/AUy1..."`) — pass to
+    /// `GooglePlacesService.photoData(photoName:)` to fetch the actual
+    /// image bytes. `nil` when Google has no photo for this place.
+    let photoName: String?
 }
 
 struct PlaceDetails {
@@ -46,7 +51,7 @@ final class GooglePlacesService: PlaceSearchService {
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.setValue(
-            "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.internationalPhoneNumber,places.websiteUri,places.primaryTypeDisplayName",
+            "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.internationalPhoneNumber,places.websiteUri,places.primaryTypeDisplayName,places.photos",
             forHTTPHeaderField: "X-Goog-FieldMask"
         )
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -88,6 +93,34 @@ final class GooglePlacesService: PlaceSearchService {
         return decoded.toPlaceDetails()
     }
 
+    /// Fetches the actual image bytes for a photo named in a search
+    /// result's `photoName`, via the Photo Media sub-resource. Used to pull
+    /// Google's own photo for a place into the card's `officialPhotos`
+    /// when the user hasn't supplied one of their own.
+    func photoData(photoName: String, maxWidthPx: Int = 800) async throws -> Data {
+        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+        var components = URLComponents(string: "https://places.googleapis.com/v1/\(photoName)/media")!
+        components.queryItems = [
+            URLQueryItem(name: "key", value: apiKey),
+            URLQueryItem(name: "maxWidthPx", value: String(maxWidthPx)),
+            URLQueryItem(name: "skipHttpRedirect", value: "true")
+        ]
+        guard let url = components.url else { throw PlaceCardsError.networkError("잘못된 사진 URL") }
+
+        struct PhotoMediaResponse: Decodable { let photoUri: String }
+        let (data, response) = try await session.data(from: url)
+        try Self.validate(response: response, data: data)
+
+        let decoded = try JSONDecoder().decode(PhotoMediaResponse.self, from: data)
+        guard let photoURL = URL(string: decoded.photoUri) else {
+            throw PlaceCardsError.networkError("잘못된 사진 URL")
+        }
+        let (photoBytes, photoResponse) = try await session.data(from: photoURL)
+        try Self.validate(response: photoResponse, data: photoBytes)
+        return photoBytes
+    }
+
     private static func validate(response: URLResponse, data: Data) throws {
         guard let http = response as? HTTPURLResponse else { return }
         guard (200..<300).contains(http.statusCode) else {
@@ -106,6 +139,7 @@ private struct GooglePlacesSearchResponse: Decodable {
 private struct GooglePlace: Decodable {
     struct DisplayName: Decodable { let text: String }
     struct Location: Decodable { let latitude: Double; let longitude: Double }
+    struct Photo: Decodable { let name: String }
 
     let id: String
     let displayName: DisplayName?
@@ -116,6 +150,7 @@ private struct GooglePlace: Decodable {
     let internationalPhoneNumber: String?
     let websiteUri: String?
     let primaryTypeDisplayName: DisplayName?
+    let photos: [Photo]?
 
     func toSearchResult() -> PlaceSearchResult {
         PlaceSearchResult(
@@ -127,7 +162,8 @@ private struct GooglePlace: Decodable {
             reviewCount: userRatingCount,
             phone: internationalPhoneNumber,
             website: websiteUri,
-            category: primaryTypeDisplayName?.text
+            category: primaryTypeDisplayName?.text,
+            photoName: photos?.first?.name
         )
     }
 }

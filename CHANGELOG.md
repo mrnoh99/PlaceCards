@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (31차) — 카드 리스트 썸네일에 Google 사진 우선 사용
+#### Added
+- `Services/PlaceSearchService.swift`: 검색 필드 마스크에 `places.photos`
+  추가, `PlaceSearchResult.photoName`(신규)에 첫 번째 Google 사진의
+  리소스 이름을 담음. `GooglePlacesService.photoData(photoName:)`(신규)로
+  Photo Media 서브리소스(`GET /v1/{photo}/media?skipHttpRedirect=true`)를
+  통해 실제 이미지 바이트를 받아옴.
+- `Services/MediaStore.swift`: `saveImage(data:)`(신규) — 이미 인코딩된
+  바이트를 `UIImage` 왕복 없이 그대로 파일로 저장(Google에서 받은
+  사진은 이미 JPEG라 재인코딩이 불필요).
+- `ViewModels/PlaceCardViewModel.swift`: `createPlaceCard(from:images:source:)`가
+  `async throws`로 변경 — Google 검색 결과에 사진이 있으면
+  best-effort로 다운로드해 `card.media.officialPhotos`에 추가(카드
+  생성 자체를 막지 않도록 실패해도 무시).
+- `Views/PlaceCardListRow.swift`, `Views/GalleryView.swift`
+  (`PlaceCardGridCell`): 리스트/갤러리 썸네일이 이제
+  `officialPhotos.first ?? allItems.first` 순으로 우선 — 사용자가 직접
+  올린 스크린샷이 없어도 Google에서 찾은 사진이 있으면 그걸 먼저
+  보여줌. 카드 상세 화면의 전체 사진 갤러리(`PlaceCardDetailView`)는
+  이미 `allItems` 전체를 보여주므로 변경 없음.
+
 ### 2026-09-10 (30차) — 사진 EXIF GPS로 Google 검색 범위 좁히기 (PERAGRA 참조)
 #### Added
 - `Services/PhotoMetadata.swift`(신규): 사진의 EXIF GPS 좌표를 추출 —
