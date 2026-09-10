@@ -132,14 +132,14 @@ struct PlaceCardGridCell: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
-            if hasAnyAction {
+            if card.hasAnyAction {
                 HStack(spacing: 12) {
-                    if let callURL {
+                    if let callURL = card.callURL {
                         Button { openURL(callURL) } label: {
                             Image(systemName: "phone")
                         }
                     }
-                    if hasAnyMapLink {
+                    if card.hasAnyMapLink {
                         Menu {
                             if let url = GoogleMapsOpener.url(for: card) {
                                 Button("Google Maps") { openURL(url) }
@@ -174,22 +174,6 @@ struct PlaceCardGridCell: View {
                 .foregroundStyle(Color.accentColor)
             }
         }
-    }
-
-    private var callURL: URL? {
-        guard let phone = card.phone, !phone.isEmpty else { return nil }
-        let digits = phone.filter { $0.isNumber || $0 == "+" }
-        guard !digits.isEmpty else { return nil }
-        return URL(string: "tel:\(digits)")
-    }
-
-    private var hasAnyMapLink: Bool {
-        GoogleMapsOpener.url(for: card) != nil || NaverMapOpener.url(for: card) != nil
-            || KakaoMapOpener.url(for: card) != nil || TmapOpener.url(for: card) != nil
-    }
-
-    private var hasAnyAction: Bool {
-        callURL != nil || hasAnyMapLink || card.website != nil || card.instagramURL != nil
     }
 
     private func toggleFavorite() {

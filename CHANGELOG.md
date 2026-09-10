@@ -1,6 +1,17 @@
 # PlaceCards 프로젝트 변경 이력
 
-## [Unreleased]
+### 2026-09-10 (14차) — 게시판 안 장소 목록을 그리드에서 리스트로
+#### Changed
+- 게시판(BoardDetailView) 안의 장소 목록을 사진 그리드(LazyVGrid +
+  PlaceCardGridCell)에서 일반 `List`(한 줄씩, `PlaceCardListRow`)로 변경.
+  "갤러리" 탭은 처음부터 계속 그리드였고 그대로 유지 — 이번 변경은 게시판
+  안 장소 목록에만 적용.
+- `PlaceCardListRow.swift`(신규): 작은 썸네일 + 이름/카테고리/주소/평점,
+  즐겨찾기·방문 토글, 전화·지도·웹사이트·인스타그램 액션 아이콘까지
+  그리드 셀과 같은 정보를 한 줄짜리 리스트 행 레이아웃으로 재구성.
+- `PlaceCard.callURL`/`hasAnyMapLink`/`hasAnyAction`을 `MapOpeners.swift`의
+  `PlaceCard` extension으로 옮겨 그리드 셀과 새 리스트 행이 같은 로직을
+  공유하도록 정리(기존엔 `PlaceCardGridCell` 안에 private으로만 있었음).
 
 ### 2026-09-10 (13차) — Gateway 모델 조회의 MainActor 격리 오류 수정
 #### Fixed

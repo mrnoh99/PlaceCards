@@ -127,3 +127,24 @@ enum TmapOpener {
         return components?.url
     }
 }
+
+/// Shared by every place-card row/cell that offers a call/map/website/
+/// Instagram action row (`PlaceCardGridCell`, `PlaceCardListRow`) — kept in
+/// one place so both stay in sync instead of re-deriving the same checks.
+extension PlaceCard {
+    var callURL: URL? {
+        guard let phone, !phone.isEmpty else { return nil }
+        let digits = phone.filter { $0.isNumber || $0 == "+" }
+        guard !digits.isEmpty else { return nil }
+        return URL(string: "tel:\(digits)")
+    }
+
+    var hasAnyMapLink: Bool {
+        GoogleMapsOpener.url(for: self) != nil || NaverMapOpener.url(for: self) != nil
+            || KakaoMapOpener.url(for: self) != nil || TmapOpener.url(for: self) != nil
+    }
+
+    var hasAnyAction: Bool {
+        callURL != nil || hasAnyMapLink || website != nil || instagramURL != nil
+    }
+}

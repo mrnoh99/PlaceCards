@@ -29,7 +29,7 @@ struct BoardDetailView: View {
         }
     }
 
-    /// Filtered by the status chip, then sorted — the exact set the grid
+    /// Filtered by the status chip, then sorted — the exact set the list
     /// renders. Mirrors Peragra's `TripDetailView.sortedPlaces`.
     private var cards: [PlaceCard] {
         allCards
@@ -71,19 +71,16 @@ struct BoardDetailView: View {
                             Text("다른 필터를 선택해보세요.")
                         }
                     } else {
-                        ScrollView {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
-                                ForEach(cards) { card in
-                                    NavigationLink {
-                                        PlaceCardDetailView(card: card)
-                                    } label: {
-                                        PlaceCardGridCell(card: card)
-                                    }
-                                    .buttonStyle(.plain)
+                        List {
+                            ForEach(cards) { card in
+                                NavigationLink {
+                                    PlaceCardDetailView(card: card)
+                                } label: {
+                                    PlaceCardListRow(card: card)
                                 }
                             }
-                            .padding()
                         }
+                        .listStyle(.plain)
                     }
                 }
             }

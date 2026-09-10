@@ -44,6 +44,7 @@
 		BB710F57850B0ACB5B361E10 /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4946F8B69968821E14AC20D3 /* Board.swift */; };
 		72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */; };
 		BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */; };
+		7162B58255D046D5A17D8F46 /* PlaceCardListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -85,6 +86,7 @@
 		4946F8B69968821E14AC20D3 /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
 		5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBoardSheet.swift; sourceTree = "<group>"; };
 		F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardDetailView.swift; sourceTree = "<group>"; };
+		BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardListRow.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -180,6 +182,7 @@
 				98E00E0CC8D64A894A3EA6AB /* HomeView.swift */,
 				5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */,
 				F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */,
+				BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */,
 				778A14BCCA1249F619055685 /* GalleryView.swift */,
 				0C52B78DCED0AEF583183D0C /* PlaceStatusFilterBar.swift */,
 				D94DFE07EC36E69E89F46838 /* PlacesMapView.swift */,
@@ -277,6 +280,7 @@
 				BB710F57850B0ACB5B361E10 /* Board.swift in Sources */,
 				72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */,
 				BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */,
+				7162B58255D046D5A17D8F46 /* PlaceCardListRow.swift in Sources */,
 				C3406DD13ECA47C58C88ADD0 /* KeychainService.swift in Sources */,
 				CCC680FA33BDBF5F6DB8BD49 /* StorageService.swift in Sources */,
 				7887C1C9178ABED6AFF9E51A /* MediaStore.swift in Sources */,
