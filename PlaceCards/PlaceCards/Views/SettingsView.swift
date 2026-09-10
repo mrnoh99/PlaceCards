@@ -60,25 +60,16 @@ struct SettingsView: View {
 
                 Section("기본 지도 앱") {
                     Picker("지도", selection: $viewModel.mapProvider) {
-                        ForEach(MapProvider.allCases.filter(\.isAvailableAsDefault)) { provider in
+                        ForEach(MapProvider.allCases) { provider in
                             Text(provider.label).tag(provider)
                         }
                     }
                     .onChange(of: viewModel.mapProvider) { _, _ in
                         viewModel.saveMapProvider()
                     }
-                    Text("장소 상세화면의 \"지도에서 열기\"가 이 앱으로 열립니다.")
+                    Text("장소 상세화면의 \"지도에서 열기\"가 이 앱으로 열립니다. Naver Map은 찾는 장소가 한국 밖이면 사용할 수 없어 그 경우 Google Maps로 대신 열립니다.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if MapProvider.naver.isAvailableAsDefault {
-                        Text("Naver Map은 한국 밖 장소에서는 Google Maps로 대신 열립니다.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("기기 지역이 한국이 아니라 Naver Map은 선택할 수 없습니다.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                 }
 
                 Section("AI 이미지 분석 (BYOK)") {

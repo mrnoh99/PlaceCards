@@ -34,14 +34,6 @@ final class SettingsViewModel: ObservableObject {
         aiAPIKey = KeychainService.load(aiProviderType.keychainKey) ?? ""
         gatewayModel = Self.currentGatewayModel()
         mapProvider = Self.currentMapProvider()
-        // A previously-saved Naver default stops being valid if the device's
-        // region is no longer Korea (e.g. the user travelled, or changed
-        // their region in iOS Settings) — fall back to Apple rather than
-        // keep a choice that's no longer offered in the picker.
-        if !mapProvider.isAvailableAsDefault {
-            mapProvider = .apple
-            saveMapProvider()
-        }
     }
 
     /// Reads the saved AI provider choice without needing an instance, so
