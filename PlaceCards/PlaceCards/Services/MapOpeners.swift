@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// A rough bounding box for South Korea (including Jeju and the east-sea
 /// islands). Naver Map, Kakao Map, and Tmap have essentially no useful data
@@ -8,38 +9,6 @@ import Foundation
 enum KoreaRegion {
     static func contains(latitude: Double, longitude: Double) -> Bool {
         (33.0...38.9).contains(latitude) && (124.5...132.0).contains(longitude)
-    }
-}
-
-/// The user's default map app for the single-tap "지도에서 열기" action
-/// (`PlaceCardDetailView`), chosen in Settings. The card cell's own map
-/// menu (Google/Naver/Kakao/Tmap) is unaffected — it always offers an
-/// explicit choice regardless of this default.
-enum MapProvider: String, CaseIterable, Identifiable {
-    case apple
-    case google
-    case naver
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .apple: return "Apple 지도"
-        case .google: return "Google Maps"
-        case .naver: return "Naver Map"
-        }
-    }
-
-    /// The link to open for this provider, or nil when it has nothing
-    /// usable for this card (e.g. Naver outside Korea, or Apple — which
-    /// opens via `MKMapItem` instead of a URL, so callers should check
-    /// `self == .apple` first).
-    func url(for card: PlaceCard) -> URL? {
-        switch self {
-        case .apple: return nil
-        case .google: return GoogleMapsOpener.url(for: card)
-        case .naver: return NaverMapOpener.url(for: card)
-        }
     }
 }
 
@@ -58,6 +27,40 @@ enum GoogleMapsOpener {
             URLQueryItem(name: "query", value: query),
         ]
         return components?.url
+    }
+
+    /// The Google Maps app's own `comgooglemaps://` URL scheme — tried
+    /// first, ahead of the universal `https://www.google.com/maps` link
+    /// above. In practice, opening that universal link directly (via
+    /// `openURL`) has been observed handing an iOS user with no Google
+    /// Maps app installed off to Apple's own Maps instead of Google's web
+    /// map — the opposite of what picking "Google Maps" should do. Going
+    /// through the app's own scheme first, and falling back to the
+    /// universal link only when nothing answers it (see `open(for:using:)`),
+    /// avoids that path entirely whenever the app is actually installed.
+    static func appSchemeURL(for card: PlaceCard) -> URL? {
+        guard let query = query(for: card),
+              let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            return nil
+        }
+        return URL(string: "comgooglemaps://?q=\(encoded)")
+    }
+
+    /// Opens Google Maps for this card the reliable way: the app itself
+    /// via its own URL scheme when it's installed, falling back to the
+    /// universal web link only if nothing accepted that (`completion`'s
+    /// `accepted == false`) — every call site that used to hand
+    /// `url(for:)` straight to `openURL` should use this instead. See
+    /// `appSchemeURL(for:)` for why.
+    static func open(for card: PlaceCard, using openURL: OpenURLAction) {
+        if let appURL = appSchemeURL(for: card) {
+            openURL(appURL) { accepted in
+                guard !accepted, let webURL = url(for: card) else { return }
+                openURL(webURL)
+            }
+        } else if let webURL = url(for: card) {
+            openURL(webURL)
+        }
     }
 
     private static func query(for card: PlaceCard) -> String? {

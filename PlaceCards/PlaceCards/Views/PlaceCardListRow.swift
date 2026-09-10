@@ -115,8 +115,8 @@ struct PlaceCardListRow: View {
             }
             if card.hasAnyMapLink {
                 Menu {
-                    if let url = GoogleMapsOpener.url(for: card) {
-                        Button("Google Maps") { openURL(url) }
+                    if GoogleMapsOpener.url(for: card) != nil {
+                        Button("Google Maps") { GoogleMapsOpener.open(for: card, using: openURL) }
                     }
                     if let url = NaverMapOpener.url(for: card) {
                         Button("Naver Map") { openURL(url) }

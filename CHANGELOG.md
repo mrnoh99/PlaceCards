@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (38차) — "지도에서 열기"를 Google/Naver/Kakao/Tmap 메뉴로 통일 (PERAGRA 참조)
+#### Changed
+- `Services/MapOpeners.swift`: `MapProvider`(기본 지도 앱 설정) 완전
+  제거. PERAGRA의 `PlaceRowView`는 사용자별 기본 지도 설정이 따로 없이
+  항상 Google/Naver/Kakao/Tmap 중 쓸 수 있는 것을 메뉴로 보여주는데,
+  PlaceCards도 이제 동일하게 동작 — 상세화면 지도 미리보기 아래의
+  "지도에서 열기"가 더 이상 설정에서 고른 앱 하나(Apple 지도 포함)로
+  직행하지 않고, 기존에 액션 행에 따로 있던 "길찾기" 메뉴와 통합돼
+  하나의 메뉴가 됨(중복 제거).
+- `Views/SettingsView.swift`, `ViewModels/SettingsViewModel.swift`:
+  이제 안 쓰는 "기본 지도 앱" 설정 섹션과 관련 코드(`mapProvider`,
+  `saveMapProvider`, `currentMapProvider`) 제거.
+#### Fixed
+- `Services/MapOpeners.swift`: `GoogleMapsOpener`가 이제 앱이 설치돼
+  있으면 `comgooglemaps://` 스킴으로 먼저 열고, 실패했을 때만(앱이
+  없을 때) 기존의 `https://www.google.com/maps/...` 웹 링크로 대신
+  열도록 함(`GoogleMapsOpener.open(for:using:)`, SwiftUI의
+  `openURL(_:completion:)` 사용) — 이 웹 링크를 곧바로 여는 기존
+  방식이 실제로는(Google Maps 앱이 없을 때) Apple 지도가 열리는 것으로
+  이어지는 경우가 있었음("설정에서 Google 지도앱을 선택해도 Apple
+  지도가 열린다" 리포트). Google Maps로 여는 모든 지점(상세화면 메뉴,
+  리스트/갤러리의 지도 메뉴)이 이 방식을 함께 사용하도록 변경.
+
 ### 2026-09-10 (37차) — API 키 저장 시 공백/줄바꿈 제거
 #### Fixed
 - `Services/KeychainService.swift`: `save(_:for:)`가 이제 저장 전에

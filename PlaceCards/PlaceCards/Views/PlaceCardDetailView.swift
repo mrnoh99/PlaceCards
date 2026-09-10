@@ -112,13 +112,10 @@ struct PlaceCardDetailView: View {
                     .padding(.horizontal)
                     .allowsHitTesting(false)
 
-                    Button {
-                        openInPreferredMap(coordinates: coordinates)
-                    } label: {
-                        Label("지도에서 열기", systemImage: "map")
+                    if card.hasAnyMapLink {
+                        mapMenu
+                            .padding(.horizontal)
                     }
-                    .buttonStyle(.bordered)
-                    .padding(.horizontal)
                 }
 
                 ShareLink(item: shareText) {
@@ -155,10 +152,9 @@ struct PlaceCardDetailView: View {
         }
     }
 
-    /// Call / map-provider menu / website / Instagram, in one row — the
-    /// same set of actions Peragra's `PlaceRowView` offers, which this
-    /// screen previously had none of at all (only a single "open in the
-    /// default map app" button below).
+    /// Call / website / Instagram, in one row — mirrors Peragra's
+    /// `PlaceRowView` action set, minus the map action (`mapMenu` below,
+    /// shown alongside the map preview instead of duplicating it here).
     @ViewBuilder
     private var actionRow: some View {
         HStack(spacing: 20) {
@@ -167,24 +163,6 @@ struct PlaceCardDetailView: View {
                     openURL(callURL)
                 } label: {
                     Label("전화", systemImage: "phone")
-                }
-            }
-            if card.hasAnyMapLink {
-                Menu {
-                    if let url = GoogleMapsOpener.url(for: card) {
-                        Button("Google Maps") { openURL(url) }
-                    }
-                    if let url = NaverMapOpener.url(for: card) {
-                        Button("Naver Map") { openURL(url) }
-                    }
-                    if let url = KakaoMapOpener.url(for: card) {
-                        Button("Kakao Map") { openURL(url) }
-                    }
-                    if let url = TmapOpener.url(for: card) {
-                        Button("Tmap") { openURL(url) }
-                    }
-                } label: {
-                    Label("길찾기", systemImage: "map")
                 }
             }
             if let website = card.website, let url = URL(string: website) {
@@ -205,6 +183,34 @@ struct PlaceCardDetailView: View {
         }
         .buttonStyle(.bordered)
         .font(.caption)
+    }
+
+    /// "지도에서 열기" — always offers every map app with a usable link for
+    /// this card (Google/Naver/Kakao/Tmap), rather than one default chosen
+    /// in Settings. Mirrors Peragra's `PlaceRowView`, which has no
+    /// per-user-default map setting at all and always shows this same
+    /// explicit choice; PlaceCards' now-removed "기본 지도 앱" Settings
+    /// section (and its Apple Maps option, which Peragra doesn't have
+    /// either) is folded into this.
+    @ViewBuilder
+    private var mapMenu: some View {
+        Menu {
+            if GoogleMapsOpener.url(for: card) != nil {
+                Button("Google Maps") { GoogleMapsOpener.open(for: card, using: openURL) }
+            }
+            if let url = NaverMapOpener.url(for: card) {
+                Button("Naver Map") { openURL(url) }
+            }
+            if let url = KakaoMapOpener.url(for: card) {
+                Button("Kakao Map") { openURL(url) }
+            }
+            if let url = TmapOpener.url(for: card) {
+                Button("Tmap") { openURL(url) }
+            }
+        } label: {
+            Label("지도에서 열기", systemImage: "map")
+        }
+        .buttonStyle(.bordered)
     }
 
     /// Whether Naver Local Search could plausibly still add something here
@@ -327,30 +333,6 @@ struct PlaceCardDetailView: View {
 
     private var shareText: String {
         "\(card.name)\n\(card.address)"
-    }
-
-    /// Opens the map app chosen in Settings — Apple Maps directly via
-    /// `MKMapItem`, or Google/Naver Maps via their own "open in..." link.
-    /// Naver has no useful data outside Korea, so falls back to Google
-    /// Maps there instead of silently doing nothing.
-    private func openInPreferredMap(coordinates: Coordinates) {
-        let provider = SettingsViewModel.currentMapProvider()
-        guard provider != .apple else {
-            openInAppleMaps(coordinates: coordinates, name: card.name)
-            return
-        }
-        if let url = provider.url(for: card) {
-            openURL(url)
-        } else if let url = GoogleMapsOpener.url(for: card) {
-            openURL(url)
-        }
-    }
-
-    private func openInAppleMaps(coordinates: Coordinates, name: String) {
-        let placemark = MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude))
-        let mapItem = MKMapItem(placemark: placemark)
-        mapItem.name = name
-        mapItem.openInMaps()
     }
 
     private func refineWithNaver() async {
