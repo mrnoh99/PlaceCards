@@ -54,8 +54,13 @@ final class GalleryViewModel: ObservableObject {
         searchFilteredPlaceCards.filter(\.isVisited).count
     }
 
-    var locatableCards: [PlaceCard] {
-        storageService.placeCards.filter { $0.coordinates != nil }
+    /// Every card, offered by name as a "Distance from…" reference choice
+    /// — not narrowed to ones with a resolved coordinate, since a card
+    /// added without one yet should still be pickable by name;
+    /// `PlaceCardSorting` already falls back to leaving the list unsorted
+    /// if the chosen reference turns out to have none.
+    var referenceCandidates: [PlaceCard] {
+        storageService.placeCards
     }
 
     var allTags: [String] {

@@ -1,5 +1,19 @@
 # PlaceCards 프로젝트 변경 이력
 
+## [Unreleased]
+
+### 2026-09-10 (15차) — "거리" 정렬 기준 선택에 좌표 없는 장소도 노출
+#### Changed
+- "거리" 정렬 선택 시 나오는 기준 장소 드롭다운이 지금까지는 좌표가
+  확보된(`coordinates != nil`) 카드만 이름으로 보여줬는데, 이제 카테고리
+  등 다른 필터와 무관하게 현재 목록의 카드를 전부 이름으로 보여줌 — 아직
+  좌표가 없는 카드도 목록엔 뜨고, 그걸 기준으로 고르면
+  `PlaceCardSorting`이 이미 가지고 있던 대로 그냥 정렬 없이 원래 순서를
+  유지함(에러 없음).
+- `PlaceStatusFilterBar`/`GalleryViewModel`/`BoardDetailView`의
+  `locatableCards`를 `referenceCandidates`로 이름 변경 — 더 이상 "좌표
+  있는 카드"만이 아니라서 기존 이름이 부정확해짐.
+
 ### 2026-09-10 (14차) — 게시판 안 장소 목록을 그리드에서 리스트로
 #### Changed
 - 게시판(BoardDetailView) 안의 장소 목록을 사진 그리드(LazyVGrid +

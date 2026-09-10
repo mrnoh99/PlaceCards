@@ -41,8 +41,12 @@ struct PlaceStatusFilterBar: View {
     /// Set by this view when "현재 위치" is chosen — the parent owns it (and
     /// resolves the actual sort with it) since fetching it is async.
     @Binding var hereCoordinate: Coordinates?
-    /// Cards with a resolved coordinate, offered as choices for "Distance from…".
-    let locatableCards: [PlaceCard]
+    /// Every card in the current list, offered by name as a "Distance
+    /// from…" reference choice — not narrowed to ones with a resolved
+    /// coordinate, since a card added without one yet should still be
+    /// pickable by name; `PlaceCardSorting` already falls back to leaving
+    /// the list unsorted if the chosen reference turns out to have none.
+    let referenceCandidates: [PlaceCard]
 
     /// nil means no category filter is applied ("전체").
     @Binding var categoryFilter: String?
@@ -56,7 +60,7 @@ struct PlaceStatusFilterBar: View {
 
     private var referenceCard: PlaceCard? {
         guard case .card(let id) = distanceReference else { return nil }
-        return locatableCards.first { $0.id == id }
+        return referenceCandidates.first { $0.id == id }
     }
 
     var body: some View {
@@ -133,7 +137,7 @@ struct PlaceStatusFilterBar: View {
             } label: {
                 Label("현재 위치", systemImage: "location")
             }
-            ForEach(locatableCards) { card in
+            ForEach(referenceCandidates) { card in
                 Button(card.name) { distanceReference = .card(card.id) }
             }
         } label: {
@@ -172,7 +176,7 @@ struct PlaceStatusFilterBar: View {
         sortMode: .constant(.byCategory),
         distanceReference: .constant(nil),
         hereCoordinate: .constant(nil),
-        locatableCards: [],
+        referenceCandidates: [],
         categoryFilter: .constant(nil),
         categories: ["카페", "식당"],
         filter: .constant(.all),

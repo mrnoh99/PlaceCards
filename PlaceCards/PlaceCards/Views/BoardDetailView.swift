@@ -38,8 +38,13 @@ struct BoardDetailView: View {
             .sorted(by: sortMode, distanceFrom: distanceReferenceCoordinate)
     }
 
-    private var locatableCards: [PlaceCard] {
-        allCards.filter { $0.coordinates != nil }
+    /// Every card in this board, offered by name as a "Distance from…"
+    /// reference choice — not narrowed to ones with a resolved coordinate,
+    /// since a card added without one yet should still be pickable by
+    /// name; `PlaceCardSorting` already falls back to leaving the list
+    /// unsorted if the chosen reference turns out to have none.
+    private var referenceCandidates: [PlaceCard] {
+        allCards
     }
 
     var body: some View {
@@ -56,7 +61,7 @@ struct BoardDetailView: View {
                         sortMode: $sortMode,
                         distanceReference: $distanceReference,
                         hereCoordinate: $hereCoordinate,
-                        locatableCards: locatableCards,
+                        referenceCandidates: referenceCandidates,
                         categoryFilter: $categoryFilter,
                         categories: categories,
                         filter: $statusFilter,
