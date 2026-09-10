@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-10 — Gateway 모델 선택 기능 추가
+#### Added
+- 설정 화면의 AI 제공자를 Gateway로 선택하면 모델 Picker가 추가로 나타남
+  (Claude Sonnet 5/Opus 5/Fable 5.1/5, GPT-5.6 Luna/Terra/Sol, GPT-5.5 중
+  선택, 목록에 없는 모델은 "직접 입력…"으로 모델 ID를 직접 입력). Peragra의
+  `SettingsSheet.ModelPickerProviderFields`(목록 선택 + Custom… 텍스트필드
+  패턴)를 그대로 반영.
+- `GatewayModels.Model`이 이제 `id`/`label`을 함께 갖는 구조체로 바뀜(기존엔
+  ID 문자열 배열뿐이라 Picker에 표시할 이름이 없었음) — Peragra의
+  `GatewayModels.swift`와 동일한 구조.
+- `SettingsViewModel.gatewayModel`을 UserDefaults에 저장(민감정보가 아니므로
+  Keychain 대신)하고, `AIProviderFactory`가 Gateway 프로바이더를 만들 때 이
+  값을 실제로 사용하도록 연결.
+
 ### 2026-09-09 (6차) — Peragra의 Gateway 프로바이더 추가
 #### Added
 - `GatewayProvider`: Peragra가 기본 AI 프로바이더로 쓰는 서드파티 OpenAI 호환

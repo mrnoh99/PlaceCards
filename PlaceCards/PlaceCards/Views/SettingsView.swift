@@ -3,6 +3,25 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
 
+    /// Sentinel tag for "Custom…" in the gateway model picker below,
+    /// mirroring Peragra's own `SettingsSheet.customModelTag`.
+    private static let customModelTag = "__custom__"
+
+    private static func initialModelSelection(current: String, known: [GatewayModels.Model]) -> String {
+        known.contains(where: { $0.id == current }) ? current : customModelTag
+    }
+
+    private static func initialCustomModelInput(current: String, known: [GatewayModels.Model]) -> String {
+        known.contains(where: { $0.id == current }) ? "" : current
+    }
+
+    @State private var gatewayModelSelection: String = SettingsView.initialModelSelection(
+        current: SettingsViewModel.currentGatewayModel(), known: GatewayModels.all
+    )
+    @State private var gatewayCustomModelInput: String = SettingsView.initialCustomModelInput(
+        current: SettingsViewModel.currentGatewayModel(), known: GatewayModels.all
+    )
+
     var body: some View {
         NavigationStack {
             Form {
@@ -52,7 +71,29 @@ struct SettingsView: View {
                     SecureField("API 키", text: $viewModel.aiAPIKey)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    Button("저장") { viewModel.saveAIProviderSettings() }
+
+                    if viewModel.aiProviderType == .gateway {
+                        Picker("모델", selection: $gatewayModelSelection) {
+                            ForEach(GatewayModels.all) { model in
+                                Text(model.label).tag(model.id)
+                            }
+                            Text("직접 입력…").tag(Self.customModelTag)
+                        }
+                        if gatewayModelSelection == Self.customModelTag {
+                            TextField("model-id", text: $gatewayCustomModelInput)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                        }
+                    }
+
+                    Button("저장") {
+                        if viewModel.aiProviderType == .gateway {
+                            viewModel.gatewayModel = gatewayModelSelection == Self.customModelTag
+                                ? gatewayCustomModelInput
+                                : gatewayModelSelection
+                        }
+                        viewModel.saveAIProviderSettings()
+                    }
                 }
 
                 Section("정보") {

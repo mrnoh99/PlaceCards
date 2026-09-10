@@ -33,18 +33,23 @@ enum AIProviderType: String, Codable, CaseIterable, Identifiable {
 /// Model IDs available on the factchat-cloud.mindlogic.ai gateway, as
 /// listed on its own "API Gateway" docs page (ported from Peragra, which
 /// uses this same third-party gateway as its default AI provider). Not
-/// necessarily exhaustive — nothing here stops a caller from passing a
-/// model ID that isn't listed.
+/// necessarily exhaustive — Settings also accepts a custom ID for anything
+/// not listed here, same as Peragra's own model picker.
 enum GatewayModels {
-    static let all: [String] = [
-        "claude-sonnet-5",
-        "claude-opus-5",
-        "claude-fable-5-1",
-        "claude-fable-5",
-        "gpt-5.6-luna",
-        "gpt-5.6-terra",
-        "gpt-5.6-sol",
-        "gpt-5.5",
+    struct Model: Identifiable {
+        let id: String
+        let label: String
+    }
+
+    static let all: [Model] = [
+        Model(id: "claude-sonnet-5", label: "Claude Sonnet 5"),
+        Model(id: "claude-opus-5", label: "Claude Opus 5"),
+        Model(id: "claude-fable-5-1", label: "Claude Fable 5.1"),
+        Model(id: "claude-fable-5", label: "Claude Fable 5"),
+        Model(id: "gpt-5.6-luna", label: "GPT-5.6 Luna"),
+        Model(id: "gpt-5.6-terra", label: "GPT-5.6 Terra"),
+        Model(id: "gpt-5.6-sol", label: "GPT-5.6 Sol"),
+        Model(id: "gpt-5.5", label: "GPT-5.5"),
     ]
 
     static let defaultModel = "claude-sonnet-5"
@@ -69,7 +74,7 @@ enum AIProviderFactory {
         case .claude: return ClaudeProvider(apiKey: apiKey)
         case .openai: return OpenAIProvider(apiKey: apiKey)
         case .gemini: return GeminiProvider(apiKey: apiKey)
-        case .gateway: return GatewayProvider(apiKey: apiKey)
+        case .gateway: return GatewayProvider(apiKey: apiKey, model: SettingsViewModel.currentGatewayModel())
         }
     }
 }
