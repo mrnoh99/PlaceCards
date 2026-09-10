@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (5차) — Sort By 추가 (Peragra의 PlaceFilterBar 참조)
+#### Added
+- `Services/PlaceCardSorting.swift`(신규): `PlaceSortMode`(카테고리별/이름/거리)와
+  정렬 로직. Peragra의 `PlaceSortMode`/`TripDetailView.sortedByMode`를 포팅
+  — 즐겨찾기한 카드는 정렬 모드와 무관하게 항상 위로 올라오는 동작까지
+  동일하게 반영(`sortedPlaces`의 "favorites float to top" 규칙).
+  - 카테고리별: PlaceCards엔 Peragra의 고정 카테고리 enum이 없어(Google
+    Places의 자유 텍스트 카테고리이므로) 카테고리 이름 알파벳순 → 그룹 내
+    이름순으로 대체.
+  - 거리: 기준 장소를 하나 선택하면 그 장소로부터 가까운 순으로 정렬.
+- `PlaceStatusFilterBar`에 정렬 메뉴 + "기준: <장소명>" 메뉴(거리 정렬일
+  때만 표시)를 추가 — Peragra의 `PlaceFilterBar.sortMenu`/
+  `referencePlaceMenu` 스타일과 배치 순서를 그대로 반영.
+- 게시판 상세 화면과 갤러리 화면 모두에 적용.
+
 ### 2026-09-10 (4차) — 전체/즐겨찾기/방문 필터 칩 (Peragra 참조)
 #### Added
 - `Views/PlaceStatusFilterBar.swift`(신규): 장소 목록 상단에 "전체 (n) /

@@ -6,6 +6,8 @@ final class GalleryViewModel: ObservableObject {
     @Published var searchQuery: String = ""
     @Published var selectedTag: String?
     @Published var statusFilter: PlaceStatusFilter = .all
+    @Published var sortMode: PlaceSortMode = .byCategory
+    @Published var referenceCardId: String?
 
     private let storageService: StorageService
 
@@ -20,11 +22,14 @@ final class GalleryViewModel: ObservableObject {
     private var searchFilteredPlaceCards: [PlaceCard] {
         let tags = selectedTag.map { [$0] } ?? []
         return storageService.search(query: searchQuery, tags: tags)
-            .sorted { $0.updatedAt > $1.updatedAt }
     }
 
+    /// Filtered by the status chip, then sorted — the exact set the grid
+    /// renders. Mirrors Peragra's `TripDetailView.sortedPlaces`.
     var filteredPlaceCards: [PlaceCard] {
-        searchFilteredPlaceCards.filter(statusFilter.matches)
+        let filtered = searchFilteredPlaceCards.filter(statusFilter.matches)
+        let reference = referenceCardId.flatMap { id in storageService.placeCard(id: id) }
+        return filtered.sorted(by: sortMode, distanceFrom: reference)
     }
 
     var totalCount: Int {
@@ -37,6 +42,10 @@ final class GalleryViewModel: ObservableObject {
 
     var visitedCount: Int {
         searchFilteredPlaceCards.filter(\.isVisited).count
+    }
+
+    var locatableCards: [PlaceCard] {
+        storageService.placeCards.filter { $0.coordinates != nil }
     }
 
     var allTags: [String] {
