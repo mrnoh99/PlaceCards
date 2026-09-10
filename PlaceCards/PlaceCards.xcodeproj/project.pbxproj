@@ -45,6 +45,8 @@
 		72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */; };
 		BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */; };
 		7162B58255D046D5A17D8F46 /* PlaceCardListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */; };
+		FC9DFF6409F934D40EC33563 /* DuplicatePlaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */; };
+		3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -87,6 +89,8 @@
 		5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBoardSheet.swift; sourceTree = "<group>"; };
 		F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardDetailView.swift; sourceTree = "<group>"; };
 		BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardListRow.swift; sourceTree = "<group>"; };
+		49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatePlaces.swift; sourceTree = "<group>"; };
+		5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindDuplicatesSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -159,6 +163,7 @@
 				94BD2FA4433F73A530867558 /* PlaceCardSorting.swift */,
 				546F4B4EF47BC64FE89F026B /* LocationService.swift */,
 				481D7688A4D65E5823748315 /* PlaceCategoryIcon.swift */,
+				49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -189,6 +194,7 @@
 				D653EFB11B5C301823C1537D /* SettingsView.swift */,
 				BEB68110D01336958AFF00A2 /* AddPlaceCardView.swift */,
 				28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */,
+				5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -308,6 +314,8 @@
 				85842E834E1732A0B124144B /* PlaceCardSorting.swift in Sources */,
 				01528318FFDC7D00B3F951D5 /* LocationService.swift in Sources */,
 				44E9FCDFFA00BA728BAE1B90 /* PlaceCategoryIcon.swift in Sources */,
+				FC9DFF6409F934D40EC33563 /* DuplicatePlaces.swift in Sources */,
+				3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

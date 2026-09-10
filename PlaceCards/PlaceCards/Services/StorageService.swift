@@ -69,6 +69,15 @@ final class StorageService: ObservableObject {
         persistPlaceCards()
     }
 
+    /// Removes a card that's just been merged into another one
+    /// (`PlaceCard.merge(with:)`) — unlike `delete(_:)`, this does NOT
+    /// delete its media files, since `merge` already copied those
+    /// `MediaItem` entries onto the surviving card, which now owns them.
+    func removeMergedDuplicate(_ placeCard: PlaceCard) {
+        placeCards.removeAll { $0.id == placeCard.id }
+        persistPlaceCards()
+    }
+
     func placeCard(id: String) -> PlaceCard? {
         placeCards.first { $0.id == id }
     }

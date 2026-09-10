@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (23차) — "중복 찾기" 추가 (PERAGRA의 FindDuplicatesSheet 참조)
+#### Added
+- 게시판 안에 카드가 2개 이상이면 툴바에 "중복 찾기" 버튼이 나타남 —
+  PERAGRA의 `DuplicatePlaces`/`FindDuplicatesSheet`/`Place.merge`를 그대로
+  참조해 포팅.
+- `Services/DuplicatePlaces.swift`(신규): 이름을 대소문자·공백·구두점
+  제거 후 비교해서 같고, 그 위에 좌표가 150m 이내로 가깝거나, 좌표가
+  없으면 주소가 같거나 서로 포함 관계이거나, 좌표·주소 둘 다 없으면
+  이름 일치만으로 "같은 곳을 두 번 저장한 것"으로 판단(union-find로
+  A-B, B-C가 겹치면 셋을 한 그룹으로 묶음).
+- `PlaceCard.merge(with:)`(신규, `Models/PlaceCard.swift`): 남길 카드에
+  없는 정보(전화번호·웹사이트·인스타그램·카테고리·평점·리뷰수·주소·좌표)를
+  중복 카드에서 채워넣고, 즐겨찾기·방문 여부는 하나라도 켜져 있으면
+  유지, 태그·편의시설·사진(모든 미디어)·소스 기록은 합침. PERAGRA의
+  `Place.merge(with:context:)`를 참조했지만 PERAGRA엔 없는 사진 병합
+  로직이 추가됨(PlaceCards는 카드에 사진을 직접 모델링하기 때문).
+- `Views/FindDuplicatesSheet.swift`(신규): 찾아낸 중복 그룹마다 남길
+  카드를 라디오 버튼으로 고르고 "OO(으)로 병합" 버튼으로 확정 —
+  PERAGRA의 시트와 동일한 흐름.
+- `StorageService.removeMergedDuplicate(_:)`(신규): 병합으로 사라지는
+  카드를 저장소에서 제거하되, 기존 `delete(_:)`와 달리 사진 파일은
+  지우지 않음 — `merge`가 그 사진들의 `MediaItem`을 이미 남는 카드로
+  옮겨놨기 때문에, 지우면 남는 카드가 참조하는 파일까지 함께 사라짐.
+
 ### 2026-09-10 (22차) — 카페/커피숍/커피전문점 카테고리를 "카페"로 통합
 #### Changed
 - Google Places 등에서 카테고리가 "Cafe", "Coffee shop", "카페", "커피숍",

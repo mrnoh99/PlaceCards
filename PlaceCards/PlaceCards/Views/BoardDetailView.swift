@@ -14,6 +14,7 @@ struct BoardDetailView: View {
     @State private var categoryFilter: String?
     @State private var cardPendingDelete: PlaceCard?
     @State private var selectedCard: PlaceCard?
+    @State private var isPresentingFindDuplicates = false
 
     private var allCards: [PlaceCard] {
         storageService.placeCards(inBoard: board.id)
@@ -135,9 +136,21 @@ struct BoardDetailView: View {
                     Label("장소 추가", systemImage: "plus")
                 }
             }
+            if allCards.count > 1 {
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        isPresentingFindDuplicates = true
+                    } label: {
+                        Label("중복 찾기", systemImage: "arrow.triangle.merge")
+                    }
+                }
+            }
         }
         .sheet(isPresented: $isPresentingAddCard) {
             AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id))
+        }
+        .sheet(isPresented: $isPresentingFindDuplicates) {
+            FindDuplicatesSheet(cards: allCards)
         }
         .navigationDestination(item: $selectedCard) { card in
             PlaceCardDetailView(card: card)
