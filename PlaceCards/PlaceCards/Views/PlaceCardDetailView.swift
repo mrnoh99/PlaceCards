@@ -5,12 +5,17 @@ import MapKit
 /// row/grid cell have room for — and the same action set Peragra's
 /// `PlaceRowView` offers (favorite/visited toggle, call, a map-provider
 /// menu, Instagram, website, edit), which this screen didn't have before.
+/// Also offers filling in whatever Google's own lookup left blank
+/// (address/phone/category/coordinates) from Naver Local Search — see
+/// `naverRefineSection`.
 struct PlaceCardDetailView: View {
     @State private var card: PlaceCard
 
     @EnvironmentObject private var storageService: StorageService
     @Environment(\.openURL) private var openURL
     @State private var isPresentingEdit = false
+    @State private var isRefiningWithNaver = false
+    @State private var naverStatusMessage: String?
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
@@ -77,6 +82,11 @@ struct PlaceCardDetailView: View {
 
                 if card.hasAnyAction {
                     actionRow
+                        .padding(.horizontal)
+                }
+
+                if missingNaverFillableFields || naverStatusMessage != nil {
+                    naverRefineSection
                         .padding(.horizontal)
                 }
 
@@ -211,6 +221,49 @@ struct PlaceCardDetailView: View {
         .font(.caption)
     }
 
+    /// Whether Naver Local Search could plausibly still add something here
+    /// — address/phone/category/coordinates are the only fields it returns
+    /// (see `NaverSearchResult`), so this only checks those, not every
+    /// field Google leaves blank.
+    private var missingNaverFillableFields: Bool {
+        card.address.trimmingCharacters(in: .whitespaces).isEmpty
+            || (card.phone?.isEmpty ?? true)
+            || (card.category?.isEmpty ?? true)
+            || card.coordinates == nil
+    }
+
+    /// Looks this place up on Naver Local Search and fills in whatever of
+    /// address/phone/category/coordinates is still blank — the remaining
+    /// fields Google's own lookup didn't provide (see `PlaceSearchService`)
+    /// can often still be found there, since Naver's Korean place data is
+    /// generally better than Google's. Mirrors
+    /// `PlaceCardViewModel.refineWithNaver` (used when adding a place) but
+    /// applied here to an already-saved card, and — like everywhere else in
+    /// this app that "fills in" data — only ever adds to a blank field,
+    /// never overwrites one that's already set.
+    @ViewBuilder
+    private var naverRefineSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                Task { await refineWithNaver() }
+            } label: {
+                if isRefiningWithNaver {
+                    ProgressView()
+                } else {
+                    Label("Naver 지도에서 정보 보완", systemImage: "arrow.triangle.2.circlepath")
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRefiningWithNaver)
+
+            if let naverStatusMessage {
+                Text(naverStatusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var hasHoursInfo: Bool {
         card.hoursDetail?.isEmpty == false || card.closingTime?.isEmpty == false || card.holidays?.isEmpty == false
     }
@@ -312,6 +365,62 @@ struct PlaceCardDetailView: View {
         let mapItem = MKMapItem(placemark: placemark)
         mapItem.name = name
         mapItem.openInMaps()
+    }
+
+    private func refineWithNaver() async {
+        guard let credentials = SettingsViewModel.currentNaverLocalSearchCredentials() else {
+            naverStatusMessage = PlaceCardsError.apiKeyMissing.localizedDescription
+            return
+        }
+
+        isRefiningWithNaver = true
+        defer { isRefiningWithNaver = false }
+
+        let naverService = NaverLocalSearchService(clientId: credentials.clientId, clientSecret: credentials.clientSecret)
+        do {
+            guard let result = try await naverService.search(query: card.name, display: 1).first else {
+                naverStatusMessage = PlaceCardsError.noResults.localizedDescription
+                return
+            }
+            applyNaverResult(result)
+        } catch {
+            naverStatusMessage = error.localizedDescription
+        }
+    }
+
+    private func applyNaverResult(_ result: NaverSearchResult) {
+        var filledLabels: [String] = []
+        var dataProvided: [String] = []
+
+        if card.address.trimmingCharacters(in: .whitespaces).isEmpty, !result.address.isEmpty {
+            card.address = result.address
+            filledLabels.append("주소")
+            dataProvided.append("address")
+        }
+        if (card.phone?.isEmpty ?? true), let phone = result.phone, !phone.isEmpty {
+            card.phone = phone
+            filledLabels.append("전화번호")
+            dataProvided.append("phone")
+        }
+        if (card.category?.isEmpty ?? true), let category = result.category, !category.isEmpty {
+            card.category = category
+            filledLabels.append("카테고리")
+            dataProvided.append("category")
+        }
+        if card.coordinates == nil, let coordinates = result.coordinates {
+            card.coordinates = coordinates
+            filledLabels.append("좌표")
+            dataProvided.append("coordinates")
+        }
+
+        guard !filledLabels.isEmpty else {
+            naverStatusMessage = "Naver 지도에서 이미 채워진 정보 외에 추가로 찾은 게 없습니다."
+            return
+        }
+
+        card.sources.append(SourceRecord(sourceType: .naverDirectLookup, dataProvided: dataProvided))
+        storageService.save(card)
+        naverStatusMessage = "\(filledLabels.joined(separator: ", "))를 채웠습니다."
     }
 
     private func toggleFavorite() {

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (34차) — 상세화면에서 Naver 지도로 정보 보완
+#### Added
+- `Views/PlaceCardDetailView.swift`: "Naver 지도에서 정보 보완" 버튼(신규)
+  — Google 검색으론 채워지지 않은 주소·전화번호·카테고리·좌표를
+  Naver Local Search로 다시 찾아 빈 칸만 채움(이미 있는 값은 절대
+  덮어쓰지 않음). 채운 항목은 `sources`에 `.naverDirectLookup` 기록으로
+  남김. 네 항목이 이미 다 채워져 있으면 버튼 자체가 보이지 않음.
+  `PlaceCardViewModel.refineWithNaver`(장소 추가 시 이름 보정용)와 같은
+  Naver Local Search 자격 증명(설정)을 사용하되, 이미 저장된 카드에
+  적용한다는 점이 다름.
+
 ### 2026-09-10 (33차) — 카드 상세화면에 전체 정보와 PERAGRA 스타일 액션 추가
 #### Added
 - `Views/PlaceCardDetailView.swift`: 그동안 모델엔 있었지만 화면에 전혀
