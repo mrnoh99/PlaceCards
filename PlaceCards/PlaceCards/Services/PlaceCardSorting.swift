@@ -11,36 +11,25 @@ enum PlaceSortMode: String, CaseIterable, Identifiable {
 }
 
 extension Array where Element == PlaceCard {
-    /// Sorts by the given mode, with favorited cards always floated to the
-    /// top no matter which mode is active — the mode only decides ordering
-    /// within/below that. Mirrors Peragra's `TripDetailView.sortedPlaces`.
-    /// `reference` is a plain coordinate (not a `PlaceCard`) so distance
-    /// mode can sort from the device's current location ("현재 위치") just
-    /// as well as from another saved card.
+    /// Sorts purely by the given mode — favorite status has no effect on
+    /// ordering (a favorited card sorts exactly where its
+    /// category/name/distance would otherwise place it). `reference` is a
+    /// plain coordinate (not a `PlaceCard`) so distance mode can sort from
+    /// the device's current location ("현재 위치") just as well as from
+    /// another saved card.
     ///
     /// `pinnedID`, when distance-sorting from another saved card (never
     /// set for "현재 위치"), is that reference card's own id — it's pinned
-    /// to the very first position, ahead of even favorites, since it's
-    /// the point everything else is being measured from rather than an
-    /// ordinary list entry; everything else keeps the usual
-    /// favorites-then-distance order.
+    /// to the very first position, since it's the point everything else
+    /// is being measured from rather than an ordinary list entry;
+    /// everything else keeps the usual sort order.
     func sorted(by mode: PlaceSortMode, distanceFrom reference: Coordinates?, pinnedID: String? = nil) -> [PlaceCard] {
         guard mode == .distance, let pinnedID, let pinnedIndex = firstIndex(where: { $0.id == pinnedID }) else {
-            return sortedFavoritesFirst(by: mode, distanceFrom: reference)
+            return sortedWithinGroup(by: mode, distanceFrom: reference)
         }
         var rest = self
         let pinned = rest.remove(at: pinnedIndex)
-        return [pinned] + rest.sortedFavoritesFirst(by: mode, distanceFrom: reference)
-    }
-
-    private func sortedFavoritesFirst(by mode: PlaceSortMode, distanceFrom reference: Coordinates?) -> [PlaceCard] {
-        guard contains(where: \.isFavorite) else {
-            return sortedWithinGroup(by: mode, distanceFrom: reference)
-        }
-        let favorites = filter(\.isFavorite)
-        let rest = filter { !$0.isFavorite }
-        return favorites.sortedWithinGroup(by: mode, distanceFrom: reference)
-            + rest.sortedWithinGroup(by: mode, distanceFrom: reference)
+        return [pinned] + rest.sortedWithinGroup(by: mode, distanceFrom: reference)
     }
 
     private func sortedWithinGroup(by mode: PlaceSortMode, distanceFrom reference: Coordinates?) -> [PlaceCard] {
