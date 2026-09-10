@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (67차) — 지도에서 카드 선택 시 전체화면으로 열기
+#### Changed
+- `Views/PlacesMapView.swift`: 마커를 탭해 `PlaceCardDetailView`를 열
+  때 `.sheet` 대신 `.fullScreenCover`를 사용 — 위쪽에 지도가 살짝
+  보이던 카드형 시트 대신 화면 전체를 채워서 열림. `fullScreenCover`
+  는 스와이프로 닫히지 않아서 "닫기" 버튼을 추가함(갤러리·게시판
+  상세에서 여는 건 push 방식이라 영향 없음).
+
 ### 2026-09-10 (66차) — 상세보기에서 메모 바로 편집
 #### Added
 - `Views/PlaceCardDetailView.swift`: `memoSection`이 메모가 없어도

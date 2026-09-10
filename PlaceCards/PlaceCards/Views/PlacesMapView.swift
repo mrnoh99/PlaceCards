@@ -101,9 +101,17 @@ struct PlacesMapView: View {
                     }
                 }
             }
-            .sheet(item: $selectedCard) { card in
+            .fullScreenCover(item: $selectedCard) { card in
                 NavigationStack {
                     PlaceCardDetailView(card: card)
+                        .toolbar {
+                            // `fullScreenCover` has no swipe-to-dismiss
+                            // (unlike `.sheet`, which this replaced), so
+                            // this is the only way back out.
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("닫기") { selectedCard = nil }
+                            }
+                        }
                 }
             }
             .searchable(text: $searchQuery, prompt: "장소 검색")
