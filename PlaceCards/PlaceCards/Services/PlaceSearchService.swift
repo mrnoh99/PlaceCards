@@ -74,6 +74,19 @@ final class GooglePlacesService: PlaceSearchService {
         return (decoded.places ?? []).map { $0.toSearchResult() }
     }
 
+    /// Best-effort coordinates for a plain address string, used to verify
+    /// a name-searched place is actually near the address it's supposed
+    /// to be at (see `PlaceCardViewModel.search(rowID:)`). Reuses Text
+    /// Search (`searchText`) with the address itself as the query, taking
+    /// its top result's location, rather than calling the separate
+    /// Geocoding API — that would need its own API enablement in the
+    /// user's Google Cloud project on top of Places, for a lookup Text
+    /// Search already resolves well enough for this purpose.
+    func geocodeAddress(_ address: String) async throws -> Coordinates? {
+        let results = try await search(query: address, coordinates: nil)
+        return results.first?.coordinates
+    }
+
     func details(placeId: String) async throws -> PlaceDetails {
         guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 

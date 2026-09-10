@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (57차) — 장소 검색에 주소 기반 100m 거리 검증 추가
+#### Changed
+- `ViewModels/PlaceCardViewModel.swift`: `search(rowID:)`가 이름만으로
+  검색하면 너무 넓은 지역(동명의 다른 지점 등)이 걸린다는 피드백에
+  따라, 행에 주소가 있으면 (1) 검색어 자체에 주소를 붙여
+  ("이름 주소") Google이 더 정확히 좁혀 찾도록 하고 (2) 그 주소를
+  따로 지오코딩해 각 검색 결과와의 거리를 계산, 100m
+  (`maxAddressMatchDistanceMeters`) 밖이면 결과에서 제외함. 필터링
+  후 결과가 비면 "\"주소\" 근처 100m 이내에서 찾지 못했습니다"로
+  원인을 명확히 표시. 주소가 비어 있으면 기존과 동일하게 이름만으로
+  검색(동작 변화 없음).
+- `Services/PlaceSearchService.swift`: `GooglePlacesService
+  .geocodeAddress(_:)`(신규) — 주소 문자열의 좌표를 얻기 위해 별도의
+  Geocoding API 대신 이미 쓰고 있는 Text Search(`searchText`)를
+  재사용해, 추가 API 활성화 없이 동작함.
+
 ### 2026-09-10 (56차) — Naver 지도 마커를 미니멀 아웃라인 아이콘으로 변경
 #### Changed
 - `Services/PlaceCategoryIcon.swift`: `emoji(for:)`를

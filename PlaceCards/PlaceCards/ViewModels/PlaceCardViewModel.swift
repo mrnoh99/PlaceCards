@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import Combine
+import CoreLocation
 
 /// One AI-extracted (or manually added) place awaiting review before being
 /// saved as a card — mirrors Peragra's `AddPlaceSheet.CandidateRow`,
@@ -126,11 +127,26 @@ final class PlaceCardViewModel: ObservableObject {
         candidateRows[index].chosenResult = nil
     }
 
-    /// Verifies one row's current name against Google Places to get an
-    /// address, rating, and contact details worth saving.
+    /// Within this distance of the row's own address, a same-named result
+    /// is treated as a match — beyond it, discarded even if Google ranked
+    /// it first. Name-only text search regularly surfaces a same-named
+    /// place in a completely different city (a chain, or just a common
+    /// name), so when an address is available it's the deciding signal,
+    /// not just a ranking hint.
+    private static let maxAddressMatchDistanceMeters: CLLocationDistance = 100
+
+    /// Verifies one row's current name (and, when present, address)
+    /// against Google Places to get a verified address, rating, and
+    /// contact details worth saving. The address narrows the query text
+    /// itself and, separately, is geocoded so every candidate can be
+    /// discarded unless it's actually within
+    /// `maxAddressMatchDistanceMeters` of it — name text alone isn't
+    /// enough to trust a result is the right place, only that it's
+    /// *a* place with that name somewhere.
     func search(rowID: UUID) async {
         guard let index = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
         let placeName = candidateRows[index].name
+        let address = candidateRows[index].address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !placeName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
         candidateRows[index].isSearching = true
@@ -147,14 +163,28 @@ final class PlaceCardViewModel: ObservableObject {
         }
 
         let resolvedQuery = await Self.resolveSearchQuery(from: placeName)
+        let combinedQuery = address.isEmpty ? resolvedQuery : "\(resolvedQuery) \(address)"
         let googleService = GooglePlacesService(apiKey: apiKey)
 
         do {
-            let results = try await googleService.search(query: resolvedQuery, coordinates: photoLocationHint)
+            let rawResults = try await googleService.search(query: combinedQuery, coordinates: photoLocationHint)
+            var results = rawResults
+
+            if !address.isEmpty, let addressLocation = try? await googleService.geocodeAddress(address) {
+                results = rawResults.filter { result in
+                    guard let coordinates = result.coordinates else { return false }
+                    return CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
+                        .distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
+                        <= Self.maxAddressMatchDistanceMeters
+                }
+            }
+
             guard let index = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
             candidateRows[index].searchResults = results
             if results.isEmpty {
-                errorMessage = PlaceCardsError.noResults.localizedDescription
+                errorMessage = (!address.isEmpty && !rawResults.isEmpty)
+                    ? "\"\(address)\" 근처 100m 이내에서 찾지 못했습니다."
+                    : PlaceCardsError.noResults.localizedDescription
             }
         } catch {
             errorMessage = error.localizedDescription
