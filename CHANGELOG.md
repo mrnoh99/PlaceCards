@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (51차) — 공유 확장이 공유 시트에 아예 안 보이던 문제 수정
+#### Fixed
+- `PlaceCards.xcodeproj/project.pbxproj`: "Embed Foundation Extensions"
+  복사 단계에서 `PlaceCardsShare.appex`를 내장할 때 `RemoveHeadersOnCopy`
+  만 있고 `CodeSignOnCopy` 속성이 빠져 있었음 — Xcode가 "New Target"
+  마법사로 확장을 만들면 이 속성이 자동으로 붙는데, `project.pbxproj`를
+  손으로 편집해 타겟을 추가하면서 빠뜨렸던 것으로 보임. 이 속성이
+  없으면 앱을 빌드할 때 내장된 `.appex`가 최종 서명(코드사인)을
+  다시 받지 못해서, 실기기에서 iOS가 이 확장을 아예 등록하지 못하고
+  — 스크린샷을 찍은 뒤 뜨는 공유 시트에서 "더보기"를 열어도 PlaceCards
+  자체가 보이지 않는 증상으로 나타남(시뮬레이터는 서명 검증이
+  느슨해 이 문제가 잘 드러나지 않을 수 있음). `settings = {ATTRIBUTES
+  = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }`로 수정.
+
 ### 2026-09-10 (50차) — 공유 확장 진단 로그 추가
 #### Added
 - `Services/SharedImportStore.swift`: `recordDebugStatus(_:)`/
