@@ -3,6 +3,16 @@ import SwiftUI
 struct MainTabView: View {
     @EnvironmentObject private var storageService: StorageService
     @StateObject private var navigation = AppNavigation()
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// Set when a photo shared into the app through the Share Extension
+    /// (`ShareViewController`, `PlaceCardsShare` target) is waiting to be
+    /// picked up — checked every time the app becomes active, since the
+    /// extension runs as a separate process and hands the photo over via
+    /// `SharedImportStore`'s file in their shared App Group container,
+    /// not directly.
+    @State private var pendingSharedImageData: Data?
+    @State private var isPresentingSharedImportSheet = false
 
     var body: some View {
         TabView(selection: $navigation.selectedTab) {
@@ -23,6 +33,24 @@ struct MainTabView: View {
                 .tag(AppTab.settings)
         }
         .environmentObject(navigation)
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            checkForSharedImage()
+        }
+        .task {
+            checkForSharedImage()
+        }
+        .sheet(isPresented: $isPresentingSharedImportSheet) {
+            if let pendingSharedImageData {
+                SharedPhotoBoardPickerSheet(imageData: pendingSharedImageData)
+            }
+        }
+    }
+
+    private func checkForSharedImage() {
+        guard let data = SharedImportStore.takePendingImage() else { return }
+        pendingSharedImageData = data
+        isPresentingSharedImportSheet = true
     }
 }
 

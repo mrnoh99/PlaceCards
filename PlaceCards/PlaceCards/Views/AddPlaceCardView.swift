@@ -27,8 +27,15 @@ struct AddPlaceCardView: View {
     @State private var sourceType: SourceType = .instagramScreenshot
     @State private var didCreateCards = false
 
-    init(viewModel: PlaceCardViewModel) {
+    /// `initialImageData` seeds the picker with a photo handed over from
+    /// outside the normal PhotosPicker flow — namely a photo shared into
+    /// the app through the Share Extension (see `SharedPhotoBoardPickerSheet`).
+    init(viewModel: PlaceCardViewModel, initialImageData: Data? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        if let initialImageData, let image = UIImage(data: initialImageData) {
+            _pickedImages = State(initialValue: [image])
+            _pickedImageDatas = State(initialValue: [initialImageData])
+        }
     }
 
     var body: some View {

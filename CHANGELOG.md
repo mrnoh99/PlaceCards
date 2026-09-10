@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (40차) — 공유 확장(Share Extension)으로 사진 바로 가져오기
+#### Added
+- `PlaceCardsShare` 타겟(신규): iOS 공유 시트에 "PlaceCards"가 뜨도록
+  하는 Share Extension. 다른 앱(지도 앱, 사진 앱 등)에서 이미지를
+  "공유" → PlaceCards를 고르면, 스크린샷을 먼저 사진 앱에 저장하고
+  PlaceCards로 돌아와 갤러리에서 다시 골라야 했던 기존 절차 없이 바로
+  넘어옴.
+  - `PlaceCardsShare/ShareViewController.swift`: 스토리보드 없는
+    최소 구현 — 공유된 이미지를 받아 App Group 공유 컨테이너에 저장하고
+    즉시 완료 처리.
+  - `Services/SharedImportStore.swift`(신규, 앱·확장 양쪽 타겟에 포함):
+    확장과 앱이 별도 프로세스라 직접 데이터를 주고받을 수 없어, App
+    Group(`group.com.mrnoh99.PlaceCards`) 공유 컨테이너의 파일을 통해
+    전달.
+  - `Views/SharedPhotoBoardPickerSheet.swift`(신규): 앱이 활성화될 때
+    대기 중인 공유 사진을 발견하면(`MainTabView`) 이 시트로 어느
+    게시판에 추가할지 물은 뒤, 그 사진이 이미 선택된 상태로
+    `AddPlaceCardView`(신규 `initialImageData` 파라미터)를 엶.
+  - 앱 타겟에 `PlaceCards.entitlements`, 확장 타겟에
+    `PlaceCardsShare.entitlements` 추가(둘 다 같은 App Group 등록).
+- ⚠️ **Xcode에서 직접 확인이 필요한 부분**: 이 기능은 새 Xcode
+  타겟(확장 프로그램)을 추가하는 작업이라 `project.pbxproj`를 직접
+  편집했음 — 이 환경엔 Xcode가 없어 실제 빌드로 검증하지 못했음.
+  구조적 정합성(참조 무결성, 빌드 단계, 타겟 의존성)은 스크립트로
+  확인했지만, 다음은 Xcode를 열어야만 가능:
+  1. 두 타겟(PlaceCards, PlaceCardsShare) 모두 Signing & Capabilities에서
+     팀 선택 및 "App Groups" 활성화(Apple Developer 계정에
+     `group.com.mrnoh99.PlaceCards` 그룹이 등록돼 있어야 함).
+  2. 한 번 빌드해서 구성이 실제로 컴파일/서명되는지 확인.
+  3. 실기기에서 공유 시트에 PlaceCards가 뜨는지, 사진이 넘어오는지 테스트.
+
 ### 2026-09-10 (39차) — Naver 제거: 정보는 Google+사진 스캔, 지도는 Google+Apple만 사용
 #### Removed
 - Naver를 정보 소스·지도 제공자 양쪽에서 완전히 제거 — 이번 세션에서

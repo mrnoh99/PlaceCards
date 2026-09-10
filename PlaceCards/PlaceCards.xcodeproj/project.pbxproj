@@ -50,6 +50,11 @@
 		31A20FCBBC5DB210A21D18A5 /* UnsplashImageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D803485B3B6E7F1A2726A8 /* UnsplashImageService.swift */; };
 		3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */; };
 		7CAD95219A32FED40BB70DFB /* EditPlaceCardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */; };
+		22BEC38BCC40CB1EE8204A9E /* SharedImportStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */; };
+		8716307C7083C8B1DCB62617 /* SharedPhotoBoardPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D43E9A4ADB4780134F4EECA /* SharedPhotoBoardPickerSheet.swift */; };
+		191873FC1451F8841D6D229D /* SharedImportStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */; };
+		A1E390732FDA1586531272FD /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA5C2FD6E1D71D74FC34D78 /* ShareViewController.swift */; };
+		E442B047733FB355400DFE8A /* PlaceCardsShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -97,10 +102,24 @@
 		D5D803485B3B6E7F1A2726A8 /* UnsplashImageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsplashImageService.swift; sourceTree = "<group>"; };
 		783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditPlaceCardSheet.swift; sourceTree = "<group>"; };
 		5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindDuplicatesSheet.swift; sourceTree = "<group>"; };
+		03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedImportStore.swift; sourceTree = "<group>"; };
+		4D43E9A4ADB4780134F4EECA /* SharedPhotoBoardPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedPhotoBoardPickerSheet.swift; sourceTree = "<group>"; };
+		AC18FD7F3A56464852EC1EC2 /* PlaceCards.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PlaceCards.entitlements; sourceTree = "<group>"; };
+		9FA5C2FD6E1D71D74FC34D78 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		42BA62076C1E106F9A0D7D1B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		1BCFA51032463E05CB672198 /* PlaceCardsShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PlaceCardsShare.entitlements; sourceTree = "<group>"; };
+		42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PlaceCardsShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		6525013EF4D8E9E600B07801 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DDFA37B3EF90CBBC581DC6C3 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -114,6 +133,7 @@
 			isa = PBXGroup;
 			children = (
 				BDB1C90C94805EBA32F19716 /* PlaceCards */,
+				A12DD6F64CD65A241523BA98 /* PlaceCardsShare */,
 				3C6A7DCEDD075B2A871C4221 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -122,6 +142,7 @@
 			isa = PBXGroup;
 			children = (
 				0B1B2AA6A3716971A5B9BFAB /* PlaceCards.app */,
+				42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -131,6 +152,7 @@
 			children = (
 				AE01FEFE9A9B6E63A9E38677 /* PlaceCardsApp.swift */,
 				0586095638A0F6A8D23A7F16 /* ContentView.swift */,
+				AC18FD7F3A56464852EC1EC2 /* PlaceCards.entitlements */,
 				46CC8B32F254BDD252E6E91B /* Models */,
 				8CC3C94618BBA43C1ED738AF /* Services */,
 				7D0603F356C3436C6C25DCEA /* ViewModels */,
@@ -139,6 +161,16 @@
 				8B2D5EE63E6D606B3C06F3D2 /* Preview Content */,
 			);
 			path = PlaceCards;
+			sourceTree = "<group>";
+		};
+		A12DD6F64CD65A241523BA98 /* PlaceCardsShare */ = {
+			isa = PBXGroup;
+			children = (
+				9FA5C2FD6E1D71D74FC34D78 /* ShareViewController.swift */,
+				42BA62076C1E106F9A0D7D1B /* Info.plist */,
+				1BCFA51032463E05CB672198 /* PlaceCardsShare.entitlements */,
+			);
+			path = PlaceCardsShare;
 			sourceTree = "<group>";
 		};
 		46CC8B32F254BDD252E6E91B /* Models */ = {
@@ -171,6 +203,7 @@
 				D698604B0123BD5E703A0E79 /* AppNavigation.swift */,
 				156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */,
 				D5D803485B3B6E7F1A2726A8 /* UnsplashImageService.swift */,
+				03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -204,6 +237,7 @@
 				28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */,
 				5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */,
 				783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */,
+				4D43E9A4ADB4780134F4EECA /* SharedPhotoBoardPickerSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -226,15 +260,34 @@
 				B72C61E33A21A6AB87165AA8 /* Sources */,
 				6525013EF4D8E9E600B07801 /* Frameworks */,
 				28F500E9AE47E36EE29847F4 /* Resources */,
+				66C83158DAB295B79EB25482 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0EF3973C2CE81B0D439D6F82 /* PBXTargetDependency */,
 			);
 			name = PlaceCards;
 			productName = PlaceCards;
 			productReference = 0B1B2AA6A3716971A5B9BFAB /* PlaceCards.app */;
 			productType = "com.apple.product-type.application";
+		};
+		5AEB9B6C7A8C47A9DDEB5C6B /* PlaceCardsShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2C4DB981AC9A9DCECA7008E4 /* Build configuration list for PBXNativeTarget "PlaceCardsShare" */;
+			buildPhases = (
+				9F1D15C61A4F1667F9F2B2F7 /* Sources */,
+				DDFA37B3EF90CBBC581DC6C3 /* Frameworks */,
+				DBA47FCB4C7EE1B2B4E045FE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PlaceCardsShare;
+			productName = PlaceCardsShare;
+			productReference = 42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -248,6 +301,19 @@
 				TargetAttributes = {
 					111F8CC97EA275AFF7FC0998 /* PlaceCards */ = {
 						CreatedOnToolsVersion = 16.0;
+						SystemCapabilities = {
+							"com.apple.ApplicationGroups.iOS" = {
+								enabled = 1;
+							};
+						};
+					};
+					5AEB9B6C7A8C47A9DDEB5C6B /* PlaceCardsShare */ = {
+						CreatedOnToolsVersion = 16.0;
+						SystemCapabilities = {
+							"com.apple.ApplicationGroups.iOS" = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -266,6 +332,7 @@
 			projectRoot = "";
 			targets = (
 				111F8CC97EA275AFF7FC0998 /* PlaceCards */,
+				5AEB9B6C7A8C47A9DDEB5C6B /* PlaceCardsShare */,
 			);
 		};
 /* End PBXProject section */
@@ -277,6 +344,13 @@
 			files = (
 				F31435B9A6398334A938BFF6 /* Assets.xcassets in Resources */,
 				678E62647DC63687E5F3D36E /* Preview Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DBA47FCB4C7EE1B2B4E045FE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -328,10 +402,53 @@
 				31A20FCBBC5DB210A21D18A5 /* UnsplashImageService.swift in Sources */,
 				3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */,
 				7CAD95219A32FED40BB70DFB /* EditPlaceCardSheet.swift in Sources */,
+				22BEC38BCC40CB1EE8204A9E /* SharedImportStore.swift in Sources */,
+				8716307C7083C8B1DCB62617 /* SharedPhotoBoardPickerSheet.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9F1D15C61A4F1667F9F2B2F7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1E390732FDA1586531272FD /* ShareViewController.swift in Sources */,
+				191873FC1451F8841D6D229D /* SharedImportStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		C668F0DA4AFF550893537E3A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F57F2C7044D210C459559737 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5AEB9B6C7A8C47A9DDEB5C6B;
+			remoteInfo = PlaceCardsShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		66C83158DAB295B79EB25482 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E442B047733FB355400DFE8A /* PlaceCardsShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0EF3973C2CE81B0D439D6F82 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5AEB9B6C7A8C47A9DDEB5C6B /* PlaceCardsShare */;
+			targetProxy = C668F0DA4AFF550893537E3A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1C58F8E93B8CF4FA58FC924A /* Debug */ = {
@@ -460,6 +577,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
@@ -490,6 +608,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
@@ -515,6 +634,54 @@
 			};
 			name = Release;
 		};
+		22EB3A6B03782C11B3FF20D7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PlaceCards.Share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		DBD5FE94C8C8664579B77E5E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PlaceCards.Share;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -532,6 +699,15 @@
 			buildConfigurations = (
 				4C4EF000386BD8D4AE266E5B /* Debug */,
 				690EAB195D39F0CE01CC3CE6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2C4DB981AC9A9DCECA7008E4 /* Build configuration list for PBXNativeTarget "PlaceCardsShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				22EB3A6B03782C11B3FF20D7 /* Debug */,
+				DBD5FE94C8C8664579B77E5E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
