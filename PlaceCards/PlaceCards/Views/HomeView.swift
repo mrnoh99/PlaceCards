@@ -22,16 +22,14 @@ struct HomeView: View {
         !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// Every place card (across every board) matching `searchQuery` by
-    /// name/address — mirrors `GalleryViewModel`'s own search. Computed
-    /// ahead of `searchCategoryFilter` so the category chips below always
-    /// offer every category actually present in the *text* match, not
-    /// just what's left after a category is already picked.
+    /// Every place card (across every board) matching `searchQuery` via
+    /// `PlaceCard.matchesSearch` — mirrors every other search box in the
+    /// app. Computed ahead of `searchCategoryFilter` so the category
+    /// chips below always offer every category actually present in the
+    /// *text* match, not just what's left after a category is already
+    /// picked.
     private var searchResultsBeforeCategoryFilter: [PlaceCard] {
-        storageService.placeCards.filter { card in
-            card.name.localizedCaseInsensitiveContains(searchQuery)
-                || card.address.localizedCaseInsensitiveContains(searchQuery)
-        }
+        storageService.placeCards.filter { $0.matchesSearch(searchQuery) }
     }
 
     private var searchCategories: [String] {

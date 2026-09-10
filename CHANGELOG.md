@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (81차) — 모든 검색을 카드 전체 필드·단어 단위 매칭으로 통일
+#### Added
+- `Models/PlaceCard.swift`: `matchesSearch(_:)`(신규) — 이름·주소뿐
+  아니라 카테고리·메모·태그·편의시설·전화번호까지 합쳐서, 검색어를
+  공백 기준으로 단어로 쪼갠 뒤 그 중 **하나라도** 카드 어딘가에
+  있으면 매칭되게 함(예: "강남 카페"라고 치면 이름에 "카페"만 있고
+  주소에 "강남"만 있어도 찾아짐 — 두 단어가 한 필드에 붙어있을
+  필요가 없음).
+
+#### Changed
+- `Services/StorageService.swift`의 `search(query:tags:)`,
+  `Views/BoardDetailView.swift`의 `searchFilteredCards`,
+  `Views/HomeView.swift`의 `searchResultsBeforeCategoryFilter`,
+  `Views/PlacesMapView.swift`의 `visibleCards` — 전부 이름/주소만
+  보던 개별 필터 로직을 지우고 `PlaceCard.matchesSearch(_:)` 하나로
+  통일. 결과적으로 갤러리·게시판 상세·Home 카드검색·지도 검색 네
+  곳 모두 같은 기준으로 검색됨.
+
 ### 2026-09-10 (80차) — 카테고리 메뉴 안에 검색 추가
 #### Added
 - `Views/CategoryPickerSheet.swift`(신규): 카테고리 목록이 길어지면

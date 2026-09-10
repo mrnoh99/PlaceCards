@@ -38,15 +38,13 @@ struct BoardDetailView: View {
         storageService.placeCards(inBoard: board.id)
     }
 
-    /// Name/address-matched, mirroring `GalleryViewModel`'s own search —
-    /// applied first, ahead of every other filter below, so the status/
-    /// category chips and their counts reflect the search too.
+    /// `PlaceCard.matchesSearch`-matched (name/address/category/memo/tags/
+    /// amenities/phone — see that method), mirroring every other search
+    /// box in the app — applied first, ahead of every other filter below,
+    /// so the status/category chips and their counts reflect the search
+    /// too.
     private var searchFilteredCards: [PlaceCard] {
-        guard !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty else { return allCards }
-        return allCards.filter { card in
-            card.name.localizedCaseInsensitiveContains(searchQuery)
-                || card.address.localizedCaseInsensitiveContains(searchQuery)
-        }
+        allCards.filter { $0.matchesSearch(searchQuery) }
     }
 
     private var categories: [String] {

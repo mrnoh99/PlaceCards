@@ -63,12 +63,7 @@ struct PlacesMapView: View {
             scoped = viewModel.annotatedPlaceCards
         }
 
-        let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespaces)
-        guard !trimmedQuery.isEmpty else { return scoped }
-        return scoped.filter { card in
-            card.name.localizedCaseInsensitiveContains(trimmedQuery)
-                || card.address.localizedCaseInsensitiveContains(trimmedQuery)
-        }
+        return scoped.filter { $0.matchesSearch(searchQuery) }
     }
 
     private var mapNavigationTitle: String {

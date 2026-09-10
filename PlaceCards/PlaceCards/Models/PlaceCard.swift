@@ -90,6 +90,31 @@ extension PlaceCard {
         return currentMemo + "\n" + trimmedNote
     }
 
+    /// Whether this card matches a free-text search — checked against
+    /// every field a user might plausibly search by (name, address,
+    /// category, memo, tags, amenities, phone), not just name/address,
+    /// word by word: the query is split on whitespace, and the card
+    /// matches as soon as *any one* of those words turns up anywhere
+    /// among those fields — so "강남 카페" finds a card named "OO카페"
+    /// whose address is in 강남, even though neither field contains the
+    /// full two-word phrase. Shared by every search box in the app
+    /// (`HomeView`, `BoardDetailView`, `PlacesMapView`,
+    /// `StorageService.search(query:tags:)`) so they all search the same
+    /// way. An empty/whitespace-only query matches everything.
+    func matchesSearch(_ query: String) -> Bool {
+        let words = query
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(whereSeparator: \.isWhitespace)
+            .map(String.init)
+        guard !words.isEmpty else { return true }
+        let searchableFields: [String?] = [
+            name, address, category, memo, phone,
+            tags.joined(separator: " "), amenities.joined(separator: " ")
+        ]
+        let haystack = searchableFields.compactMap { $0 }.joined(separator: " ")
+        return words.contains { haystack.localizedCaseInsensitiveContains($0) }
+    }
+
     /// Fills in anything only a duplicate had, folding its media and tags
     /// in too. The caller is expected to save `self` afterward and remove
     /// `duplicates` from storage via

@@ -104,11 +104,8 @@ final class StorageService: ObservableObject {
 
     func search(query: String, tags: [String] = []) -> [PlaceCard] {
         placeCards.filter { card in
-            let matchesQuery = query.isEmpty
-                || card.name.localizedCaseInsensitiveContains(query)
-                || card.address.localizedCaseInsensitiveContains(query)
             let matchesTags = tags.isEmpty || !Set(tags).isDisjoint(with: Set(card.tags))
-            return matchesQuery && matchesTags
+            return card.matchesSearch(query) && matchesTags
         }
     }
 
