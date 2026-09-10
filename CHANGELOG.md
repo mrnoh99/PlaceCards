@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (52차) — 공유 확장에 진행 상태 표시 추가
+#### Changed
+- `PlaceCardsShare/ShareViewController.swift`: 확장이 화면에 아무것도
+  그리지 않고 바로 닫혀서, 공유 시트에서 PlaceCards를 눌러도 "빈
+  화면이 잠깐 뜨고 사라짐 = 아무 일도 없는 것처럼" 보인다는 보고에
+  대해, 코드로 최소한의 UI(스피너 → "PlaceCards로 저장 중…" →
+  성공/실패에 따라 "✓ PlaceCards로 저장됨" 또는 "✗ ..." 메시지를
+  0.7초 보여준 뒤 닫힘)를 추가. 처리 자체(사진 저장/`recordDebugStatus`
+  기록)는 그대로이고, 사용자에게 보이는 결과만 추가됨.
+
 ### 2026-09-10 (51차) — 공유 확장이 공유 시트에 아예 안 보이던 문제 수정
 #### Fixed
 - `PlaceCards.xcodeproj/project.pbxproj`: "Embed Foundation Extensions"
