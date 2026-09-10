@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (8차) — 나머지 화면 아이콘도 외곽선 톤으로 통일
+#### Changed
+- 카드 셀/상세화면/필터바/온보딩의 장식용(순수 표시용) 아이콘을
+  `.fill`에서 외곽선으로 변경 — 방금 바꾼 앱 아이콘·카테고리 아이콘과
+  톤을 맞춤.
+  - `GalleryView.swift`: 전화 `phone.fill`→`phone`, 지도 `map.fill`→`map`,
+    인스타그램 `camera.fill`→`camera`.
+  - `PlaceCardDetailView.swift`: 평점 `star.fill`→`star`.
+  - `PlaceStatusFilterBar.swift`: "현재 위치" `location.fill`→`location`.
+  - `OnboardingView.swift`: API 키 안내 단계 `key.fill`→`key`.
+#### Kept (의도적으로 유지)
+- 즐겨찾기/방문 토글 아이콘(`star`/`star.fill`,
+  `checkmark.circle`/`checkmark.circle.fill`)은 그대로 둠 — 채워짐 여부가
+  곧 on/off 상태를 나타내는 유일한 신호이므로 외곽선으로 통일하면 상태
+  구분이 사라짐.
+- `PlacesMapView.swift`의 지도 마커(`mappin.circle.fill`)도 그대로 둠 —
+  지도 배경 위에서 눈에 잘 띄어야 하는 지도 앱 공통 관례이며, UI 크롬
+  아이콘과는 다른 성격의 예외로 판단.
+
 ### 2026-09-10 (7차) — 카테고리 아이콘을 미니멀 외곽선으로 추가
 #### Added
 - `Services/PlaceCategoryIcon.swift`(신규): 카테고리 텍스트(Google Places의

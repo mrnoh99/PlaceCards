@@ -134,7 +134,7 @@ struct PlaceCardGridCell: View {
                 HStack(spacing: 12) {
                     if let callURL {
                         Button { openURL(callURL) } label: {
-                            Image(systemName: "phone.fill")
+                            Image(systemName: "phone")
                         }
                     }
                     if hasAnyMapLink {
@@ -152,7 +152,7 @@ struct PlaceCardGridCell: View {
                                 Button("Tmap") { openURL(url) }
                             }
                         } label: {
-                            Image(systemName: "map.fill")
+                            Image(systemName: "map")
                         }
                     }
                     if let website = card.website, let url = URL(string: website) {
@@ -162,7 +162,7 @@ struct PlaceCardGridCell: View {
                     }
                     if let instagramURL = card.instagramURL, let url = URL(string: instagramURL) {
                         Button { openURL(url) } label: {
-                            Image(systemName: "camera.fill")
+                            Image(systemName: "camera")
                                 .foregroundStyle(.pink)
                         }
                     }

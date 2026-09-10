@@ -34,7 +34,7 @@ struct PlaceCardDetailView: View {
 
                     HStack(spacing: 16) {
                         if let rating = card.rating {
-                            Label(String(format: "%.1f", rating), systemImage: "star.fill")
+                            Label(String(format: "%.1f", rating), systemImage: "star")
                                 .foregroundStyle(.orange)
                         }
                         if let reviewCount = card.reviewCount {

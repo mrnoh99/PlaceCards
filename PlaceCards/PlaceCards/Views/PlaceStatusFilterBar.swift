@@ -93,7 +93,7 @@ struct PlaceStatusFilterBar: View {
                 distanceReference = .here
                 Task { hereCoordinate = await LocationService.currentLocation() }
             } label: {
-                Label("현재 위치", systemImage: "location.fill")
+                Label("현재 위치", systemImage: "location")
             }
             ForEach(locatableCards) { card in
                 Button(card.name) { distanceReference = .card(card.id) }
