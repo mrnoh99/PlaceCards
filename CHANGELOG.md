@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (59차) — 카드 편집에 "웹 검색으로 채우기" 추가
+#### Added
+- `Services/AIProvider.swift`: `AIProvider.searchWebForDetails(name:address:)`
+  (신규, 프로토콜에 기본 구현 포함) — 사진을 읽는 게 아니라 이름/주소로
+  AI가 웹을 검색해 전화번호·웹사이트·카테고리·영업시간·휴무일·편의시설·
+  그 외 메모거리를 찾아오는 새 경로. `ClaudeProvider`만 실제로 구현
+  (Anthropic Messages API의 호스팅 `web_search` 툴 — `web_search_20260209`
+  — 이용). 이 앱이 대화형 채팅 완성 요청으로 통신하는 나머지 세
+  제공자(OpenAI/Gemini/Gateway)는 이 모양의 웹 검색 툴이 문서화되어
+  있지 않아, 기본 구현이 "이 제공자는 지원하지 않음, Claude로 바꿔달라"는
+  명확한 에러를 던짐 — 조용히 아무 것도 안 채우는 대신.
+- `Views/EditPlaceCardSheet.swift`: "웹 검색으로 채우기" 섹션(신규) —
+  이름/주소로 검색해 **비어 있는 항목만** 채우고(이미 값이 있으면
+  건드리지 않음) 실제로 채운 항목 목록을 알려줌. 검색 결과의 그 외
+  정보는 사진 스캔과 동일하게 `PlaceCard.combinedMemo`로 메모에 합쳐짐.
+
 ### 2026-09-10 (58차) — 사진 스캔의 이름/주소 외 정보를 메모로 수집
 #### Added
 - `Services/AIProvider.swift`: `defaultPlaceAnalysisPrompt`가

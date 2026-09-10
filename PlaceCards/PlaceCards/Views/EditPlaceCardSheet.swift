@@ -60,6 +60,9 @@ struct EditPlaceCardSheet: View {
     @State private var pendingExtractedPlace: AIAnalysisResult?
     @State private var isConfirmingNameChange = false
 
+    @State private var isSearchingWeb = false
+    @State private var webSearchMessage: String?
+
     init(card: PlaceCard, onSave: @escaping (PlaceCard) -> Void) {
         self.card = card
         self.onSave = onSave
@@ -118,6 +121,8 @@ struct EditPlaceCardSheet: View {
                     }
                     TextField("주소", text: $address)
                 }
+
+                webSearchSection
 
                 Section {
                     TextField("위도", text: $latitudeText)
@@ -294,6 +299,37 @@ struct EditPlaceCardSheet: View {
         }
     }
 
+    /// Fills in whatever's still blank — phone, website, category, hours,
+    /// amenities, and anything else worth a memo note — by having AI
+    /// search the web for this place, instead of reading a photo. Not
+    /// every AI provider supports this (see `AIProvider
+    /// .searchWebForDetails`'s doc comment); unsupported providers show
+    /// that method's own "not supported" error rather than this section
+    /// pretending the button isn't there.
+    @ViewBuilder
+    private var webSearchSection: some View {
+        Section {
+            Button {
+                Task { await searchWebForDetails() }
+            } label: {
+                if isSearchingWeb {
+                    ProgressView()
+                } else {
+                    Label("웹 검색으로 채우기", systemImage: "magnifyingglass")
+                }
+            }
+            .disabled(isSearchingWeb || name.trimmingCharacters(in: .whitespaces).isEmpty)
+
+            if let webSearchMessage {
+                Text(webSearchMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } footer: {
+            Text("이름·주소로 AI가 웹을 검색해 전화번호·웹사이트·영업시간 등 비어 있는 항목만 채웁니다. 이미 값이 있는 항목은 바뀌지 않습니다.")
+        }
+    }
+
     private func loadPhotos(_ items: [PhotosPickerItem]) async {
         isLoadingPhotos = true
         defer { isLoadingPhotos = false }
@@ -371,6 +407,77 @@ struct EditPlaceCardSheet: View {
             memoText = combined
         }
         photoAnalysisMessage = "AI가 읽은 정보를 채웠습니다."
+    }
+
+    private func searchWebForDetails() async {
+        isSearchingWeb = true
+        webSearchMessage = nil
+        defer { isSearchingWeb = false }
+
+        let providerType = SettingsViewModel.currentAIProviderType()
+        guard let apiKey = KeychainService.load(providerType.keychainKey), !apiKey.isEmpty else {
+            webSearchMessage = PlaceCardsError.apiKeyMissing.localizedDescription
+            return
+        }
+
+        let provider = await AIProviderFactory.create(type: providerType, apiKey: apiKey)
+        do {
+            let details = try await provider.searchWebForDetails(name: name, address: address)
+            applyWebDetails(details)
+        } catch {
+            webSearchMessage = error.localizedDescription
+        }
+    }
+
+    /// Fills only what's currently blank — never overwrites a value the
+    /// user (or another source) already set — and reports back exactly
+    /// which fields it touched, since a silent "done" wouldn't say
+    /// whether anything actually changed.
+    private func applyWebDetails(_ details: PlaceWebDetails) {
+        var filledFields: [String] = []
+
+        if phone.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.phone, !value.isEmpty {
+            phone = value
+            filledFields.append("전화번호")
+        }
+        if website.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.website, !value.isEmpty {
+            website = value
+            filledFields.append("웹사이트")
+        }
+        if category.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.category, !value.isEmpty {
+            category = value
+            filledFields.append("카테고리")
+        }
+        if hoursEntries.isEmpty, let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
+            hoursEntries = hoursDetail.sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) }
+            filledFields.append("영업시간")
+        }
+        if closingTime.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.closingTime, !value.isEmpty {
+            closingTime = value
+            filledFields.append("마감 시간")
+        }
+        if holidays.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.holidays, !value.isEmpty {
+            holidays = value
+            filledFields.append("휴무일")
+        }
+        if !details.amenities.isEmpty {
+            let existing = Set(amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+            let newOnes = details.amenities.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !existing.contains($0) }
+            if !newOnes.isEmpty {
+                amenitiesText = amenitiesText.trimmingCharacters(in: .whitespaces).isEmpty
+                    ? newOnes.joined(separator: ", ")
+                    : amenitiesText + ", " + newOnes.joined(separator: ", ")
+                filledFields.append("편의시설")
+            }
+        }
+        if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: details.note), combined != memoText {
+            memoText = combined
+            filledFields.append("메모")
+        }
+
+        webSearchMessage = filledFields.isEmpty
+            ? "웹 검색에서 새로 채울 정보를 찾지 못했습니다."
+            : "\(filledFields.joined(separator: ", ")) 정보를 채웠습니다."
     }
 
     private func save() {

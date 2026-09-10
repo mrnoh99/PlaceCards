@@ -62,6 +62,24 @@ struct AIAnalysisResult {
     let confidence: Double
 }
 
+/// Whatever a web search turns up about a named place beyond what a photo
+/// scan or Google Places lookup already covers — filled into a card's
+/// still-blank fields only (see `EditPlaceCardSheet.applyWebDetails`),
+/// never overwriting anything the user or another source already set.
+struct PlaceWebDetails {
+    let phone: String?
+    let website: String?
+    let category: String?
+    let hoursDetail: [String: String]?
+    let closingTime: String?
+    let holidays: String?
+    let amenities: [String]
+    /// Anything else worth keeping that doesn't fit a specific field —
+    /// folded into the card's `memo` the same way a photo scan's
+    /// `AIAnalysisResult.description` is.
+    let note: String?
+}
+
 /// A user-supplied AI account (BYOK) that can look at one or more
 /// screenshots/photos and extract every place they show — a single
 /// screenshot's caption or map info card often names several distinct
@@ -70,6 +88,22 @@ struct AIAnalysisResult {
 /// `AIExtractionService.extractPlaces(images:)`).
 protocol AIProvider {
     func analyzePlaces(imageDatas: [Data], prompt: String) async throws -> [AIAnalysisResult]
+
+    /// Searches the web for further details about a named place — phone,
+    /// website, category, hours, amenities, anything else worth noting —
+    /// via a hosted web-search tool, rather than reading a photo. Only
+    /// `ClaudeProvider` implements this for real right now (the only
+    /// provider this app talks to whose plain chat-completion request
+    /// shape has a documented hosted web-search tool) — every other
+    /// provider gets the default below, which throws a clear
+    /// "not supported" error instead of silently returning nothing.
+    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails
+}
+
+extension AIProvider {
+    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
+        throw PlaceCardsError.notImplemented("웹 검색 (현재는 Claude만 지원 — 설정에서 AI 제공자를 Claude로 바꿔주세요)")
+    }
 }
 
 enum AIProviderFactory {
@@ -99,12 +133,12 @@ let defaultPlaceAnalysisPrompt = """
 장소를 하나도 찾지 못했으면 {"places": []}로 답하세요.
 """
 
-/// The three providers below all end up with the model's raw text reply and
-/// need the same last step: pull the JSON object out of it (models don't
-/// reliably skip prose/markdown fences despite the prompt asking for none —
+/// Every provider below ends up with the model's raw text reply and needs
+/// the same first step: pull the JSON object out of it (models don't
+/// reliably skip prose/markdown fences despite being asked for none —
 /// confirmed the hard way while building Peragra's equivalent extraction
-/// service) and decode it into a list of `AIAnalysisResult`s.
-private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisResult] {
+/// service). Shared by `parsePlaceAnalysisResults` and `parseWebDetails`.
+private func extractJSONObjectData(from text: String, errorMessage: String) throws -> Data {
     var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     if let fenceRange = trimmed.range(of: "```(?:json)?\\s*([\\s\\S]*?)\\s*```", options: .regularExpression) {
         trimmed = trimmed[fenceRange]
@@ -114,11 +148,16 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
     }
 
     guard let jsonStart = trimmed.firstIndex(of: "{"), let jsonEnd = trimmed.lastIndex(of: "}") else {
-        throw PlaceCardsError.decodingError("장소 정보를 추출하지 못했습니다.")
+        throw PlaceCardsError.decodingError(errorMessage)
     }
     guard let data = trimmed[jsonStart...jsonEnd].data(using: .utf8) else {
-        throw PlaceCardsError.decodingError("장소 정보를 추출하지 못했습니다.")
+        throw PlaceCardsError.decodingError(errorMessage)
     }
+    return data
+}
+
+private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisResult] {
+    let data = try extractJSONObjectData(from: text, errorMessage: "장소 정보를 추출하지 못했습니다.")
 
     struct ExtractedPlace: Decodable {
         let placeName: String
@@ -141,6 +180,43 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
             confidence: place.confidence ?? 0.5
         )
     }
+}
+
+private func webDetailsSearchPrompt(for query: String) -> String {
+    """
+    "\(query)"에 대한 정보를 웹에서 검색해서 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
+    확실하지 않은 값은 추측해서 만들어내지 말고 null로 답하세요.
+    {"phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "note": "그 외 참고할 만한 정보(메모로 남길 만한 것) 또는 null"}
+    """
+}
+
+private func parseWebDetails(from text: String) throws -> PlaceWebDetails {
+    let data = try extractJSONObjectData(from: text, errorMessage: "웹 검색 정보를 추출하지 못했습니다.")
+
+    struct Extracted: Decodable {
+        let phone: String?
+        let website: String?
+        let category: String?
+        let hoursDetail: [String: String]?
+        let closingTime: String?
+        let holidays: String?
+        let amenities: [String]?
+        let note: String?
+    }
+
+    guard let parsed = try? JSONDecoder().decode(Extracted.self, from: data) else {
+        throw PlaceCardsError.decodingError("웹 검색 정보를 추출하지 못했습니다.")
+    }
+    return PlaceWebDetails(
+        phone: parsed.phone,
+        website: parsed.website,
+        category: parsed.category,
+        hoursDetail: parsed.hoursDetail,
+        closingTime: parsed.closingTime,
+        holidays: parsed.holidays,
+        amenities: parsed.amenities ?? [],
+        note: parsed.note
+    )
 }
 
 /// Maps a failed HTTP response to a typed error the same way across every
@@ -257,6 +333,52 @@ final class ClaudeProvider: AIProvider {
             throw PlaceCardsError.decodingError("Claude 응답을 해석할 수 없습니다.")
         }
         return try parsePlaceAnalysisResults(from: text)
+    }
+
+    /// Uses Claude's hosted web-search tool (`web_search`) instead of
+    /// reading a photo — the model runs its own searches server-side and
+    /// this just reads the final answer back out. A tool-using turn's
+    /// `content` interleaves `server_tool_use`/`web_search_tool_result`
+    /// blocks with `text` blocks, so the *last* text block (not the
+    /// first, as in `analyzePlaces`) is the model's actual final answer;
+    /// `ClaudeMessageResponse.ContentBlock` already decodes those other
+    /// block types fine since it only reads `type`/`text` and ignores
+    /// unrecognized keys.
+    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
+        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+        let url = URL(string: "https://api.anthropic.com/v1/messages")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = trimmedAddress.isEmpty ? name : "\(name), \(trimmedAddress)"
+
+        let body: [String: Any] = [
+            "model": model,
+            "max_tokens": 4096,
+            "tools": [
+                ["type": "web_search_20260209", "name": "web_search", "max_uses": 5]
+            ],
+            "messages": [
+                ["role": "user", "content": webDetailsSearchPrompt(for: query)]
+            ]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: "Claude")
+        }
+
+        let decoded = try JSONDecoder().decode(ClaudeMessageResponse.self, from: data)
+        guard let text = decoded.content.last(where: { $0.type == "text" })?.text else {
+            throw PlaceCardsError.decodingError("Claude 응답을 해석할 수 없습니다.")
+        }
+        return try parseWebDetails(from: text)
     }
 }
 
