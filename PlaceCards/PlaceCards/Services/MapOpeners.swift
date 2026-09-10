@@ -41,6 +41,15 @@ enum MapProvider: String, CaseIterable, Identifiable {
         case .naver: return NaverMapOpener.url(for: card)
         }
     }
+
+    /// Whether this provider is worth offering as the *default* map app in
+    /// Settings at all — Naver Map has no useful data outside Korea (see
+    /// `KoreaRegion`), so it only makes sense to offer as a device-wide
+    /// default when the device's own region is Korea. Apple and Google
+    /// work everywhere, so both are always offered.
+    var isAvailableAsDefault: Bool {
+        self != .naver || Locale.current.region?.identifier == "KR"
+    }
 }
 
 /// Builds a Google Maps link that opens the native app on devices where

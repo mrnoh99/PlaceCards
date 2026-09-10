@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (11차) — 기기 지역이 한국이 아니면 Naver를 기본 지도로 선택 불가
+#### Changed
+- `MapProvider.isAvailableAsDefault` 추가 — 기기의 `Locale.current.region`이
+  한국(KR)이 아니면 false. 설정 화면의 "기본 지도 앱" Picker에서 이 조건에
+  따라 Naver Map 항목 자체를 목록에서 제외(선택 불가)하고, 안내 문구도
+  "기기 지역이 한국이 아니라 Naver Map은 선택할 수 없습니다"로 바뀜.
+- 이전에 Naver로 저장돼 있던 상태에서 기기 지역이 바뀌어 더 이상
+  선택 불가능해진 경우 `SettingsViewModel.init()`에서 자동으로 Apple
+  지도로 되돌리고 저장 — Picker 목록에 없는 값이 선택된 채로 남는 것을
+  방지.
+- (기존에 이미 있던, 장소별 Naver→Google 대체 로직과는 별개 — 이건 기기
+  전체의 기본값 선택 자체를 제한하는 것이고, 개별 카드가 한국 밖일 때의
+  대체는 계속 그대로 동작함.)
+
 ### 2026-09-10 (10차) — 설정에 기본 지도 앱(Apple/Google/Naver) 선택 추가
 #### Added
 - 설정 화면에 "기본 지도 앱" 섹션 추가 — Apple 지도(기본값)/Google
