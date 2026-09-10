@@ -55,6 +55,8 @@
 		191873FC1451F8841D6D229D /* SharedImportStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */; };
 		A1E390732FDA1586531272FD /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA5C2FD6E1D71D74FC34D78 /* ShareViewController.swift */; };
 		E442B047733FB355400DFE8A /* PlaceCardsShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6A /* MapOpenContext.swift */; };
+		0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -109,6 +111,8 @@
 		42BA62076C1E106F9A0D7D1B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1BCFA51032463E05CB672198 /* PlaceCardsShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PlaceCardsShare.entitlements; sourceTree = "<group>"; };
 		42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PlaceCardsShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		74B4C3C6D38A815385431E6A /* MapOpenContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapOpenContext.swift; sourceTree = "<group>"; };
+		4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapScreenshotImportSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -204,6 +208,7 @@
 				156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */,
 				D5D803485B3B6E7F1A2726A8 /* UnsplashImageService.swift */,
 				03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */,
+				74B4C3C6D38A815385431E6A /* MapOpenContext.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -238,6 +243,7 @@
 				5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */,
 				783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */,
 				4D43E9A4ADB4780134F4EECA /* SharedPhotoBoardPickerSheet.swift */,
+				4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -404,6 +410,8 @@
 				7CAD95219A32FED40BB70DFB /* EditPlaceCardSheet.swift in Sources */,
 				22BEC38BCC40CB1EE8204A9E /* SharedImportStore.swift in Sources */,
 				8716307C7083C8B1DCB62617 /* SharedPhotoBoardPickerSheet.swift in Sources */,
+				00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */,
+				0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

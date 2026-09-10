@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (45차) — 지도에서 찍은 스크린샷을 원래 카드로 돌려받기
+#### Added
+- `Services/MapOpenContext.swift`(신규): "지도에서 열기"를 누른 카드의
+  ID를 `UserDefaults`에 기록(30분간 유효). 지도 앱에서 스크린샷을 찍어
+  공유 확장으로 PlaceCards에 돌아왔을 때, 이 기록이 있으면 새 카드를
+  만드는 대신 그 카드로 바로 연결하기 위함.
+- `Views/PlaceCardDetailView.swift`, `Views/PlaceCardListRow.swift`,
+  `Views/GalleryView.swift`: "지도에서 열기" 메뉴의 모든 버튼(Google
+  Maps/Apple 지도/Naver Map/Kakao Map/Tmap)이 탭하는 순간 해당 카드를
+  `MapOpenContext`에 기록.
+- `Views/MapScreenshotImportSheet.swift`(신규): 공유로 받은 사진이
+  도착했을 때 최근 "지도에서 열기" 기록이 남아있으면(그리고 그 카드가
+  아직 존재하면) 이 시트가 대신 뜸 — 사진을 그 카드에 추가하고, AI로
+  읽어 비어 있는 이름·주소를 채움(여러 장소가 발견되면 적용하지 않고
+  알림, 이름이 바뀌는 경우엔 확인 후 적용 — `EditPlaceCardSheet`의
+  사진 가져오기와 동일한 처리).
+- `Views/MainTabView.swift`: `checkForSharedImage()`가 이제
+  `MapOpenContext.recentCardID()`를 먼저 확인해 위 시트로 보낼지,
+  기존의 게시판 선택 후 새 카드 생성 흐름(`SharedPhotoBoardPickerSheet`)
+  으로 보낼지 분기하고, 처리 후 기록을 지움.
+
 ### 2026-09-10 (44차) — "지도에서 열기"에 Naver/Kakao/Tmap 다시 추가 (한국 주소 한정)
 #### Added
 - `Services/MapOpeners.swift`: `KoreaRegion`, `NaverMapOpener`,

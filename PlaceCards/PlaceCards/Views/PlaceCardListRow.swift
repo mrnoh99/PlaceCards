@@ -116,19 +116,34 @@ struct PlaceCardListRow: View {
             if card.hasAnyMapLink {
                 Menu {
                     if GoogleMapsOpener.url(for: card) != nil {
-                        Button("Google Maps") { GoogleMapsOpener.open(for: card, using: openURL) }
+                        Button("Google Maps") {
+                            MapOpenContext.recordMapOpen(cardID: card.id)
+                            GoogleMapsOpener.open(for: card, using: openURL)
+                        }
                     }
                     if card.coordinates != nil {
-                        Button("Apple 지도") { AppleMapsOpener.open(for: card) }
+                        Button("Apple 지도") {
+                            MapOpenContext.recordMapOpen(cardID: card.id)
+                            AppleMapsOpener.open(for: card)
+                        }
                     }
                     if let url = NaverMapOpener.url(for: card) {
-                        Button("Naver Map") { openURL(url) }
+                        Button("Naver Map") {
+                            MapOpenContext.recordMapOpen(cardID: card.id)
+                            openURL(url)
+                        }
                     }
                     if let url = KakaoMapOpener.url(for: card) {
-                        Button("Kakao Map") { openURL(url) }
+                        Button("Kakao Map") {
+                            MapOpenContext.recordMapOpen(cardID: card.id)
+                            openURL(url)
+                        }
                     }
                     if let url = TmapOpener.url(for: card) {
-                        Button("Tmap") { openURL(url) }
+                        Button("Tmap") {
+                            MapOpenContext.recordMapOpen(cardID: card.id)
+                            openURL(url)
+                        }
                     }
                 } label: {
                     Image(systemName: "map")

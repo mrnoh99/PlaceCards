@@ -177,24 +177,41 @@ struct PlaceCardDetailView: View {
 
     /// "지도에서 열기" — Google Maps와 Apple 지도는 항상, Naver/Kakao
     /// Map·Tmap은 한국 내 장소일 때만 제공(각 opener가 좌표로 직접
-    /// 판단, `KoreaRegion` 참고).
+    /// 판단, `KoreaRegion` 참고). 탭하는 순간 `MapOpenContext`에 이
+    /// 카드를 기록해서, 지도 앱에서 스크린샷을 찍어 공유로 돌아왔을 때
+    /// 새 카드가 아니라 이 카드에 바로 반영할 수 있게 함.
     @ViewBuilder
     private var mapMenu: some View {
         Menu {
             if GoogleMapsOpener.url(for: card) != nil {
-                Button("Google Maps") { GoogleMapsOpener.open(for: card, using: openURL) }
+                Button("Google Maps") {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    GoogleMapsOpener.open(for: card, using: openURL)
+                }
             }
             if card.coordinates != nil {
-                Button("Apple 지도") { AppleMapsOpener.open(for: card) }
+                Button("Apple 지도") {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    AppleMapsOpener.open(for: card)
+                }
             }
             if let url = NaverMapOpener.url(for: card) {
-                Button("Naver Map") { openURL(url) }
+                Button("Naver Map") {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    openURL(url)
+                }
             }
             if let url = KakaoMapOpener.url(for: card) {
-                Button("Kakao Map") { openURL(url) }
+                Button("Kakao Map") {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    openURL(url)
+                }
             }
             if let url = TmapOpener.url(for: card) {
-                Button("Tmap") { openURL(url) }
+                Button("Tmap") {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    openURL(url)
+                }
             }
         } label: {
             Label("지도에서 열기", systemImage: "map")

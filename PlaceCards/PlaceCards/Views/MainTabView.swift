@@ -13,6 +13,11 @@ struct MainTabView: View {
     /// not directly.
     @State private var pendingSharedImageData: Data?
     @State private var isPresentingSharedImportSheet = false
+    /// Set instead of `isPresentingSharedImportSheet` when the incoming
+    /// photo arrives soon after "지도에서 열기" was tapped on this card
+    /// (`MapOpenContext`) — offers adding it straight to that card rather
+    /// than always asking which board to create a new one in.
+    @State private var pendingMapScreenshotCard: PlaceCard?
 
     var body: some View {
         TabView(selection: $navigation.selectedTab) {
@@ -45,12 +50,23 @@ struct MainTabView: View {
                 SharedPhotoBoardPickerSheet(imageData: pendingSharedImageData)
             }
         }
+        .sheet(item: $pendingMapScreenshotCard) { card in
+            if let pendingSharedImageData {
+                MapScreenshotImportSheet(card: card, imageData: pendingSharedImageData) { _ in }
+            }
+        }
     }
 
     private func checkForSharedImage() {
         guard let data = SharedImportStore.takePendingImage() else { return }
         pendingSharedImageData = data
-        isPresentingSharedImportSheet = true
+
+        if let cardID = MapOpenContext.recentCardID(), let card = storageService.placeCard(id: cardID) {
+            pendingMapScreenshotCard = card
+        } else {
+            isPresentingSharedImportSheet = true
+        }
+        MapOpenContext.clear()
     }
 }
 
