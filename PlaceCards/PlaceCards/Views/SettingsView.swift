@@ -42,6 +42,16 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Naver 지도 표시 (선택)") {
+                    SecureField("NCP Client ID", text: $viewModel.naverMapClientId)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button("저장") { viewModel.saveNaverMapClientId() }
+                    Text("\"지도\" 탭에서 Naver 지도를 선택했을 때만 사용됩니다. NAVER Cloud Platform Maps 애플리케이션의 Client ID이며, Secret은 필요 없습니다.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("AI 이미지 분석 (BYOK)") {
                     Picker("제공자", selection: $viewModel.aiProviderType) {
                         ForEach(AIProviderType.allCases) { provider in
@@ -82,7 +92,7 @@ struct SettingsView: View {
 
                 Section("정보") {
                     LabeledContent("API 키 저장 방식", value: "iOS 키체인 (기기 내)")
-                    Text("PlaceCards는 사용자가 등록한 API 키로 직접 Google/AI 서비스를 호출합니다(BYOK). 키는 iCloud와 동기화되지 않으며 이 기기에만 저장됩니다.")
+                    Text("PlaceCards는 사용자가 등록한 API 키로 직접 Google/Naver/AI 서비스를 호출합니다(BYOK). 키는 iCloud와 동기화되지 않으며 이 기기에만 저장됩니다.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

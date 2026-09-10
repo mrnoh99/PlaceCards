@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (46차) — "지도" 탭에서 Apple/Google/Naver 지도 선택
+#### Added
+- `Views/PlacesMapView.swift`: 내비게이션 바에 세그먼트 피커(Apple/
+  Google/Naver) 추가, 선택은 `@AppStorage`로 기억됨. 기존 Apple 지도
+  (MapKit `Map`)는 그대로 유지.
+- `Views/GoogleMapWebView.swift`, `Views/NaverMapWebView.swift`(둘 다
+  신규): PERAGRA의 동명 파일을 PlaceCards 모델에 맞게 포팅 — Google/
+  Naver 모두 iOS 네이티브 SwiftUI 지도 뷰가 없고, 두 회사의 네이티브
+  SDK를 붙이면 검토 불가능한 바이너리 의존성이 생기므로, 두 SDK 모두
+  이 앱이 이미 avoid하고 있는 방식(WebKit `WKWebView`에 JS 지도
+  API를 띄우는 방식)으로 구현:
+  - `GoogleMapWebView`: `loadHTMLString`으로 완전히 자체 포함된 HTML을
+    로드 — Google Places API 키(설정의 기존 키 재사용, Google Cloud
+    콘솔에서 "Maps JavaScript API"만 추가로 활성화하면 됨)만 있으면
+    바로 동작.
+  - `NaverMapWebView`: PERAGRA가 이미 배포해 둔 데이터 기반(클라이언트
+    ID·장소 목록을 JS로 주입받는) 임베드 페이지
+    (`mrnoh99.github.io/Peragra/naver-map-embed.html`)를 그대로 재사용
+    — Naver 지도 타일 서버가 페이지의 실제 origin을 검증해서
+    `loadHTMLString`으로는 타일이 안 뜨기 때문(PERAGRA에서 이미 확인된
+    제약). **다만 PlaceCards 자신의 NCP Maps 애플리케이션의 Web
+    Service URL에 `mrnoh99.github.io`를 등록해줘야 실제로 동작합니다.**
+- `Services/KeychainService.swift`, `ViewModels/SettingsViewModel.swift`,
+  `Views/SettingsView.swift`: "Naver 지도 표시 (선택)" 설정 섹션(신규)
+  — NCP Maps Client ID만 저장(Secret 불필요, JS 지도 렌더링 전용이라
+  REST API 키와는 별개). Google/Naver 키가 없으면 지도 탭에 안내 화면이
+  뜸.
+
 ### 2026-09-10 (45차) — 지도에서 찍은 스크린샷을 원래 카드로 돌려받기
 #### Added
 - `Services/MapOpenContext.swift`(신규): "지도에서 열기"를 누른 카드의

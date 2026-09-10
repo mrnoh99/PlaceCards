@@ -7,6 +7,8 @@ final class SettingsViewModel: ObservableObject {
 
     @Published var unsplashAccessKey: String = ""
 
+    @Published var naverMapClientId: String = ""
+
     @Published var aiProviderType: AIProviderType = .claude
     @Published var aiAPIKey: String = ""
     /// The gateway's chosen model ID — either one of `GatewayModels.all` or
@@ -22,6 +24,7 @@ final class SettingsViewModel: ObservableObject {
     init() {
         googleAPIKey = KeychainService.load(.googlePlacesAPIKey) ?? ""
         unsplashAccessKey = KeychainService.load(.unsplashAccessKey) ?? ""
+        naverMapClientId = KeychainService.load(.naverMapClientId) ?? ""
         aiProviderType = Self.currentAIProviderType()
         aiAPIKey = KeychainService.load(aiProviderType.keychainKey) ?? ""
         gatewayModel = Self.currentGatewayModel()
@@ -54,6 +57,14 @@ final class SettingsViewModel: ObservableObject {
         return key
     }
 
+    /// Reads the saved Naver Maps Client ID without needing an instance,
+    /// so `PlacesMapView` can look it up right before rendering
+    /// `NaverMapWebView`. `nil` (not just empty) when unset.
+    static func currentNaverMapClientId() -> String? {
+        guard let id = KeychainService.load(.naverMapClientId), !id.isEmpty else { return nil }
+        return id
+    }
+
     func loadAIKey(for provider: AIProviderType) {
         aiAPIKey = KeychainService.load(provider.keychainKey) ?? ""
     }
@@ -71,6 +82,15 @@ final class SettingsViewModel: ObservableObject {
         do {
             try KeychainService.save(unsplashAccessKey, for: .unsplashAccessKey)
             statusMessage = "Unsplash Access Key가 저장되었습니다."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    func saveNaverMapClientId() {
+        do {
+            try KeychainService.save(naverMapClientId, for: .naverMapClientId)
+            statusMessage = "Naver Maps Client ID가 저장되었습니다."
         } catch {
             statusMessage = error.localizedDescription
         }

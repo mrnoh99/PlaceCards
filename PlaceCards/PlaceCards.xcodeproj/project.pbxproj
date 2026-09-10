@@ -57,6 +57,8 @@
 		E442B047733FB355400DFE8A /* PlaceCardsShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6A /* MapOpenContext.swift */; };
 		0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */; };
+		1D6673576E4E433227B962C8 /* GoogleMapWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1179E13A408F9863A8E33444 /* GoogleMapWebView.swift */; };
+		592559CA7A77E63949E9C832 /* NaverMapWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A241590A64DC54139736AAF5 /* NaverMapWebView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -113,6 +115,8 @@
 		42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PlaceCardsShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		74B4C3C6D38A815385431E6A /* MapOpenContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapOpenContext.swift; sourceTree = "<group>"; };
 		4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapScreenshotImportSheet.swift; sourceTree = "<group>"; };
+		1179E13A408F9863A8E33444 /* GoogleMapWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleMapWebView.swift; sourceTree = "<group>"; };
+		A241590A64DC54139736AAF5 /* NaverMapWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NaverMapWebView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -244,6 +248,8 @@
 				783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */,
 				4D43E9A4ADB4780134F4EECA /* SharedPhotoBoardPickerSheet.swift */,
 				4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */,
+				1179E13A408F9863A8E33444 /* GoogleMapWebView.swift */,
+				A241590A64DC54139736AAF5 /* NaverMapWebView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -412,6 +418,8 @@
 				8716307C7083C8B1DCB62617 /* SharedPhotoBoardPickerSheet.swift in Sources */,
 				00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */,
 				0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */,
+				1D6673576E4E433227B962C8 /* GoogleMapWebView.swift in Sources */,
+				592559CA7A77E63949E9C832 /* NaverMapWebView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

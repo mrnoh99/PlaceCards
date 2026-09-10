@@ -10,6 +10,10 @@ enum KeychainKey: String {
     case geminiAPIKey
     case gatewayAPIKey
     case unsplashAccessKey
+    /// NCP Maps Client ID — used only to render the "지도" tab's Naver
+    /// option (`NaverMapWebView`), not any REST API, so no secret is
+    /// needed alongside it.
+    case naverMapClientId
 }
 
 struct KeychainService {
