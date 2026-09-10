@@ -20,6 +20,11 @@ enum SourceType: String, Codable, CaseIterable {
     case instagramScreenshot
     case userManualInput
 
+    /// A generic photo found via an Unsplash search of the place's name —
+    /// used only as a last-resort thumbnail when neither the user nor
+    /// Google Places supplied one (see `PlaceCardViewModel.fetchOfficialPhoto`).
+    case unsplashSearch
+
     var displayName: String {
         switch self {
         case .naverMapScreenshot: return "네이버 지도 스크린샷"
@@ -35,6 +40,7 @@ enum SourceType: String, Codable, CaseIterable {
         case .receivedPhoto: return "전달받은 사진"
         case .instagramScreenshot: return "인스타그램 스크린샷"
         case .userManualInput: return "직접 입력"
+        case .unsplashSearch: return "Unsplash 검색"
         }
     }
 }

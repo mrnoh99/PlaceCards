@@ -10,6 +10,8 @@ final class SettingsViewModel: ObservableObject {
     @Published var naverGeocodingClientId: String = ""
     @Published var naverGeocodingClientSecret: String = ""
 
+    @Published var unsplashAccessKey: String = ""
+
     @Published var aiProviderType: AIProviderType = .claude
     @Published var aiAPIKey: String = ""
     /// The gateway's chosen model ID — either one of `GatewayModels.all` or
@@ -30,6 +32,7 @@ final class SettingsViewModel: ObservableObject {
         naverClientSecret = KeychainService.load(.naverClientSecret) ?? ""
         naverGeocodingClientId = KeychainService.load(.naverGeocodingClientId) ?? ""
         naverGeocodingClientSecret = KeychainService.load(.naverGeocodingClientSecret) ?? ""
+        unsplashAccessKey = KeychainService.load(.unsplashAccessKey) ?? ""
         aiProviderType = Self.currentAIProviderType()
         aiAPIKey = KeychainService.load(aiProviderType.keychainKey) ?? ""
         gatewayModel = Self.currentGatewayModel()
@@ -86,6 +89,15 @@ final class SettingsViewModel: ObservableObject {
         return (clientId, clientSecret)
     }
 
+    /// Reads the saved Unsplash access key without needing an instance, so
+    /// `PlaceCardViewModel` can look it up right before falling back to an
+    /// Unsplash search for a card with no photo at all. `nil` (not just
+    /// empty) when unset, so callers can use it directly as a guard.
+    static func currentUnsplashAccessKey() -> String? {
+        guard let key = KeychainService.load(.unsplashAccessKey), !key.isEmpty else { return nil }
+        return key
+    }
+
     func loadAIKey(for provider: AIProviderType) {
         aiAPIKey = KeychainService.load(provider.keychainKey) ?? ""
     }
@@ -114,6 +126,15 @@ final class SettingsViewModel: ObservableObject {
             try KeychainService.save(naverGeocodingClientId, for: .naverGeocodingClientId)
             try KeychainService.save(naverGeocodingClientSecret, for: .naverGeocodingClientSecret)
             statusMessage = "Naver Geocoding API 키가 저장되었습니다."
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    func saveUnsplashAccessKey() {
+        do {
+            try KeychainService.save(unsplashAccessKey, for: .unsplashAccessKey)
+            statusMessage = "Unsplash Access Key가 저장되었습니다."
         } catch {
             statusMessage = error.localizedDescription
         }

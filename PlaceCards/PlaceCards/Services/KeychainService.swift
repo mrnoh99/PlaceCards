@@ -13,6 +13,7 @@ enum KeychainKey: String {
     case naverClientSecret
     case naverGeocodingClientId
     case naverGeocodingClientSecret
+    case unsplashAccessKey
 }
 
 struct KeychainService {

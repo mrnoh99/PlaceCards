@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (32차) — 사진이 전혀 없을 때 Unsplash 검색으로 폴백
+#### Added
+- `Services/UnsplashImageService.swift`(신규): 참고용으로 업로드된 별개
+  스타터 프로젝트의 `ImageSearchService.searchImageUnsplash` 아이디어를
+  가져와 단순화 — 장소명(+카테고리)으로 Unsplash 검색 후 첫 결과의
+  이미지를 다운로드. 캐싱은 없음(다운로드한 결과 자체를 `MediaStore`가
+  파일로 영구 저장하므로 불필요).
+- `Models/MediaModels.swift`: `SourceType.unsplashSearch`(신규) 케이스 추가.
+- `Services/KeychainService.swift`, `ViewModels/SettingsViewModel.swift`,
+  `Views/SettingsView.swift`: 다른 BYOK 키들과 같은 방식으로 Unsplash
+  Access Key를 키체인에 저장하는 설정 섹션 추가("Unsplash 이미지 검색
+  (선택)").
+- `ViewModels/PlaceCardViewModel.swift`: `fetchOfficialPhoto`가 이제
+  Google 사진(있으면 항상 우선)을 먼저 시도하고, 그마저 없고 사용자가
+  올린 사진도 전혀 없는 카드에 한해서만 Unsplash 검색으로 최종
+  폴백 — `createPlaceCard`(Google 검색 결과 기반)와
+  `createManualPlaceCard`(수동 입력) 양쪽 모두에서 동작.
+
 ### 2026-09-10 (31차) — 카드 리스트 썸네일에 Google 사진 우선 사용
 #### Added
 - `Services/PlaceSearchService.swift`: 검색 필드 마스크에 `places.photos`
