@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (13차) — Gateway 모델 조회의 MainActor 격리 오류 수정
+#### Fixed
+- Xcode 오류: `AIProvider.swift:81:88 Call to main actor-isolated static
+  method 'currentGatewayModel()' in a synchronous nonisolated context`.
+  `SettingsViewModel`이 `@MainActor` 클래스라 그 정적 메서드
+  `currentGatewayModel()`도 MainActor 격리되는데, 이를 호출하는
+  `AIProviderFactory.create(type:apiKey:)`는 격리되지 않은 일반 정적
+  메서드였던 것이 원인. 유일한 호출부인
+  `PlaceCardViewModel.analyzeImages`가 이미 `@MainActor`이므로
+  `create(type:apiKey:)`에 `@MainActor`를 붙여 해결.
+
 ### 2026-09-10 (12차) — 장소 추가: 스크린샷 여러 장 업로드 + 한 번에 여러 카드 생성
 #### Changed
 - 장소 추가 화면을 PERAGRA의 `AddPlaceSheet`(여러 행 검토 리스트, "+ Add

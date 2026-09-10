@@ -73,6 +73,12 @@ protocol AIProvider {
 }
 
 enum AIProviderFactory {
+    /// `SettingsViewModel.currentGatewayModel()` is main-actor-isolated
+    /// (inherited from that class's `@MainActor`), and every real caller
+    /// (`PlaceCardViewModel.analyzeImages`) already runs on the main actor
+    /// itself, so this is too rather than hopping off it just to read a
+    /// UserDefaults value.
+    @MainActor
     static func create(type: AIProviderType, apiKey: String) -> AIProvider {
         switch type {
         case .claude: return ClaudeProvider(apiKey: apiKey)
