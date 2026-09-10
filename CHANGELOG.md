@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (77차) — 같은 빌드 오류를 SettingsView에서 선제적으로 수정
+#### Fixed
+- `Views/SettingsView.swift`: 75·76차와 같은 유형("unable to
+  type-check this expression in reasonable time")이 날 것으로 예상돼
+  선제적으로 수정 — `.localized` 호출이 57곳으로 이 프로젝트에서
+  두 번째로 많고, 유일한 `var body`에 `Section`이 8개나 인라인으로
+  들어있어 위험도가 가장 높은 파일이었음. `Form` 안의 각 `Section`을
+  `appLanguageSection`/`googlePlacesAPISection`/`naverMapSection`/
+  `aiImageAnalysisSection`/`scanResponseLanguageSection`/
+  `backupSection`/`autoBackupSection`/`infoSection`(전부 신규,
+  `@ViewBuilder`)로 분리. 원본과 새 파일에서 `.localized`로 감싸인
+  문자열 목록을 뽑아 정확히 같은 집합인지 diff로 대조해 내용 유실이
+  없음을 확인.
+
 ### 2026-09-10 (76차) — 빌드 오류 수정: BoardDetailView body 타입체크 시간 초과
 #### Fixed
 - `Views/BoardDetailView.swift`: 같은 "unable to type-check this
