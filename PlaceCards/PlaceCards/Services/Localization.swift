@@ -98,6 +98,7 @@ extension String {
 enum Localization {
     static let englishTranslations: [String: String] = [
         "앱 언어": "App Language",
+        "카드 검색": "Search cards",
         "앱 화면 전체에서 사용하는 언어입니다. 사진 스캔·웹 검색 결과의 언어는 아래 \"AI 응답 언어\"에서 따로 정합니다.": "This is the language used throughout the app's screens. The language of photo-scan and web-search results is set separately below, under \"AI Response Language\".",
         " API 키가 저장되었습니다.": " API key saved.",
         " 정보를 채웠습니다.": " filled in.",
@@ -161,7 +162,6 @@ enum Localization {
         "검색 결과가 없습니다.": "No search results.",
         "게시판": "Board",
         "게시판 가져오기": "Import Board",
-        "게시판 검색": "Search boards",
         "게시판 수정": "Edit Board",
         "게시판 이동": "Move Board",
         "게시판 파일이 아닙니다.": "This isn't a board file.",

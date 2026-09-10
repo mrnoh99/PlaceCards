@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (78차) — Home의 검색을 게시판 검색에서 카드 검색으로 변경
+#### Changed
+- `Views/HomeView.swift`: 게시판 이름으로 게시판 목록을 필터링하던
+  검색을 없애고, 검색어를 입력하면 **모든 게시판을 통틀어 이름·주소가
+  일치하는 장소 카드**를 찾아 보여주도록 변경(`searchResultsList`,
+  신규) — 결과가 있으면 `PlaceCategoryIcon.normalizedLabel`로 정규화한
+  카테고리 칩(`searchCategoryChips`, 신규)이 목록 위에 나타나 그 검색
+  결과 안에서 다시 카테고리로 좁힐 수 있음(`searchCategoryFilter`).
+  카드를 탭하면 `PlaceCardDetailView`로 이동 — `BoardDetailView`가
+  이미 쓰던 방식대로 `NavigationLink`로 행을 감싸지 않고
+  `.onTapGesture` + `.navigationDestination(item:)`을 사용(그래야
+  `PlaceCardListRow`의 즐겨찾기/방문 버튼이 `NavigationLink`에 눌림을
+  뺏기지 않음). 검색어가 비어 있을 때는 기존처럼 전체 게시판 목록을
+  보여줌. `Services/Localization.swift`: 이제 안 쓰는 "게시판 검색"
+  항목 제거, 새 검색창 placeholder "카드 검색" 번역 추가.
+
 ### 2026-09-10 (77차) — 같은 빌드 오류를 SettingsView에서 선제적으로 수정
 #### Fixed
 - `Views/SettingsView.swift`: 75·76차와 같은 유형("unable to

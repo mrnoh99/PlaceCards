@@ -11,27 +11,55 @@ struct HomeView: View {
     @State private var isPresentingAddBoard = false
     @State private var boardPendingDelete: Board?
     @State private var boardPendingEdit: Board?
+    @State private var selectedSearchResult: PlaceCard?
     @State private var searchQuery = ""
+    /// nil means every category, within the current search — set from
+    /// `searchCategoryChips` once there are results to narrow.
+    @State private var searchCategoryFilter: String?
     @State private var isPresentingImportBoard = false
 
-    private var filteredBoards: [Board] {
-        guard !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty else { return storageService.boards }
-        return storageService.boards.filter { board in
-            board.name.localizedCaseInsensitiveContains(searchQuery)
-                || board.subtitle.localizedCaseInsensitiveContains(searchQuery)
+    private var isSearching: Bool {
+        !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// Every place card (across every board) matching `searchQuery` by
+    /// name/address — mirrors `GalleryViewModel`'s own search. Computed
+    /// ahead of `searchCategoryFilter` so the category chips below always
+    /// offer every category actually present in the *text* match, not
+    /// just what's left after a category is already picked.
+    private var searchResultsBeforeCategoryFilter: [PlaceCard] {
+        storageService.placeCards.filter { card in
+            card.name.localizedCaseInsensitiveContains(searchQuery)
+                || card.address.localizedCaseInsensitiveContains(searchQuery)
+        }
+    }
+
+    private var searchCategories: [String] {
+        let normalized = searchResultsBeforeCategoryFilter.compactMap { card -> String? in
+            guard let category = card.category, !category.isEmpty else { return nil }
+            return PlaceCategoryIcon.normalizedLabel(for: category)
+        }
+        return Array(Set(normalized)).sorted()
+    }
+
+    private var searchResults: [PlaceCard] {
+        guard let searchCategoryFilter else { return searchResultsBeforeCategoryFilter }
+        return searchResultsBeforeCategoryFilter.filter { card in
+            guard let category = card.category, !category.isEmpty else { return false }
+            return PlaceCategoryIcon.normalizedLabel(for: category) == searchCategoryFilter
         }
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if storageService.boards.isEmpty {
+                if isSearching {
+                    searchResultsList
+                } else if storageService.boards.isEmpty {
                     emptyState
-                } else if filteredBoards.isEmpty {
-                    ContentUnavailableView.search
                 } else {
                     List {
-                        ForEach(filteredBoards) { board in
+                        ForEach(storageService.boards) { board in
                             NavigationLink {
                                 BoardDetailView(board: board)
                             } label: {
@@ -73,7 +101,15 @@ struct HomeView: View {
             // user has actually left every board, not on every transient
             // onDisappear inside one. See `AppNavigation.currentHomeBoardID`.
             .onAppear { navigation.currentHomeBoardID = nil }
-            .searchable(text: $searchQuery, prompt: "게시판 검색".localized)
+            .searchable(text: $searchQuery, prompt: "카드 검색".localized)
+            .onChange(of: searchQuery) { _, newValue in
+                if newValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                    searchCategoryFilter = nil
+                }
+            }
+            .navigationDestination(item: $selectedSearchResult) { card in
+                PlaceCardDetailView(card: card)
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -129,6 +165,71 @@ struct HomeView: View {
             Button("첫 게시판 만들기".localized) { isPresentingAddBoard = true }
                 .buttonStyle(.borderedProminent)
         }
+    }
+
+    /// Shown instead of the board list while `searchQuery` isn't empty —
+    /// every matching place card across every board, not just the board
+    /// names themselves (which is all the old board-name search covered).
+    @ViewBuilder
+    private var searchResultsList: some View {
+        if searchResults.isEmpty {
+            ContentUnavailableView.search
+        } else {
+            List {
+                if searchCategories.count > 1 {
+                    Section {
+                        searchCategoryChips
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                }
+                ForEach(searchResults) { card in
+                    // No NavigationLink wrapping the row — see
+                    // `BoardDetailView.cardRow(_:)`'s own comment: it
+                    // claims the whole row as its tap target and swallows
+                    // taps on PlaceCardListRow's own favorite/visited
+                    // buttons before they fire. A plain .onTapGesture
+                    // instead only fires for points the row's own
+                    // Buttons don't already claim.
+                    PlaceCardListRow(card: card)
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedSearchResult = card }
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    /// "전체" plus every category present in the current text match —
+    /// tapping one narrows `searchResults` further, same idea as
+    /// `PlaceStatusFilterBar`'s category menu but as chips, since this
+    /// list has no other filter/sort controls competing for space.
+    private var searchCategoryChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                searchCategoryChip(title: "전체".localized, isSelected: searchCategoryFilter == nil) {
+                    searchCategoryFilter = nil
+                }
+                ForEach(searchCategories, id: \.self) { category in
+                    searchCategoryChip(title: category, isSelected: searchCategoryFilter == category) {
+                        searchCategoryFilter = category
+                    }
+                }
+            }
+        }
+    }
+
+    private func searchCategoryChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.medium))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
+                .foregroundStyle(isSelected ? .white : .primary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 
