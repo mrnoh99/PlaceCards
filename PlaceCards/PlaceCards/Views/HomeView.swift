@@ -89,8 +89,9 @@ private struct BoardRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Text(board.coverEmoji)
-                .font(.system(size: 32))
+            Image(systemName: board.coverIcon)
+                .font(.system(size: 20))
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 48, height: 48)
                 .background(Color.accentColor.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 12))

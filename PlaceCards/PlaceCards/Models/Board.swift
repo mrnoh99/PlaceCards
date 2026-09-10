@@ -4,11 +4,16 @@ import Foundation
 /// mirroring Peragra's "board" (its `Trip` model): give it a name and a
 /// subtitle, then start adding place cards into it.
 struct Board: Identifiable, Codable, Equatable {
-    static let coverEmojiChoices = ["✈️", "🗺️", "🏖️", "🏙️", "⛰️", "🍜", "🎡", "🚆"]
+    /// Outline SF Symbols only, matching the app's minimalist outline
+    /// look (the app icon and category icons) — no ".fill" variants.
+    static let coverIconChoices = [
+        "airplane", "map", "beach.umbrella", "building.2",
+        "mountain.2", "fork.knife", "camera", "tram",
+    ]
 
     var id: String = UUID().uuidString
     var name: String
     var subtitle: String
-    var coverEmoji: String
+    var coverIcon: String
     var createdAt: Date = Date()
 }

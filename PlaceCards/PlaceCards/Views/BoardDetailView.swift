@@ -305,7 +305,7 @@ struct BoardDetailView: View {
                     Button {
                         moveSelected(to: otherBoard)
                     } label: {
-                        Text("\(otherBoard.coverEmoji) \(otherBoard.name)")
+                        Label(otherBoard.name, systemImage: otherBoard.coverIcon)
                     }
                 }
             } label: {
@@ -378,7 +378,7 @@ struct BoardDetailView: View {
 
 #Preview {
     NavigationStack {
-        BoardDetailView(board: Board(name: "도쿄 봄 여행", subtitle: "2026년 4월", coverEmoji: "✈️"))
+        BoardDetailView(board: Board(name: "도쿄 봄 여행", subtitle: "2026년 4월", coverIcon: "airplane"))
             .environmentObject(StorageService())
     }
 }

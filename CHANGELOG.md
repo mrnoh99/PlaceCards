@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (27차) — 게시판 아이콘을 이모지에서 미니멀 외곽선으로 변경
+#### Changed
+- 게시판 커버가 이모지(✈️🗺️🏖️🏙️⛰️🍜🎡🚆)에서 미니멀 외곽선 SF Symbol
+  (`airplane`, `map`, `beach.umbrella`, `building.2`, `mountain.2`,
+  `fork.knife`, `camera`, `tram`)로 변경 — 앱 아이콘·카테고리 아이콘과
+  같은 톤으로 통일. 게시판 만들기 화면의 아이콘 선택 그리드, 홈 화면의
+  게시판 행, "게시판 이동" 메뉴 항목 전부 반영.
+- `Board.coverEmoji`/`coverEmojiChoices`를 `coverIcon`/`coverIconChoices`로
+  이름 변경(더 이상 이모지가 아니므로).
+
 ### 2026-09-10 (26차) — 게시판에 다중 선택(Select) 모드 추가 (PERAGRA 참조)
 #### Added
 - 게시판 상세화면 툴바에 "선택"/"취소" 버튼 추가 — PERAGRA의

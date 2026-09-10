@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Mirrors Peragra's `AddTripSheet`: name + subtitle, plus a cover-emoji
+/// Mirrors Peragra's `AddTripSheet`: name + subtitle, plus a cover-icon
 /// grid picker, before any place card can be added.
 struct AddBoardSheet: View {
     @EnvironmentObject private var storageService: StorageService
@@ -8,7 +8,7 @@ struct AddBoardSheet: View {
 
     @State private var name = ""
     @State private var subtitle = ""
-    @State private var coverEmoji = Board.coverEmojiChoices[0]
+    @State private var coverIcon = Board.coverIconChoices[0]
 
     private var canSubmit: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
@@ -24,20 +24,21 @@ struct AddBoardSheet: View {
 
                 Section("아이콘") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
-                        ForEach(Board.coverEmojiChoices, id: \.self) { emoji in
+                        ForEach(Board.coverIconChoices, id: \.self) { icon in
                             Button {
-                                coverEmoji = emoji
+                                coverIcon = icon
                             } label: {
-                                Text(emoji)
-                                    .font(.system(size: 26))
+                                Image(systemName: icon)
+                                    .font(.system(size: 22))
+                                    .foregroundStyle(coverIcon == icon ? Color.accentColor : .secondary)
                                     .frame(maxWidth: .infinity, minHeight: 48)
                                     .background(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .fill(coverEmoji == emoji ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground))
+                                            .fill(coverIcon == icon ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground))
                                     )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 10)
-                                            .strokeBorder(coverEmoji == emoji ? Color.accentColor : .clear, lineWidth: 1.5)
+                                            .strokeBorder(coverIcon == icon ? Color.accentColor : .clear, lineWidth: 1.5)
                                     )
                             }
                             .buttonStyle(.plain)
@@ -64,7 +65,7 @@ struct AddBoardSheet: View {
         let board = Board(
             name: name.trimmingCharacters(in: .whitespaces),
             subtitle: subtitle.trimmingCharacters(in: .whitespaces),
-            coverEmoji: coverEmoji
+            coverIcon: coverIcon
         )
         storageService.saveBoard(board)
         dismiss()
