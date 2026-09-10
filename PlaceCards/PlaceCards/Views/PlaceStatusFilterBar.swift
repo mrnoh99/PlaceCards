@@ -19,6 +19,13 @@ enum PlaceStatusFilter: Equatable {
     }
 }
 
+/// What "거리(Distance)" sort measures from: the device's current location
+/// ("현재 위치"), always offered first, or another saved card.
+enum DistanceReference: Equatable {
+    case here
+    case card(String)
+}
+
 /// A horizontally-scrolling row of sort + filter controls, shared by any
 /// place list (board detail, gallery) — mirrors Peragra's `PlaceFilterBar`
 /// (sort menu + reference-place menu) followed by
@@ -27,7 +34,10 @@ enum PlaceStatusFilter: Equatable {
 /// its own to separate them from.
 struct PlaceStatusFilterBar: View {
     @Binding var sortMode: PlaceSortMode
-    @Binding var referenceCardId: String?
+    @Binding var distanceReference: DistanceReference?
+    /// Set by this view when "현재 위치" is chosen — the parent owns it (and
+    /// resolves the actual sort with it) since fetching it is async.
+    @Binding var hereCoordinate: Coordinates?
     /// Cards with a resolved coordinate, offered as choices for "Distance from…".
     let locatableCards: [PlaceCard]
 
@@ -37,8 +47,8 @@ struct PlaceStatusFilterBar: View {
     let visitedCount: Int
 
     private var referenceCard: PlaceCard? {
-        guard let referenceCardId else { return nil }
-        return locatableCards.first { $0.id == referenceCardId }
+        guard case .card(let id) = distanceReference else { return nil }
+        return locatableCards.first { $0.id == id }
     }
 
     var body: some View {
@@ -46,7 +56,7 @@ struct PlaceStatusFilterBar: View {
             HStack(spacing: 8) {
                 sortMenu
                 if sortMode == .distance {
-                    referenceCardMenu
+                    referenceMenu
                 }
                 Divider().frame(height: 20)
                 chip(title: "전체 (\(allCount))", isSelected: filter == .all) { filter = .all }
@@ -63,7 +73,7 @@ struct PlaceStatusFilterBar: View {
             ForEach(PlaceSortMode.allCases) { mode in
                 Button {
                     sortMode = mode
-                    if mode != .distance { referenceCardId = nil }
+                    if mode != .distance { distanceReference = nil }
                 } label: {
                     if sortMode == mode {
                         Label(mode.rawValue, systemImage: "checkmark")
@@ -77,18 +87,28 @@ struct PlaceStatusFilterBar: View {
         }
     }
 
-    private var referenceCardMenu: some View {
+    private var referenceMenu: some View {
         Menu {
+            Button {
+                distanceReference = .here
+                Task { hereCoordinate = await LocationService.currentLocation() }
+            } label: {
+                Label("현재 위치", systemImage: "location.fill")
+            }
             ForEach(locatableCards) { card in
-                Button(card.name) { referenceCardId = card.id }
+                Button(card.name) { distanceReference = .card(card.id) }
             }
         } label: {
-            chipLabel(
-                title: referenceCard.map { "기준: \($0.name)" } ?? "장소 선택…",
-                isSelected: referenceCard != nil
-            )
+            chipLabel(title: referenceTitle, isSelected: distanceReference != nil)
         }
-        .disabled(locatableCards.isEmpty)
+    }
+
+    private var referenceTitle: String {
+        switch distanceReference {
+        case .here: return "기준: 현재 위치"
+        case .card: return referenceCard.map { "기준: \($0.name)" } ?? "장소 선택…"
+        case nil: return "장소 선택…"
+        }
     }
 
     private func chip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -112,7 +132,8 @@ struct PlaceStatusFilterBar: View {
 #Preview {
     PlaceStatusFilterBar(
         sortMode: .constant(.byCategory),
-        referenceCardId: .constant(nil),
+        distanceReference: .constant(nil),
+        hereCoordinate: .constant(nil),
         locatableCards: [],
         filter: .constant(.all),
         allCount: 12,

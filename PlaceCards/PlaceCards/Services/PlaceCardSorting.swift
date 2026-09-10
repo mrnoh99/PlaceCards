@@ -14,7 +14,10 @@ extension Array where Element == PlaceCard {
     /// Sorts by the given mode, with favorited cards always floated to the
     /// top no matter which mode is active — the mode only decides ordering
     /// within/below that. Mirrors Peragra's `TripDetailView.sortedPlaces`.
-    func sorted(by mode: PlaceSortMode, distanceFrom reference: PlaceCard?) -> [PlaceCard] {
+    /// `reference` is a plain coordinate (not a `PlaceCard`) so distance
+    /// mode can sort from the device's current location ("현재 위치") just
+    /// as well as from another saved card.
+    func sorted(by mode: PlaceSortMode, distanceFrom reference: Coordinates?) -> [PlaceCard] {
         guard contains(where: \.isFavorite) else {
             return sortedWithinGroup(by: mode, distanceFrom: reference)
         }
@@ -24,7 +27,7 @@ extension Array where Element == PlaceCard {
             + rest.sortedWithinGroup(by: mode, distanceFrom: reference)
     }
 
-    private func sortedWithinGroup(by mode: PlaceSortMode, distanceFrom reference: PlaceCard?) -> [PlaceCard] {
+    private func sortedWithinGroup(by mode: PlaceSortMode, distanceFrom reference: Coordinates?) -> [PlaceCard] {
         switch mode {
         case .byCategory:
             // No fixed category taxonomy here (unlike Peragra's
@@ -41,8 +44,8 @@ extension Array where Element == PlaceCard {
         case .name:
             return sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         case .distance:
-            guard let refCoordinates = reference?.coordinates else { return self }
-            let refLocation = CLLocation(latitude: refCoordinates.latitude, longitude: refCoordinates.longitude)
+            guard let reference else { return self }
+            let refLocation = CLLocation(latitude: reference.latitude, longitude: reference.longitude)
             return sorted {
                 distance(from: refLocation, to: $0.coordinates) < distance(from: refLocation, to: $1.coordinates)
             }

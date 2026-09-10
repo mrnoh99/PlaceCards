@@ -9,18 +9,25 @@ struct BoardDetailView: View {
     @State private var isPresentingAddCard = false
     @State private var statusFilter: PlaceStatusFilter = .all
     @State private var sortMode: PlaceSortMode = .byCategory
-    @State private var referenceCardId: String?
+    @State private var distanceReference: DistanceReference?
+    @State private var hereCoordinate: Coordinates?
 
     private var allCards: [PlaceCard] {
         storageService.placeCards(inBoard: board.id)
     }
 
+    private var distanceReferenceCoordinate: Coordinates? {
+        switch distanceReference {
+        case .here: return hereCoordinate
+        case .card(let id): return allCards.first { $0.id == id }?.coordinates
+        case nil: return nil
+        }
+    }
+
     /// Filtered by the status chip, then sorted — the exact set the grid
     /// renders. Mirrors Peragra's `TripDetailView.sortedPlaces`.
     private var cards: [PlaceCard] {
-        let filtered = allCards.filter(statusFilter.matches)
-        let reference = referenceCardId.flatMap { id in allCards.first { $0.id == id } }
-        return filtered.sorted(by: sortMode, distanceFrom: reference)
+        allCards.filter(statusFilter.matches).sorted(by: sortMode, distanceFrom: distanceReferenceCoordinate)
     }
 
     private var locatableCards: [PlaceCard] {
@@ -39,7 +46,8 @@ struct BoardDetailView: View {
                 VStack(spacing: 0) {
                     PlaceStatusFilterBar(
                         sortMode: $sortMode,
-                        referenceCardId: $referenceCardId,
+                        distanceReference: $distanceReference,
+                        hereCoordinate: $hereCoordinate,
                         locatableCards: locatableCards,
                         filter: $statusFilter,
                         allCount: allCards.count,

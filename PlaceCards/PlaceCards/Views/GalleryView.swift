@@ -12,7 +12,8 @@ struct GalleryView: View {
             VStack(spacing: 0) {
                 PlaceStatusFilterBar(
                     sortMode: $viewModel.sortMode,
-                    referenceCardId: $viewModel.referenceCardId,
+                    distanceReference: $viewModel.distanceReference,
+                    hereCoordinate: $viewModel.hereCoordinate,
                     locatableCards: viewModel.locatableCards,
                     filter: $viewModel.statusFilter,
                     allCount: viewModel.totalCount,

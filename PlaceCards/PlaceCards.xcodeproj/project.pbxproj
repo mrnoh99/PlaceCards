@@ -39,6 +39,7 @@
 		B41E418C1D9CEC3EC98CCADB /* SharedLinkParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */; };
 		65514054CAC530015A805446 /* MapOpeners.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9370D575DBD0168041A510 /* MapOpeners.swift */; };
 		85842E834E1732A0B124144B /* PlaceCardSorting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BD2FA4433F73A530867558 /* PlaceCardSorting.swift */; };
+		01528318FFDC7D00B3F951D5 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 546F4B4EF47BC64FE89F026B /* LocationService.swift */; };
 		BB710F57850B0ACB5B361E10 /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4946F8B69968821E14AC20D3 /* Board.swift */; };
 		72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */; };
 		BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */; };
@@ -78,6 +79,7 @@
 		0B9370D575DBD0168041A510 /* MapOpeners.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapOpeners.swift; sourceTree = "<group>"; };
 		0C52B78DCED0AEF583183D0C /* PlaceStatusFilterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceStatusFilterBar.swift; sourceTree = "<group>"; };
 		94BD2FA4433F73A530867558 /* PlaceCardSorting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardSorting.swift; sourceTree = "<group>"; };
+		546F4B4EF47BC64FE89F026B /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		4946F8B69968821E14AC20D3 /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
 		5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBoardSheet.swift; sourceTree = "<group>"; };
 		F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardDetailView.swift; sourceTree = "<group>"; };
@@ -151,6 +153,7 @@
 				F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */,
 				0B9370D575DBD0168041A510 /* MapOpeners.swift */,
 				94BD2FA4433F73A530867558 /* PlaceCardSorting.swift */,
+				546F4B4EF47BC64FE89F026B /* LocationService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -296,6 +299,7 @@
 				B41E418C1D9CEC3EC98CCADB /* SharedLinkParser.swift in Sources */,
 				65514054CAC530015A805446 /* MapOpeners.swift in Sources */,
 				85842E834E1732A0B124144B /* PlaceCardSorting.swift in Sources */,
+				01528318FFDC7D00B3F951D5 /* LocationService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -434,6 +438,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PlaceCards;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "거리 기준으로 장소를 정렬할 때 현재 위치를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -463,6 +468,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PlaceCards;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "거리 기준으로 장소를 정렬할 때 현재 위치를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

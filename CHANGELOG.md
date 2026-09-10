@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (6차) — "거리" 정렬에 현재 위치(Here) 추가
+#### Added
+- "거리" 정렬 선택 시 기준 장소 메뉴 맨 위에 **현재 위치** 항목 추가 —
+  선택하면 그 순간 기기의 GPS 위치를 가져와 그 지점부터 가까운 순으로
+  정렬함. 저장된 장소 대신 지금 있는 곳 기준으로 정렬하고 싶을 때 사용.
+- `Services/LocationService.swift`(신규): 1회성 위치 조회. Peragra의
+  `LocationService`(사진 촬영 위치 기록용)를 이번 용도에 맞게 단순화해
+  포팅 — 권한 미결정 시 요청, 8초 타임아웃, 거부/실패 시 조용히 nil
+  반환(정렬을 막지 않고 그냥 저장된 장소 기준 선택으로 유지됨).
+- `INFOPLIST_KEY_NSLocationWhenInUseUsageDescription` 추가 — 위치 권한을
+  처음 요청할 때 필요.
+- `PlaceCardSorting.swift`의 거리 정렬이 이제 특정 카드 대신 순수 좌표
+  기준으로 동작하도록 일반화(`DistanceReference` enum: `.here`/`.card`).
+
 ### 2026-09-10 (5차) — Sort By 추가 (Peragra의 PlaceFilterBar 참조)
 #### Added
 - `Services/PlaceCardSorting.swift`(신규): `PlaceSortMode`(카테고리별/이름/거리)와
