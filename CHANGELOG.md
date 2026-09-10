@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (30차) — 사진 EXIF GPS로 Google 검색 범위 좁히기 (PERAGRA 참조)
+#### Added
+- `Services/PhotoMetadata.swift`(신규): 사진의 EXIF GPS 좌표를 추출 —
+  PERAGRA의 `PhotoMetadata.extract(from:)`를 참조(PERAGRA는 온사이트
+  GPS 실시간 캡처 흐름을 위해 촬영 시각·정확도도 함께 읽지만,
+  PlaceCards엔 그 흐름이 없어 좌표만 추출). `UIImage`로 디코드 후
+  재인코딩하면 EXIF가 사라지므로, 반드시 원본 바이트에서 읽어야 함.
+- 장소 추가 화면에서 사진을 고를 때 원본 바이트(`pickedImageDatas`)를
+  `UIImage`와 별도로 함께 보관 — AI 분석 시(`analyzeImages`) 이 중
+  첫 번째로 GPS가 있는 사진의 좌표를 `PlaceCardViewModel.photoLocationHint`
+  로 저장하고, 이후 각 행의 "Google에서 검색"이 이 좌표를
+  `GooglePlacesService.search`의 `locationBias`로 넘겨 검색 범위를
+  좁힘(기존엔 항상 `nil`이라 위치 힌트 없이 이름만으로 검색했음). 여러
+  장의 사진에서 여러 장소가 나올 수 있어 특정 사진과 특정 장소를 1:1로
+  매칭할 수 없으므로, 배치 안에서 찾은 첫 GPS를 모든 행이 공유.
+
 ### 2026-09-10 (29차) — 게시판 이름·부제목 수정 기능 추가
 #### Added
 - 홈 화면의 게시판 목록에서 행을 오른쪽으로 밀면(왼쪽 스와이프 액션)

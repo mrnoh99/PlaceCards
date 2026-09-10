@@ -34,6 +34,13 @@ final class PlaceCardViewModel: ObservableObject {
     /// them (mirrors Peragra's `AIExtractionService.extractPlaces(images:)`).
     @Published var selectedImages: [UIImage] = []
     @Published var candidateRows: [PlaceCandidateRow] = []
+    /// The first GPS coordinate found among the current batch's original
+    /// (EXIF-intact) photo data, if any — passed to Google Places as a
+    /// location bias so an on-site photo's own location narrows the
+    /// search instead of a blind text query. Shared across every row in
+    /// the batch for the same reason their media is: there's no reliable
+    /// way to know which specific photo named which specific place.
+    @Published var photoLocationHint: Coordinates?
 
     private let storageService: StorageService
     private let boardId: String
@@ -51,13 +58,17 @@ final class PlaceCardViewModel: ObservableObject {
     /// one request, replacing the review list with whatever places it
     /// found — a screenshot naming several places (or several screenshots
     /// handed over together) becomes several rows here, each still
-    /// individually editable/deselectable before saving.
-    func analyzeImages(_ images: [UIImage], source: SourceType) async {
+    /// individually editable/deselectable before saving. `rawImageDatas`
+    /// are the original, unmodified bytes as picked (not `images`'
+    /// re-encoded JPEGs, which have already lost their EXIF) — read only
+    /// for `photoLocationHint`.
+    func analyzeImages(_ images: [UIImage], rawImageDatas: [Data], source: SourceType) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
         selectedImages = images
+        photoLocationHint = rawImageDatas.lazy.compactMap(PhotoMetadata.extractLocation).first
         guard !images.isEmpty else { return }
 
         let imageDatas = images.compactMap { $0.jpegData(compressionQuality: 0.8) }
@@ -144,7 +155,7 @@ final class PlaceCardViewModel: ObservableObject {
         let googleService = GooglePlacesService(apiKey: apiKey)
 
         do {
-            let results = try await googleService.search(query: resolvedQuery, coordinates: nil)
+            let results = try await googleService.search(query: resolvedQuery, coordinates: photoLocationHint)
             guard let index = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
             candidateRows[index].searchResults = results
             if results.isEmpty {

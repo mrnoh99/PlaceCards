@@ -19,6 +19,10 @@ struct AddPlaceCardView: View {
 
     @State private var photoPickerItems: [PhotosPickerItem] = []
     @State private var pickedImages: [UIImage] = []
+    /// The original, unmodified bytes for each of `pickedImages` (same
+    /// index) — kept alongside since EXIF (used for `photoLocationHint`)
+    /// doesn't survive being decoded into a `UIImage`.
+    @State private var pickedImageDatas: [Data] = []
     @State private var isLoadingPhotos = false
     @State private var sourceType: SourceType = .instagramScreenshot
     @State private var didCreateCards = false
@@ -107,6 +111,7 @@ struct AddPlaceCardView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                                 Button {
                                     pickedImages.remove(at: index)
+                                    pickedImageDatas.remove(at: index)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .symbolRenderingMode(.palette)
@@ -119,7 +124,7 @@ struct AddPlaceCardView: View {
                 }
 
                 Button {
-                    Task { await viewModel.analyzeImages(pickedImages, source: sourceType) }
+                    Task { await viewModel.analyzeImages(pickedImages, rawImageDatas: pickedImageDatas, source: sourceType) }
                 } label: {
                     if viewModel.isLoading {
                         ProgressView()
@@ -221,6 +226,7 @@ struct AddPlaceCardView: View {
             if let data = try? await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data) {
                 pickedImages.append(image)
+                pickedImageDatas.append(data)
             }
         }
     }
