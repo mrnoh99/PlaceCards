@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (53차) — 공유 확장이 아예 실행되지 않던 근본 원인 수정
+#### Fixed
+- `PlaceCardsShare/Info.plist`: `NSExtensionPrincipalClass`가
+  `ShareViewController`로만 되어 있었음 — Swift 클래스는 기본적으로
+  모듈명이 붙은 이름(`PlaceCardsShare.ShareViewController`)으로
+  컴파일되는데, 접두사 없는 문자열로는 iOS가 `NSClassFromString`으로
+  실제 클래스를 찾지 못해 확장 프로세스가 `ShareViewController`를
+  아예 생성하지 못했음. 그 결과 공유 시트에서 PlaceCards를 눌러도
+  `viewDidLoad`가 전혀 실행되지 않아 — 52차에서 추가한 스피너/상태
+  메시지도, 진단 로그도 전혀 안 나온 것으로 설명됨(둘 다 그 안의
+  코드라 애초에 실행된 적이 없었음). 코드사인(51차)과는 별개의,
+  진짜 근본 원인이었던 것으로 보임. Xcode가 확장 타겟을 자동
+  생성할 때 쓰는 표준 형식인 `$(PRODUCT_MODULE_NAME).ShareViewController`
+  로 수정.
+
 ### 2026-09-10 (52차) — 공유 확장에 진행 상태 표시 추가
 #### Changed
 - `PlaceCardsShare/ShareViewController.swift`: 확장이 화면에 아무것도
