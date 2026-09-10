@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (3차) — 카드 셀에 정보 추가 (Peragra의 PlaceRowView 참조)
+#### Added
+- 게시판 상세/갤러리의 장소 카드 셀에 정보 추가 (기존의 간결함과 "탭하면
+  상세 열림" 동작은 그대로 유지):
+  - 카테고리 캡슐, 방문(체크) / 즐겨찾기(별) 뱃지를 썸네일 위에 오버레이로
+    표시 — 별/체크는 그 자리에서 바로 토글 가능(Peragra의 `PlaceRowView`가
+    행에서 직접 favorite/visited를 토글하는 것과 동일)
+  - 전화·지도 열기(Google/Naver/Kakao/Tmap 메뉴)·웹사이트·인스타그램 아이콘
+    버튼을 카드 하단에 한 줄로 추가 — 해당 정보가 있을 때만 표시
+  - 모든 추가 버튼은 `.buttonStyle(.plain)`이라 `NavigationLink` 안에 있어도
+    카드 탭(상세 열기)과 충돌하지 않음
+- `Models/PlaceCard.swift`: `isFavorite`, `isVisited`, `instagramURL` 필드
+  추가 (Peragra의 `Place.favorite`/`Place.visited`/`instagramURLString`에
+  대응).
+- `Services/MapOpeners.swift`(신규): Peragra의 `GoogleMapsOpener`/
+  `NaverMapOpener`/`KakaoMapOpener`/`TmapOpener`/`KoreaRegion`을 PlaceCard
+  모델에 맞춰 포팅. Naver/Kakao/Tmap은 한국 밖 데이터가 거의 없어 좌표가
+  한국 영역 안에 있을 때만 링크를 만듦(Peragra와 동일한 판단).
+
 ### 2026-09-10 (2차) — 게시판(Board) 구조 도입, Peragra 참조
 #### Changed
 - **홈 화면을 게시판 목록으로 전면 개편.** Peragra의 `Trip`/`TripsListView`/

@@ -23,6 +23,16 @@ struct PlaceCard: Identifiable, Codable {
 
     var phone: String?
     var website: String?
+    /// A separate field from `website` (mirrors Peragra's `Place`, which
+    /// keeps `instagramURLString` distinct from its general `linkURLString`)
+    /// so the cell can show a dedicated Instagram action alongside a plain
+    /// website link.
+    var instagramURL: String?
+
+    /// Mirrors Peragra's `Place.favorite`/`Place.visited` — toggled
+    /// directly from the card cell.
+    var isFavorite: Bool = false
+    var isVisited: Bool = false
 
     var hoursDetail: [String: String]?
     var closingTime: String?
