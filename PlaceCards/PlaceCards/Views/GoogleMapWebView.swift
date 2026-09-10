@@ -136,6 +136,50 @@ struct GoogleMapWebView: UIViewRepresentable {
                 center: { lat: places[0]?.latitude ?? 37.5665, lng: places[0]?.longitude ?? 126.9780 },
               });
 
+              // A plain text label anchored below a marker's own LatLng —
+              // `Marker.label` only draws a short glyph centered *inside*
+              // the pin icon, not a full name underneath it (which is
+              // what Apple's native map annotation shows), so this is a
+              // second, click-through overlay per place instead.
+              class NameLabelOverlay extends google.maps.OverlayView {
+                constructor(position, text) {
+                  super();
+                  this.position = position;
+                  this.text = text;
+                  this.div = null;
+                }
+                onAdd() {
+                  const div = document.createElement("div");
+                  div.style.position = "absolute";
+                  div.style.transform = "translate(-50%, 2px)";
+                  div.style.font = "11px -apple-system, sans-serif";
+                  div.style.padding = "2px 6px";
+                  div.style.background = "rgba(255,255,255,0.9)";
+                  div.style.borderRadius = "10px";
+                  div.style.maxWidth = "120px";
+                  div.style.overflow = "hidden";
+                  div.style.textOverflow = "ellipsis";
+                  div.style.whiteSpace = "nowrap";
+                  div.style.pointerEvents = "none";
+                  div.textContent = this.text;
+                  this.div = div;
+                  this.getPanes().overlayMouseTarget.appendChild(div);
+                }
+                draw() {
+                  const projection = this.getProjection();
+                  if (!projection || !this.div) return;
+                  const point = projection.fromLatLngToDivPixel(this.position);
+                  this.div.style.left = point.x + "px";
+                  this.div.style.top = point.y + "px";
+                }
+                onRemove() {
+                  if (this.div) {
+                    this.div.parentNode.removeChild(this.div);
+                    this.div = null;
+                  }
+                }
+              }
+
               const bounds = new google.maps.LatLngBounds();
               const infoWindow = new google.maps.InfoWindow();
 
@@ -146,6 +190,7 @@ struct GoogleMapWebView: UIViewRepresentable {
                   map,
                   opacity: place.visited ? 0.5 : 1,
                 });
+                new NameLabelOverlay(new google.maps.LatLng(place.latitude, place.longitude), place.name).setMap(map);
                 marker.addListener("click", () => {
                   // Built as DOM nodes with textContent, not an HTML
                   // string, so a place name/address can't inject markup

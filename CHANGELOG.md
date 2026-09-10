@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (69차) — Google 지도 마커 아래에도 이름 표시
+#### Changed
+- `Views/GoogleMapWebView.swift`: `NameLabelOverlay`(JS, 신규) — Apple
+  지도처럼 각 마커 핀 아래에 장소 이름을 작은 캡슐 라벨로 항상
+  표시. `Marker.label`은 핀 안에 짧은 글자만 넣을 수 있어(이름 전체를
+  핀 아래에 두는 용도로는 못 씀) 별도의 `google.maps.OverlayView`
+  텍스트 오버레이를 마커마다 하나씩 추가하는 방식으로 구현 —
+  클릭은 `pointer-events: none`으로 그대로 핀에 통과되어, 탭하면
+  뜨는 기존 정보창(이름/주소/"카드 보기") 동작은 그대로 유지됨.
+
 ### 2026-09-10 (68차) — Apple 지도 마커도 Google·Naver처럼 탭하면 정보 팝업부터
 #### Changed
 - `Views/PlacesMapView.swift`: Apple 지도에서 마커를 탭하면 바로
