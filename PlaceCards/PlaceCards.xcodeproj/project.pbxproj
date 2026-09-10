@@ -51,6 +51,7 @@
 		D06AA2E29ADD5F58CD65FCA1 /* PhotoMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */; };
 		31A20FCBBC5DB210A21D18A5 /* UnsplashImageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5D803485B3B6E7F1A2726A8 /* UnsplashImageService.swift */; };
 		3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */; };
+		7CAD95219A32FED40BB70DFB /* EditPlaceCardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -98,6 +99,7 @@
 		D698604B0123BD5E703A0E79 /* AppNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigation.swift; sourceTree = "<group>"; };
 		156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoMetadata.swift; sourceTree = "<group>"; };
 		D5D803485B3B6E7F1A2726A8 /* UnsplashImageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnsplashImageService.swift; sourceTree = "<group>"; };
+		783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditPlaceCardSheet.swift; sourceTree = "<group>"; };
 		5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindDuplicatesSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -207,6 +209,7 @@
 				BEB68110D01336958AFF00A2 /* AddPlaceCardView.swift */,
 				28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */,
 				5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */,
+				783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -332,6 +335,7 @@
 				D06AA2E29ADD5F58CD65FCA1 /* PhotoMetadata.swift in Sources */,
 				31A20FCBBC5DB210A21D18A5 /* UnsplashImageService.swift in Sources */,
 				3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */,
+				7CAD95219A32FED40BB70DFB /* EditPlaceCardSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

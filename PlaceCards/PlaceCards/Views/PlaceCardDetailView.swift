@@ -1,10 +1,20 @@
 import SwiftUI
 import MapKit
 
+/// Shows every field a `PlaceCard` carries, not just the handful the list
+/// row/grid cell have room for — and the same action set Peragra's
+/// `PlaceRowView` offers (favorite/visited toggle, call, a map-provider
+/// menu, Instagram, website, edit), which this screen didn't have before.
 struct PlaceCardDetailView: View {
-    let card: PlaceCard
+    @State private var card: PlaceCard
 
+    @EnvironmentObject private var storageService: StorageService
     @Environment(\.openURL) private var openURL
+    @State private var isPresentingEdit = false
+
+    init(card: PlaceCard) {
+        _card = State(initialValue: card)
+    }
 
     var body: some View {
         ScrollView {
@@ -24,15 +34,32 @@ struct PlaceCardDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(card.name)
-                        .font(.title.bold())
+                    HStack(alignment: .top) {
+                        Text(card.name)
+                            .font(.title.bold())
+                        Spacer()
+                        HStack(spacing: 12) {
+                            Button(action: toggleVisited) {
+                                Image(systemName: card.isVisited ? "checkmark.circle.fill" : "checkmark.circle")
+                                    .foregroundStyle(card.isVisited ? .green : .secondary)
+                            }
+                            Button(action: toggleFavorite) {
+                                Image(systemName: card.isFavorite ? "star.fill" : "star")
+                                    .foregroundStyle(card.isFavorite ? .yellow : .secondary)
+                            }
+                        }
+                        .font(.title3)
+                        .buttonStyle(.plain)
+                    }
                     if let category = card.category, !category.isEmpty {
                         Label(PlaceCategoryIcon.normalizedLabel(for: category), systemImage: PlaceCategoryIcon.symbolName(for: category))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    Text(card.address)
-                        .font(.body)
+                    if !card.address.isEmpty {
+                        Text(card.address)
+                            .font(.body)
+                    }
 
                     HStack(spacing: 16) {
                         if let rating = card.rating {
@@ -45,16 +72,20 @@ struct PlaceCardDetailView: View {
                         }
                     }
                     .font(.subheadline)
+                }
+                .padding(.horizontal)
 
-                    if let phone = card.phone, !phone.isEmpty {
-                        Label(phone, systemImage: "phone")
-                    }
-                    if let website = card.website, let url = URL(string: website) {
-                        Link(destination: url) {
-                            Label(website, systemImage: "globe")
-                        }
-                    }
+                if card.hasAnyAction {
+                    actionRow
+                        .padding(.horizontal)
+                }
 
+                if hasHoursInfo {
+                    hoursSection
+                        .padding(.horizontal)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
                     if !card.amenities.isEmpty {
                         Text("편의시설")
                             .font(.headline)
@@ -99,11 +130,160 @@ struct PlaceCardDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .padding(.horizontal)
+
+                if !card.sources.isEmpty || card.discoverySource != nil {
+                    sourcesSection
+                        .padding(.horizontal)
+                }
+
+                metaFooter
+                    .padding(.horizontal)
             }
             .padding(.vertical)
         }
         .navigationTitle(card.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isPresentingEdit = true
+                } label: {
+                    Label("편집", systemImage: "pencil")
+                }
+            }
+        }
+        .sheet(isPresented: $isPresentingEdit) {
+            EditPlaceCardSheet(card: card) { updated in
+                card = updated
+            }
+        }
+    }
+
+    /// Call / map-provider menu / website / Instagram, in one row — the
+    /// same set of actions Peragra's `PlaceRowView` offers, which this
+    /// screen previously had none of at all (only a single "open in the
+    /// default map app" button below).
+    @ViewBuilder
+    private var actionRow: some View {
+        HStack(spacing: 20) {
+            if let callURL = card.callURL {
+                Button {
+                    openURL(callURL)
+                } label: {
+                    Label("전화", systemImage: "phone")
+                }
+            }
+            if card.hasAnyMapLink {
+                Menu {
+                    if let url = GoogleMapsOpener.url(for: card) {
+                        Button("Google Maps") { openURL(url) }
+                    }
+                    if let url = NaverMapOpener.url(for: card) {
+                        Button("Naver Map") { openURL(url) }
+                    }
+                    if let url = KakaoMapOpener.url(for: card) {
+                        Button("Kakao Map") { openURL(url) }
+                    }
+                    if let url = TmapOpener.url(for: card) {
+                        Button("Tmap") { openURL(url) }
+                    }
+                } label: {
+                    Label("길찾기", systemImage: "map")
+                }
+            }
+            if let website = card.website, let url = URL(string: website) {
+                Button {
+                    openURL(url)
+                } label: {
+                    Label("웹사이트", systemImage: "link")
+                }
+            }
+            if let instagramURL = card.instagramURL, let url = URL(string: instagramURL) {
+                Button {
+                    openURL(url)
+                } label: {
+                    Label("인스타그램", systemImage: "camera")
+                }
+                .tint(.pink)
+            }
+        }
+        .buttonStyle(.bordered)
+        .font(.caption)
+    }
+
+    private var hasHoursInfo: Bool {
+        card.hoursDetail?.isEmpty == false || card.closingTime?.isEmpty == false || card.holidays?.isEmpty == false
+    }
+
+    @ViewBuilder
+    private var hoursSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("영업 정보")
+                .font(.headline)
+            if let hoursDetail = card.hoursDetail, !hoursDetail.isEmpty {
+                ForEach(hoursDetail.sorted(by: { $0.key < $1.key }), id: \.key) { day, hours in
+                    HStack {
+                        Text(day).foregroundStyle(.secondary)
+                        Spacer()
+                        Text(hours)
+                    }
+                    .font(.subheadline)
+                }
+            }
+            if let closingTime = card.closingTime, !closingTime.isEmpty {
+                Label("마감 \(closingTime)", systemImage: "clock")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            if let holidays = card.holidays, !holidays.isEmpty {
+                Label("휴무일 \(holidays)", systemImage: "calendar")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// How this card's data was populated/verified over time
+    /// (`PlaceCard.sources`) and, when it was first found on social media
+    /// before being verified against a map API (`discoverySource`) —
+    /// neither was surfaced anywhere in the UI before.
+    @ViewBuilder
+    private var sourcesSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("정보 출처")
+                .font(.headline)
+            if let discoverySource = card.discoverySource {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(discoverySource.platform)에서 발견")
+                        .font(.subheadline)
+                    if let originalPostUrl = discoverySource.originalPostUrl, let url = URL(string: originalPostUrl) {
+                        Link("원본 게시물 보기", destination: url)
+                            .font(.caption)
+                    }
+                }
+            }
+            ForEach(card.sources) { source in
+                HStack {
+                    Text(source.sourceType.displayName)
+                        .font(.caption)
+                    Spacer()
+                    Text(source.timestamp.formatted(date: .abbreviated, time: .omitted))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var metaFooter: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("추가한 날짜: \(card.createdAt.formatted(date: .abbreviated, time: .omitted))")
+            if card.updatedAt != card.createdAt {
+                Text("수정한 날짜: \(card.updatedAt.formatted(date: .abbreviated, time: .omitted))")
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
     }
 
     private var shareText: String {
@@ -133,6 +313,16 @@ struct PlaceCardDetailView: View {
         mapItem.name = name
         mapItem.openInMaps()
     }
+
+    private func toggleFavorite() {
+        card.isFavorite.toggle()
+        storageService.save(card)
+    }
+
+    private func toggleVisited() {
+        card.isVisited.toggle()
+        storageService.save(card)
+    }
 }
 
 private struct WrapTagsView: View {
@@ -157,4 +347,5 @@ private struct WrapTagsView: View {
     NavigationStack {
         PlaceCardDetailView(card: PlaceCard(boardId: "preview", name: "샘플 카페", address: "서울시 강남구"))
     }
+    .environmentObject(StorageService())
 }

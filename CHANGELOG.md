@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (33차) — 카드 상세화면에 전체 정보와 PERAGRA 스타일 액션 추가
+#### Added
+- `Views/PlaceCardDetailView.swift`: 그동안 모델엔 있었지만 화면에 전혀
+  나오지 않던 필드를 모두 표시 — 즐겨찾기/방문 토글(제목 옆 별/체크
+  아이콘), 전화·길찾기(Google/Naver/Kakao/Tmap 메뉴)·웹사이트·인스타그램
+  액션 행(PERAGRA `PlaceRowView`의 액션 세트를 그대로 참조), 영업시간
+  상세(`hoursDetail`)·마감시간(`closingTime`)·휴무일(`holidays`),
+  정보 출처(`sources`, 발견 경로 `discoverySource`), 추가/수정 날짜.
+  기존의 "지도에서 열기"(설정에서 고른 기본 지도 앱) 버튼은 그대로 유지.
+- `Views/EditPlaceCardSheet.swift`(신규): 상세화면 툴바의 "편집" 버튼으로
+  여는 편집 폼 — 이름·카테고리(같은 게시판의 다른 카테고리를 메뉴로
+  제안)·주소·전화번호·웹사이트·인스타그램 URL·태그·편의시설을 직접
+  수정. PERAGRA의 `EditPlaceSheet`를 참조했으나, 사진/AI 채움·지도
+  스크린샷 인식 등은 이미 `AddPlaceCardView`에 별도로 있어 이 시트에는
+  포함하지 않음.
+- `card`가 이제 `@State`라 편집/토글 결과가 상세화면에 바로 반영됨
+  (이전엔 `let card`라 표시만 가능했음).
+
 ### 2026-09-10 (32차) — 사진이 전혀 없을 때 Unsplash 검색으로 폴백
 #### Added
 - `Services/UnsplashImageService.swift`(신규): 참고용으로 업로드된 별개
