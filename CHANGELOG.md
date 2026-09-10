@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (42차) — 빌드 오류 수정: SharedPhotoBoardPickerSheet
+#### Fixed
+- `Views/SharedPhotoBoardPickerSheet.swift`: `.sheet(item:onDismiss:)`에
+  `dismiss`(타입 `DismissAction`)를 클로저 자리에 그대로 넘겨 생긴 빌드
+  오류("Cannot convert value of type 'DismissAction' to expected
+  argument type '() -> Void'") 수정 — `{ dismiss() }`로 감싸서 전달.
+
 ### 2026-09-10 (41차) — 편집 화면에서 사진 추가 + AI로 정보 보완
 #### Added
 - `Views/EditPlaceCardSheet.swift`: "사진 추가" 섹션(신규) — 사진을

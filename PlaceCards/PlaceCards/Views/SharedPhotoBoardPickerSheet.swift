@@ -40,7 +40,7 @@ struct SharedPhotoBoardPickerSheet: View {
                 }
             }
         }
-        .sheet(item: $selectedBoard, onDismiss: dismiss) { board in
+        .sheet(item: $selectedBoard, onDismiss: { dismiss() }) { board in
             AddPlaceCardView(
                 viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id),
                 initialImageData: imageData
