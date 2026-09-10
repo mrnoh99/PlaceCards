@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (75차) — 빌드 오류 수정: body 타입체크 시간 초과
+#### Fixed
+- `Views/EditPlaceCardSheet.swift`, `Views/MapScreenshotImportSheet.swift`:
+  Xcode에서 "The compiler is unable to type-check this expression in
+  reasonable time" 오류 발생. 두 파일 모두 `.alert`의 `message:`에서
+  `"고정 문구".localized + 변수 + "고정 문구".localized + ...` 식으로
+  `+`를 여러 번 이어붙인 표현이 있었는데, 리터럴이던 문자열이
+  `.localized`(비-리터럴 `String`)로 바뀌면서 컴파일러의 오버로드
+  추론 부담이 커진 게 원인으로 보임 — 각각 `nameChangeAlertMessage`
+  계산 프로퍼티로 빼서 `let`으로 한 단계씩 나눠 대입하도록 변경.
+  `EditPlaceCardSheet.swift`는 추가로 `body`의 `Form { ... }` 안에
+  있던 나머지 9개 `Section`도 전부 `basicInfoSection`/
+  `coordinatesSection`/`contactSection`/`ratingSection`/
+  `statusSection`/`businessHoursSection`/`tagsSection`/
+  `amenitiesSection`/`memoSection`(신규, 전부 `@ViewBuilder`)로
+  분리 — 기존에 이미 있던 `photoImportSection`/`webSearchSection`과
+  같은 패턴. `body` 자체는 이제 이 서브뷰들을 나열만 하는 짧은
+  표현이라 타입체크 부담이 훨씬 작음.
+
 ### 2026-09-10 (74차) — 빌드 오류 수정: AutoBackupService의 actor 격리
 #### Fixed
 - `Services/AutoBackupService.swift`: `resolveFolderURL()`에 `@MainActor`

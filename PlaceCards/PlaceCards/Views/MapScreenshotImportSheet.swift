@@ -100,9 +100,21 @@ struct MapScreenshotImportSheet: View {
                     pendingResult = nil
                 }
             } message: {
-                Text("사진에서는 \"".localized + (pendingResult?.placeName ?? "") + "\"(으)로 보이는데, 현재 이름 \"".localized + card.name + "\"과 다릅니다. 이름을 바꿀까요?".localized)
+                Text(nameChangeAlertMessage)
             }
         }
+    }
+
+    /// Broken into separate statements (rather than one long chain of
+    /// `+` on the `.alert`'s `message:` closure) since the compiler
+    /// choked on type-checking that chain directly inside the view body
+    /// ("unable to type-check this expression in reasonable time").
+    private var nameChangeAlertMessage: String {
+        let extractedName = pendingResult?.placeName ?? ""
+        let prefix = "사진에서는 \"".localized
+        let middle = "\"(으)로 보이는데, 현재 이름 \"".localized
+        let suffix = "\"과 다릅니다. 이름을 바꿀까요?".localized
+        return prefix + extractedName + middle + card.name + suffix
     }
 
     /// Always saves the photo itself first (that part never fails or

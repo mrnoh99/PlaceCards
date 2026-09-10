@@ -104,100 +104,16 @@ struct EditPlaceCardSheet: View {
         NavigationStack {
             Form {
                 photoImportSection
-
-                Section("기본 정보".localized) {
-                    TextField("이름".localized, text: $name)
-                    HStack {
-                        TextField("카테고리".localized, text: $category)
-                        if !existingCategories.isEmpty {
-                            Menu {
-                                ForEach(existingCategories, id: \.self) { option in
-                                    Button(option) { category = option }
-                                }
-                            } label: {
-                                Image(systemName: "chevron.down.circle")
-                            }
-                        }
-                    }
-                    TextField("주소".localized, text: $address)
-                }
-
+                basicInfoSection
                 webSearchSection
-
-                Section {
-                    TextField("위도".localized, text: $latitudeText)
-                        .keyboardType(.numbersAndPunctuation)
-                    TextField("경도".localized, text: $longitudeText)
-                        .keyboardType(.numbersAndPunctuation)
-                } header: {
-                    Text("좌표".localized)
-                } footer: {
-                    Text("둘 다 비우면 좌표가 삭제됩니다. 하나만 채워지면 원래 값이 그대로 유지됩니다.".localized)
-                }
-
-                Section("연락처".localized) {
-                    TextField("전화번호".localized, text: $phone)
-                        .keyboardType(.phonePad)
-                    TextField("웹사이트 URL".localized, text: $website)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                    TextField("인스타그램 URL".localized, text: $instagramURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                }
-
-                Section("평가".localized) {
-                    TextField("평점 (0~5)".localized, text: $ratingText)
-                        .keyboardType(.decimalPad)
-                    TextField("리뷰 수".localized, text: $reviewCountText)
-                        .keyboardType(.numberPad)
-                }
-
-                Section("상태".localized) {
-                    Toggle("즐겨찾기".localized, isOn: $isFavorite)
-                    Toggle("방문함".localized, isOn: $isVisited)
-                }
-
-                Section {
-                    ForEach($hoursEntries) { $entry in
-                        HStack {
-                            TextField("요일".localized, text: $entry.day)
-                                .frame(width: 70)
-                            Divider()
-                            TextField("영업시간 (예: 09:00-18:00)".localized, text: $entry.hours)
-                        }
-                    }
-                    .onDelete { hoursEntries.remove(atOffsets: $0) }
-                    Button("+ 요일 추가".localized) {
-                        hoursEntries.append(HoursEntry(day: "", hours: ""))
-                    }
-                    TextField("마감 시간".localized, text: $closingTime)
-                    TextField("휴무일".localized, text: $holidays)
-                } header: {
-                    Text("영업 정보".localized)
-                }
-
-                Section {
-                    TextField("쉼표로 구분".localized, text: $tagsText, axis: .vertical)
-                } header: {
-                    Text("태그".localized)
-                }
-
-                Section {
-                    TextField("쉼표로 구분".localized, text: $amenitiesText, axis: .vertical)
-                } header: {
-                    Text("편의시설".localized)
-                }
-
-                Section {
-                    TextField("메모".localized, text: $memoText, axis: .vertical)
-                } header: {
-                    Text("메모".localized)
-                } footer: {
-                    Text("위 항목 어디에도 맞지 않는 정보를 자유롭게 적어두는 곳입니다.".localized)
-                }
+                coordinatesSection
+                contactSection
+                ratingSection
+                statusSection
+                businessHoursSection
+                tagsSection
+                amenitiesSection
+                memoSection
             }
             .navigationTitle("장소 정보 수정".localized)
             .navigationBarTitleDisplayMode(.inline)
@@ -229,8 +145,145 @@ struct EditPlaceCardSheet: View {
                 }
                 Button("취소".localized, role: .cancel) { pendingExtractedPlace = nil }
             } message: {
-                Text("사진에서는 \"".localized + (pendingExtractedPlace?.placeName ?? "") + "\"(으)로 보이는데, 현재 이름 \"".localized + name + "\"과 다릅니다. 이름을 바꿀까요?".localized)
+                Text(nameChangeAlertMessage)
             }
+        }
+    }
+
+    /// Broken into separate statements (rather than one long chain of
+    /// `+` on the `.alert`'s `message:` closure) since the compiler
+    /// choked on type-checking that chain directly inside the view body
+    /// ("unable to type-check this expression in reasonable time").
+    private var nameChangeAlertMessage: String {
+        let extractedName = pendingExtractedPlace?.placeName ?? ""
+        let prefix = "사진에서는 \"".localized
+        let middle = "\"(으)로 보이는데, 현재 이름 \"".localized
+        let suffix = "\"과 다릅니다. 이름을 바꿀까요?".localized
+        return prefix + extractedName + middle + name + suffix
+    }
+
+    /// Each of these used to be inline in `body`'s `Form { ... }` — split
+    /// out (same pattern `photoImportSection`/`webSearchSection` already
+    /// used) because the Swift compiler couldn't type-check `body` as one
+    /// single expression once nearly every literal in it became a
+    /// non-literal `String` via `.localized` ("unable to type-check this
+    /// expression in reasonable time").
+    @ViewBuilder
+    private var basicInfoSection: some View {
+        Section("기본 정보".localized) {
+            TextField("이름".localized, text: $name)
+            HStack {
+                TextField("카테고리".localized, text: $category)
+                if !existingCategories.isEmpty {
+                    Menu {
+                        ForEach(existingCategories, id: \.self) { option in
+                            Button(option) { category = option }
+                        }
+                    } label: {
+                        Image(systemName: "chevron.down.circle")
+                    }
+                }
+            }
+            TextField("주소".localized, text: $address)
+        }
+    }
+
+    @ViewBuilder
+    private var coordinatesSection: some View {
+        Section {
+            TextField("위도".localized, text: $latitudeText)
+                .keyboardType(.numbersAndPunctuation)
+            TextField("경도".localized, text: $longitudeText)
+                .keyboardType(.numbersAndPunctuation)
+        } header: {
+            Text("좌표".localized)
+        } footer: {
+            Text("둘 다 비우면 좌표가 삭제됩니다. 하나만 채워지면 원래 값이 그대로 유지됩니다.".localized)
+        }
+    }
+
+    @ViewBuilder
+    private var contactSection: some View {
+        Section("연락처".localized) {
+            TextField("전화번호".localized, text: $phone)
+                .keyboardType(.phonePad)
+            TextField("웹사이트 URL".localized, text: $website)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+            TextField("인스타그램 URL".localized, text: $instagramURL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+        }
+    }
+
+    @ViewBuilder
+    private var ratingSection: some View {
+        Section("평가".localized) {
+            TextField("평점 (0~5)".localized, text: $ratingText)
+                .keyboardType(.decimalPad)
+            TextField("리뷰 수".localized, text: $reviewCountText)
+                .keyboardType(.numberPad)
+        }
+    }
+
+    @ViewBuilder
+    private var statusSection: some View {
+        Section("상태".localized) {
+            Toggle("즐겨찾기".localized, isOn: $isFavorite)
+            Toggle("방문함".localized, isOn: $isVisited)
+        }
+    }
+
+    @ViewBuilder
+    private var businessHoursSection: some View {
+        Section {
+            ForEach($hoursEntries) { $entry in
+                HStack {
+                    TextField("요일".localized, text: $entry.day)
+                        .frame(width: 70)
+                    Divider()
+                    TextField("영업시간 (예: 09:00-18:00)".localized, text: $entry.hours)
+                }
+            }
+            .onDelete { hoursEntries.remove(atOffsets: $0) }
+            Button("+ 요일 추가".localized) {
+                hoursEntries.append(HoursEntry(day: "", hours: ""))
+            }
+            TextField("마감 시간".localized, text: $closingTime)
+            TextField("휴무일".localized, text: $holidays)
+        } header: {
+            Text("영업 정보".localized)
+        }
+    }
+
+    @ViewBuilder
+    private var tagsSection: some View {
+        Section {
+            TextField("쉼표로 구분".localized, text: $tagsText, axis: .vertical)
+        } header: {
+            Text("태그".localized)
+        }
+    }
+
+    @ViewBuilder
+    private var amenitiesSection: some View {
+        Section {
+            TextField("쉼표로 구분".localized, text: $amenitiesText, axis: .vertical)
+        } header: {
+            Text("편의시설".localized)
+        }
+    }
+
+    @ViewBuilder
+    private var memoSection: some View {
+        Section {
+            TextField("메모".localized, text: $memoText, axis: .vertical)
+        } header: {
+            Text("메모".localized)
+        } footer: {
+            Text("위 항목 어디에도 맞지 않는 정보를 자유롭게 적어두는 곳입니다.".localized)
         }
     }
 
