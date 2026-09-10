@@ -24,20 +24,6 @@ struct PlaceCardDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if !card.media.allItems.isEmpty {
-                    TabView {
-                        ForEach(card.media.allItems) { item in
-                            if let image = MediaStore.loadImage(fileName: item.localPath) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                            }
-                        }
-                    }
-                    .tabViewStyle(.page)
-                    .frame(height: 240)
-                }
-
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top) {
                         Text(card.name)

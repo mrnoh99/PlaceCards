@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (35차) — 상세화면 맨 위 사진 캐러셀 제거
+#### Changed
+- `Views/PlaceCardDetailView.swift`: 화면 맨 위의 사진 슬라이드
+  (`TabView`) 제거. 사진 자체는 여전히 카드 리스트/갤러리 썸네일과
+  `officialPhotos` 우선순위 로직에 그대로 남아 있고, 이 화면에서만
+  보여주지 않음.
+
 ### 2026-09-10 (34차) — 상세화면에서 Naver 지도로 정보 보완
 #### Added
 - `Views/PlaceCardDetailView.swift`: "Naver 지도에서 정보 보완" 버튼(신규)
