@@ -25,7 +25,10 @@ final class GalleryViewModel: ObservableObject {
         let tags = selectedTag.map { [$0] } ?? []
         let matched = storageService.search(query: searchQuery, tags: tags)
         guard let categoryFilter else { return matched }
-        return matched.filter { $0.category == categoryFilter }
+        return matched.filter { card in
+            guard let category = card.category, !category.isEmpty else { return false }
+            return PlaceCategoryIcon.normalizedLabel(for: category) == categoryFilter
+        }
     }
 
     var distanceReferenceCoordinate: Coordinates? {
@@ -79,7 +82,11 @@ final class GalleryViewModel: ObservableObject {
     }
 
     var allCategories: [String] {
-        Array(Set(storageService.placeCards.compactMap { $0.category?.isEmpty == false ? $0.category : nil })).sorted()
+        let normalized = storageService.placeCards.compactMap { card -> String? in
+            guard let category = card.category, !category.isEmpty else { return nil }
+            return PlaceCategoryIcon.normalizedLabel(for: category)
+        }
+        return Array(Set(normalized)).sorted()
     }
 
     func delete(_ card: PlaceCard) {

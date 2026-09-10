@@ -47,7 +47,7 @@ struct PlaceCardListRow: View {
                 if card.category?.isEmpty == false || distanceText != nil {
                     HStack(spacing: 4) {
                         if let category = card.category, !category.isEmpty {
-                            Label(category, systemImage: PlaceCategoryIcon.symbolName(for: category))
+                            Label(PlaceCategoryIcon.normalizedLabel(for: category), systemImage: PlaceCategoryIcon.symbolName(for: category))
                         }
                         if let distanceText {
                             Text(card.category?.isEmpty == false ? "· \(distanceText)" : distanceText)

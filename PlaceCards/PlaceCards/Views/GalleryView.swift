@@ -99,7 +99,7 @@ struct PlaceCardGridCell: View {
                 HStack(alignment: .top) {
                     if let category = card.category, !category.isEmpty {
                         Label {
-                            Text(category)
+                            Text(PlaceCategoryIcon.normalizedLabel(for: category))
                         } icon: {
                             Image(systemName: PlaceCategoryIcon.symbolName(for: category))
                         }

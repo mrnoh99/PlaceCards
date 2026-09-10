@@ -20,7 +20,11 @@ struct BoardDetailView: View {
     }
 
     private var categories: [String] {
-        Array(Set(allCards.compactMap { $0.category?.isEmpty == false ? $0.category : nil })).sorted()
+        let normalized = allCards.compactMap { card -> String? in
+            guard let category = card.category, !category.isEmpty else { return nil }
+            return PlaceCategoryIcon.normalizedLabel(for: category)
+        }
+        return Array(Set(normalized)).sorted()
     }
 
     private var distanceReferenceCoordinate: Coordinates? {
@@ -44,7 +48,11 @@ struct BoardDetailView: View {
     private var cards: [PlaceCard] {
         allCards
             .filter(statusFilter.matches)
-            .filter { categoryFilter == nil || $0.category == categoryFilter }
+            .filter { card in
+                guard let categoryFilter else { return true }
+                guard let category = card.category, !category.isEmpty else { return false }
+                return PlaceCategoryIcon.normalizedLabel(for: category) == categoryFilter
+            }
             .sorted(by: sortMode, distanceFrom: distanceReferenceCoordinate, pinnedID: pinnedReferenceCardID)
     }
 

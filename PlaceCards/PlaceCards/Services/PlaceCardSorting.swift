@@ -72,12 +72,22 @@ extension Array where Element == PlaceCard {
     }
 
     private func isByCategoryAscending(_ a: PlaceCard, _ b: PlaceCard) -> Bool {
-        let categoryA = a.category ?? ""
-        let categoryB = b.category ?? ""
+        let categoryA = normalizedCategory(a)
+        let categoryB = normalizedCategory(b)
         if categoryA != categoryB {
             return categoryA.localizedCaseInsensitiveCompare(categoryB) == .orderedAscending
         }
         return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+    }
+
+    /// Cafe/coffee-shop variants ("Cafe", "Coffee shop", "카페", "커피숍",
+    /// "커피전문점", ...) group together under one "카페" bucket here too,
+    /// same as the category filter dropdown — otherwise "카테고리별" sort
+    /// would split them into separate alphabetical groups despite meaning
+    /// the same thing.
+    private func normalizedCategory(_ card: PlaceCard) -> String {
+        guard let category = card.category, !category.isEmpty else { return "" }
+        return PlaceCategoryIcon.normalizedLabel(for: category)
     }
 
     private func distance(from reference: CLLocation, to coordinates: Coordinates?) -> Double {

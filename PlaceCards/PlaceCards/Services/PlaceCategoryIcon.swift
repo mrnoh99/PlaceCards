@@ -7,11 +7,20 @@ import Foundation
 /// (outline) variant, never a ".fill" one, to match the app's minimalist
 /// outline look.
 enum PlaceCategoryIcon {
+    /// "Cafe"/"Coffee shop" (Google) and "카페"/"커피숍"/"커피전문점"
+    /// (Korean) all mean the same thing but arrive as different raw
+    /// strings — matched together here so both the icon and
+    /// `normalizedLabel(for:)` treat them identically.
+    private static func isCafe(_ lowercasedText: String) -> Bool {
+        lowercasedText.contains("cafe") || lowercasedText.contains("coffee")
+            || lowercasedText.contains("카페") || lowercasedText.contains("커피")
+    }
+
     static func symbolName(for category: String?) -> String {
         guard let category, !category.isEmpty else { return "tag" }
         let text = category.lowercased()
 
-        if text.contains("cafe") || text.contains("coffee") || text.contains("카페") {
+        if isCafe(text) {
             return "cup.and.saucer"
         }
         if text.contains("restaurant") || text.contains("food") || text.contains("식당") || text.contains("음식") {
@@ -33,5 +42,15 @@ enum PlaceCategoryIcon {
             return "tree"
         }
         return "tag"
+    }
+
+    /// Collapses every cafe/coffee-shop variant — Google's "Cafe"/"Coffee
+    /// shop", or Korean "카페"/"커피숍"/"커피전문점" — into one canonical
+    /// "카페" label, so they show and filter as a single category instead
+    /// of several near-duplicates that happen to differ only in wording.
+    /// Everything else passes through unchanged — there's no fixed
+    /// taxonomy to normalize the rest into here.
+    static func normalizedLabel(for category: String) -> String {
+        isCafe(category.lowercased()) ? "카페" : category
     }
 }
