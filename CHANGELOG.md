@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (65차) — Unsplash 연동 삭제
+#### Removed
+- `Services/UnsplashImageService.swift` 파일 삭제.
+- `ViewModels/PlaceCardViewModel.swift`: `fetchOfficialPhoto`에서
+  Unsplash 폴백(마지막 수단 썸네일 검색) 제거 — Google 사진만 시도.
+  `hasExistingPhoto` 파라미터는 Unsplash 게이트에만 쓰였어서 같이
+  제거. `createManualPlaceCard`는 (`googlePhotoName`이 항상 nil이라)
+  이 함수 호출 자체가 Unsplash 전용이었으므로 호출을 통째로 제거하고,
+  더 이상 await할 게 없어진 함수 자체도 `async` 제거.
+- `Services/KeychainService.swift`: `KeychainKey.unsplashAccessKey` 제거.
+- `ViewModels/SettingsViewModel.swift`: `unsplashAccessKey`,
+  `currentUnsplashAccessKey()`, `saveUnsplashAccessKey()` 제거.
+- `Views/SettingsView.swift`: "Unsplash 이미지 검색 (선택)" 섹션 제거.
+
+#### Changed
+- `Models/MediaModels.swift`: `SourceType.unsplashSearch`는 케이스
+  자체는 유지(신규 생성 경로는 전부 제거됐지만, 이미 저장된 카드에
+  이 값을 가진 사진이 있으면 non-optional `MediaItem.source` 디코드가
+  실패해 `StorageService.loadPlaceCards()`가 카드 배열 전체를 조용히
+  비워버림 — 이전 세션들에서 반복 확인된 것과 같은 decode-safety
+  원칙). 문서 주석에 레거시 전용이라는 점과 그 이유를 명시.
+
 ### 2026-09-10 (64차) — 상세보기에 사진 표시, 정보 출처·추가한 날짜 제거
 #### Added
 - `Views/PlaceCardDetailView.swift`: "사진" 섹션(신규) — 카드의 모든

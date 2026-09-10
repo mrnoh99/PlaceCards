@@ -20,9 +20,13 @@ enum SourceType: String, Codable, CaseIterable {
     case instagramScreenshot
     case userManualInput
 
-    /// A generic photo found via an Unsplash search of the place's name —
-    /// used only as a last-resort thumbnail when neither the user nor
-    /// Google Places supplied one (see `PlaceCardViewModel.fetchOfficialPhoto`).
+    /// Legacy only — the Unsplash fallback-photo feature this case was
+    /// for has been removed. Kept as a case (never delete it) purely for
+    /// decode safety: `MediaItem.source` is a non-optional `SourceType`,
+    /// so a still-saved card with a photo from when this feature existed
+    /// would fail to decode — silently wiping every card in storage,
+    /// since `StorageService.loadPlaceCards()` discards the whole array
+    /// on any decode error — if this raw value ever stopped resolving.
     case unsplashSearch
 
     var displayName: String {

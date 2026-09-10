@@ -240,7 +240,7 @@ final class PlaceCardViewModel: ObservableObject {
                     created.append(card)
                 }
             } else {
-                let card = await createManualPlaceCard(
+                let card = createManualPlaceCard(
                     name: row.name, address: row.address, images: selectedImages, source: source, note: row.scannedNote
                 )
                 created.append(card)
@@ -287,10 +287,7 @@ final class PlaceCardViewModel: ObservableObject {
             }
         }
 
-        if let item = await fetchOfficialPhoto(
-            hasExistingPhoto: !card.media.allItems.isEmpty,
-            name: result.name, category: result.category, googlePhotoName: result.photoName
-        ) {
+        if let item = await fetchOfficialPhoto(googlePhotoName: result.photoName) {
             card.media.officialPhotos.append(item)
         }
 
@@ -304,35 +301,17 @@ final class PlaceCardViewModel: ObservableObject {
     }
 
     /// Best-effort: finds a thumbnail-worthy photo for this place so the
-    /// card list/gallery always have something to show. Tries Google's own
-    /// photo for the place first (when Google Places found one) — this one
-    /// runs regardless of whether the user already attached photos, since
-    /// it's the preferred thumbnail either way. Only when that comes up
-    /// empty (no Google photo, or the place already has no photo at all —
-    /// `hasExistingPhoto`) does it fall back to a generic Unsplash search by
-    /// name, and only when the user has configured an Unsplash access key
-    /// in Settings. Silently skipped at any step that has nothing to offer
-    /// — this only ever supplements a card, never blocks saving it.
-    private func fetchOfficialPhoto(
-        hasExistingPhoto: Bool, name: String, category: String?, googlePhotoName: String?
-    ) async -> MediaItem? {
-        if let googlePhotoName,
-           let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty {
-            let googleService = GooglePlacesService(apiKey: apiKey)
-            if let data = try? await googleService.photoData(photoName: googlePhotoName),
-               let fileName = try? MediaStore.saveImage(data: data) {
-                return MediaItem(localPath: fileName, source: .googleDirectLookup)
-            }
-        }
-
-        guard !hasExistingPhoto, let unsplashKey = SettingsViewModel.currentUnsplashAccessKey() else { return nil }
-        let query = [name, category].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
-        guard !query.isEmpty else { return nil }
-
-        let unsplashService = UnsplashImageService(accessKey: unsplashKey)
-        guard let data = await unsplashService.searchPhotoData(query: query),
+    /// card list/gallery always have something to show — Google's own
+    /// photo for the place, when Google Places found one. Silently
+    /// skipped when there's no `googlePhotoName` or the fetch fails —
+    /// this only ever supplements a card, never blocks saving it.
+    private func fetchOfficialPhoto(googlePhotoName: String?) async -> MediaItem? {
+        guard let googlePhotoName,
+              let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }
+        let googleService = GooglePlacesService(apiKey: apiKey)
+        guard let data = try? await googleService.photoData(photoName: googlePhotoName),
               let fileName = try? MediaStore.saveImage(data: data) else { return nil }
-        return MediaItem(localPath: fileName, source: .unsplashSearch)
+        return MediaItem(localPath: fileName, source: .googleDirectLookup)
     }
 
     /// Manually-entered places have no coordinates at all — unlike a card
@@ -342,7 +321,7 @@ final class PlaceCardViewModel: ObservableObject {
     /// (`PlaceCandidateRow.scannedNote`), same as `createPlaceCard(from:)`.
     func createManualPlaceCard(
         name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput, note: String? = nil
-    ) async -> PlaceCard {
+    ) -> PlaceCard {
         var card = PlaceCard(boardId: boardId, name: name, address: address, memo: PlaceCard.combinedMemo(nil, appending: note))
         card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
 
@@ -350,13 +329,6 @@ final class PlaceCardViewModel: ObservableObject {
             if let fileName = try? MediaStore.saveImage(image) {
                 card.media.onsitePhotos.append(MediaItem(localPath: fileName, source: source))
             }
-        }
-
-        if let item = await fetchOfficialPhoto(
-            hasExistingPhoto: !card.media.allItems.isEmpty,
-            name: name, category: card.category, googlePhotoName: nil
-        ) {
-            card.media.officialPhotos.append(item)
         }
 
         storageService.save(card)

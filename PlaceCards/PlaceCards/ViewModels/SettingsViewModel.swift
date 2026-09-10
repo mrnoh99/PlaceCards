@@ -5,8 +5,6 @@ import Combine
 final class SettingsViewModel: ObservableObject {
     @Published var googleAPIKey: String = ""
 
-    @Published var unsplashAccessKey: String = ""
-
     @Published var naverMapClientId: String = ""
 
     @Published var aiProviderType: AIProviderType = .claude
@@ -23,7 +21,6 @@ final class SettingsViewModel: ObservableObject {
 
     init() {
         googleAPIKey = KeychainService.load(.googlePlacesAPIKey) ?? ""
-        unsplashAccessKey = KeychainService.load(.unsplashAccessKey) ?? ""
         naverMapClientId = KeychainService.load(.naverMapClientId) ?? ""
         aiProviderType = Self.currentAIProviderType()
         aiAPIKey = KeychainService.load(aiProviderType.keychainKey) ?? ""
@@ -48,15 +45,6 @@ final class SettingsViewModel: ObservableObject {
         UserDefaults.standard.string(forKey: gatewayModelDefaultsKey) ?? GatewayModels.defaultModel
     }
 
-    /// Reads the saved Unsplash access key without needing an instance, so
-    /// `PlaceCardViewModel` can look it up right before falling back to an
-    /// Unsplash search for a card with no photo at all. `nil` (not just
-    /// empty) when unset, so callers can use it directly as a guard.
-    static func currentUnsplashAccessKey() -> String? {
-        guard let key = KeychainService.load(.unsplashAccessKey), !key.isEmpty else { return nil }
-        return key
-    }
-
     /// Reads the saved Naver Maps Client ID without needing an instance,
     /// so `PlacesMapView` can look it up right before rendering
     /// `NaverMapWebView`. `nil` (not just empty) when unset.
@@ -73,15 +61,6 @@ final class SettingsViewModel: ObservableObject {
         do {
             try KeychainService.save(googleAPIKey, for: .googlePlacesAPIKey)
             statusMessage = "Google API 키가 저장되었습니다."
-        } catch {
-            statusMessage = error.localizedDescription
-        }
-    }
-
-    func saveUnsplashAccessKey() {
-        do {
-            try KeychainService.save(unsplashAccessKey, for: .unsplashAccessKey)
-            statusMessage = "Unsplash Access Key가 저장되었습니다."
         } catch {
             statusMessage = error.localizedDescription
         }

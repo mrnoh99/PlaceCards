@@ -45,16 +45,6 @@ struct SettingsView: View {
                     Button("저장") { viewModel.saveGoogleAPIKey() }
                 }
 
-                Section("Unsplash 이미지 검색 (선택)") {
-                    SecureField("Access Key", text: $viewModel.unsplashAccessKey)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    Button("저장") { viewModel.saveUnsplashAccessKey() }
-                    Text("장소에 사용자가 올린 사진도, Google에서 찾은 사진도 없을 때만 이 장소명으로 Unsplash를 검색해 대신 썸네일로 사용합니다. unsplash.com/oauth/applications에서 발급받은 Access Key입니다.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
                 Section("Naver 지도 표시 (선택)") {
                     SecureField("NCP Client ID", text: $viewModel.naverMapClientId)
                         .textInputAutocapitalization(.never)
