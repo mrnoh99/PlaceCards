@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (56차) — Naver 지도 마커를 미니멀 아웃라인 아이콘으로 변경
+#### Changed
+- `Services/PlaceCategoryIcon.swift`: `emoji(for:)`를
+  `markerGlyphHTML(for:)`로 교체 — 컬러 이모지(☕🍴🏨🍷🛍️🖼️🌳📍)가
+  지도 위에서 잘 안 보인다는 피드백에 따라, 앱 다른 곳의 SF Symbol과
+  같은 스타일(얇은 선, 채우기 없음)의 인라인 SVG 아이콘으로 교체하고,
+  지도 배경과 대비되도록 흰 원형 배지 안에 넣음. `naver-map-embed.html`
+  이 이 필드를 raw HTML로 그대로 이어붙이는 구조라 이모지 문자
+  대신이어도 동일하게 동작함(필드명 `emoji`는 그 페이지의 payload
+  형태를 맞추기 위해 그대로 유지).
+- `Views/NaverMapWebView.swift`/`Views/PlacesMapView.swift`: 새 함수
+  이름에 맞춰 호출부·문서 주석 갱신.
+
 ### 2026-09-10 (55차) — 지도 탭 Naver 지도에 "undefined" 마커 라벨 표시 수정
 #### Fixed
 - `Views/NaverMapWebView.swift`: `MarkerPlace`에 `emoji` 필드가 없어서,

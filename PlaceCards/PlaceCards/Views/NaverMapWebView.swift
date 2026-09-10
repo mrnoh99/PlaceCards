@@ -24,11 +24,16 @@ struct NaverMapWebView: UIViewRepresentable {
         let id: String
         let name: String
         let address: String
-        /// The embed page's marker icon renders this directly as text
-        /// (`place.emoji`, in `naver-map-embed.html`) — without it, every
-        /// marker's icon literally reads "undefined" (a bare string
-        /// concatenation with no nil-check on the page's side, since it
-        /// was written for Peragra, where this field is never missing).
+        /// The embed page's marker icon concatenates this directly into
+        /// the marker's HTML content (`place.emoji`, in
+        /// `naver-map-embed.html`) — without it, every marker's icon
+        /// literally reads "undefined" (a bare string concatenation with
+        /// no nil-check on the page's side, since it was written for
+        /// Peragra, where this field is never missing). Despite the name
+        /// (kept to match that page's payload shape), this is populated
+        /// with `PlaceCategoryIcon.markerGlyphHTML(for:)` — an inline-SVG
+        /// outline icon, not a literal emoji character — since the page
+        /// only ever uses it as raw HTML, never as text.
         let emoji: String
         let visited: Bool
         let latitude: Double
