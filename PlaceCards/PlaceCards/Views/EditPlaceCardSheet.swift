@@ -50,6 +50,7 @@ struct EditPlaceCardSheet: View {
     @State private var hoursEntries: [HoursEntry]
     @State private var tagsText: String
     @State private var amenitiesText: String
+    @State private var memoText: String
 
     @State private var photoPickerItems: [PhotosPickerItem] = []
     @State private var pickedImages: [UIImage] = []
@@ -79,6 +80,7 @@ struct EditPlaceCardSheet: View {
         _hoursEntries = State(initialValue: (card.hoursDetail ?? [:]).sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) })
         _tagsText = State(initialValue: card.tags.joined(separator: ", "))
         _amenitiesText = State(initialValue: card.amenities.joined(separator: ", "))
+        _memoText = State(initialValue: card.memo ?? "")
     }
 
     /// Other categories already used in this card's board — offered as
@@ -182,6 +184,14 @@ struct EditPlaceCardSheet: View {
                     TextField("쉼표로 구분", text: $amenitiesText, axis: .vertical)
                 } header: {
                     Text("편의시설")
+                }
+
+                Section {
+                    TextField("메모", text: $memoText, axis: .vertical)
+                } header: {
+                    Text("메모")
+                } footer: {
+                    Text("위 항목 어디에도 맞지 않는 정보를 자유롭게 적어두는 곳입니다.")
                 }
             }
             .navigationTitle("장소 정보 수정")
@@ -406,6 +416,9 @@ struct EditPlaceCardSheet: View {
 
         updated.tags = tagsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         updated.amenities = amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+
+        let trimmedMemo = memoText.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.memo = trimmedMemo.isEmpty ? nil : trimmedMemo
 
         for image in pickedImages {
             if let fileName = try? MediaStore.saveImage(image) {

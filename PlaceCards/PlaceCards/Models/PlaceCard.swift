@@ -41,6 +41,15 @@ struct PlaceCard: Identifiable, Codable {
     var amenities: [String] = []
     var tags: [String] = []
 
+    /// Free-text catch-all for anything worth keeping that doesn't fit any
+    /// field above — mirrors Peragra's `Place.notes`, which PlaceCards
+    /// didn't have until now. Optional (not a `= ""` default), like every
+    /// other field added to this struct after its original release —
+    /// synthesized `Decodable` only defaults a missing key for Optional
+    /// properties, so a non-optional addition here would fail to decode
+    /// every already-saved card that predates this field.
+    var memo: String?
+
     var media: MediaBundle = MediaBundle()
     var sources: [SourceRecord] = []
     var discoverySource: DiscoverySource?
@@ -68,9 +77,8 @@ extension PlaceCard {
     /// `StorageService.removeMergedDuplicate(_:)` — not `delete(_:)`,
     /// which would delete the photo files this just took ownership of.
     /// Ported from Peragra's `Place.merge(with:context:)`, adapted to
-    /// PlaceCards' own fields (no free-text notes field to fold together
-    /// here, but photos are combined since PlaceCards models those on the
-    /// card itself, unlike Peragra's `Place`).
+    /// PlaceCards' own fields (photos are combined since PlaceCards models
+    /// those on the card itself, unlike Peragra's `Place`).
     mutating func merge(with duplicates: [PlaceCard]) {
         guard !duplicates.isEmpty else { return }
 
@@ -80,6 +88,9 @@ extension PlaceCard {
         if category == nil { category = duplicates.compactMap(\.category).first }
         if rating == nil { rating = duplicates.compactMap(\.rating).first }
         if reviewCount == nil { reviewCount = duplicates.compactMap(\.reviewCount).first }
+        if memo?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
+            memo = duplicates.compactMap(\.memo).first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        }
 
         if address.trimmingCharacters(in: .whitespaces).isEmpty {
             if let borrowed = duplicates.first(where: { !$0.address.trimmingCharacters(in: .whitespaces).isEmpty }) {

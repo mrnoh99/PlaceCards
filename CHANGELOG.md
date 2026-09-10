@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (49차) — 상세보기에 메모 필드 추가
+#### Added
+- `Models/PlaceCard.swift`: `memo: String?`(신규) — 어떤 항목에도
+  맞지 않는 자유 형식 정보를 모아두는 필드. Peragra의
+  `Place.notes`에 대응. Optional로 선언(디코드 안전성 — 이 구조체에
+  이 필드가 추가되기 전 저장된 카드는 JSON에 `memo` 키가 없는데,
+  `Decodable` 합성 구현은 non-Optional 프로퍼티에 대해선 키가 없을 때
+  기본값을 적용하지 않고 `keyNotFound`로 디코드 전체를 실패시킴 —
+  `StorageService.loadPlaceCards()`가 `try?`로 실패를 조용히
+  무시하므로, non-Optional로 추가했다면 기존에 저장된 카드가 전부
+  화면에서 사라졌을 것).
+- `PlaceCard.merge(with:)`: 병합 시 현재 카드의 메모가 비어 있으면
+  중복 카드들 중 비어 있지 않은 첫 메모를 가져오도록 로직 추가.
+- `Views/PlaceCardDetailView.swift`: 편의시설/태그 옆에 메모 표시
+  블록 추가(값이 있을 때만 표시).
+- `Views/EditPlaceCardSheet.swift`: "메모" 섹션(여러 줄 입력) 추가
+  — 태그/편의시설 섹션과 동일한 패턴. 저장 시 공백만 있으면 `nil`로
+  정리.
+
 ### 2026-09-10 (48차) — 설정에 App Group 연결 상태 진단 표시
 #### Added
 - `Services/SharedImportStore.swift`: `isAppGroupAvailable`(신규) —

@@ -83,6 +83,13 @@ struct PlaceCardDetailView: View {
                             .font(.headline)
                         WrapTagsView(tags: card.tags)
                     }
+
+                    if let memo = card.memo, !memo.isEmpty {
+                        Text("메모")
+                            .font(.headline)
+                        Text(memo)
+                            .font(.body)
+                    }
                 }
                 .padding(.horizontal)
 
