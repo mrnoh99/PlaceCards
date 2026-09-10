@@ -19,8 +19,14 @@ enum KeychainKey: String {
 struct KeychainService {
     private static let service = "com.placecards.app"
 
+    /// Trims surrounding whitespace/newlines from `value` before storing —
+    /// copying a key/secret from a developer console's web page commonly
+    /// picks up a trailing newline or space, which silently doesn't match
+    /// the real key and gets rejected by the server as invalid, with
+    /// nothing in the app to suggest why (e.g. Naver's Local Search API
+    /// returning a plain 401 for it).
     static func save(_ value: String, for key: KeychainKey) throws {
-        let data = Data(value.utf8)
+        let data = Data(value.trimmingCharacters(in: .whitespacesAndNewlines).utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

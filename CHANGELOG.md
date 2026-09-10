@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (37차) — API 키 저장 시 공백/줄바꿈 제거
+#### Fixed
+- `Services/KeychainService.swift`: `save(_:for:)`가 이제 저장 전에
+  값의 앞뒤 공백·줄바꿈을 제거함 — 개발자 콘솔 웹페이지에서 키를
+  복사할 때 끝에 줄바꿈/공백이 같이 붙는 경우가 흔한데, 지금까지는
+  그걸 그대로 저장해서 서버가 "유효하지 않은 API 키"로 거부해도 원인을
+  알기 어려웠음(예: Naver 지도 정보 보완에서 401). 모든 BYOK 키(Google,
+  Naver 검색/Geocoding, Unsplash, AI 제공자)가 한 곳에서 공통으로 이
+  혜택을 받음.
+
 ### 2026-09-10 (36차) — 편집 화면에서 카드의 모든 필드 수정 가능
 #### Changed
 - `Views/EditPlaceCardSheet.swift`: 기존엔 이름·카테고리·주소·전화번호·
