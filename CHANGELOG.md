@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (71차) — 설정에 "AI 응답 언어" 추가
+#### Added
+- `Services/AIProvider.swift`: `ScanResultLanguage`(신규, 한국어/영어/
+  일본어/중국어) — 사진 스캔·웹 검색으로 채워지는 카테고리·메모 같은
+  자유 텍스트를 어떤 언어로 쓸지 결정. `UserDefaults`에 저장, 인스턴스
+  없이 `.current()`로 조회하는 방식은 `SettingsViewModel
+  .currentAIProviderType()`와 동일한 패턴. 앱 화면 자체의 언어(한국어
+  하드코딩)는 이번 범위에 포함하지 않음 — 30개 이상 View 파일의 전면
+  현지화는 실제 빌드/시뮬레이터 없이는 검증이 사실상 불가능한 별개의
+  큰 작업이라 판단.
+- `Views/SettingsView.swift`: "AI 응답 언어" Picker 섹션 추가(별도
+  저장 버튼 없이 선택 즉시 저장 — API 키처럼 확인이 필요한 값이
+  아니므로).
+
+#### Changed
+- `Services/AIProvider.swift`: `defaultPlaceAnalysisPrompt`(상수) →
+  `defaultPlaceAnalysisPrompt()`(함수)로 변경 — 매번 현재
+  `ScanResultLanguage`를 반영해 프롬프트 끝에 언어 지시문을 덧붙임
+  (한국어 선택 시엔 원래 프롬프트가 이미 한국어 응답을 전제하므로
+  아무것도 덧붙이지 않음). JSON 키 이름은 그대로 두고 값만 대상
+  언어로 쓰도록 명시. 호출부 3곳(`PlaceCardViewModel.analyzeImages`,
+  `EditPlaceCardSheet.analyzePickedPhotos`,
+  `MapScreenshotImportSheet`)을 `defaultPlaceAnalysisPrompt()` 호출로
+  갱신.
+- `Services/AIProvider.swift`: `webDetailsSearchPrompt(for:)`도 같은
+  방식으로 언어 지시문을 덧붙이도록 변경.
+- `ViewModels/SettingsViewModel.swift`: `scanResultLanguage` 프로퍼티
+  추가, `didSet`에서 즉시 저장.
+
 ### 2026-09-10 (70차) — Naver 지도 마커 아래에도 이름 표시
 #### Changed
 - `Views/PlacesMapView.swift`: `naverMarkerContentHTML(for:)`(신규) —

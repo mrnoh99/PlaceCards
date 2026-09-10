@@ -356,7 +356,7 @@ struct EditPlaceCardSheet: View {
 
         let provider = await AIProviderFactory.create(type: providerType, apiKey: apiKey)
         do {
-            let results = try await provider.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt)
+            let results = try await provider.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
             handleAnalysisResults(results)
         } catch {
             photoAnalysisMessage = error.localizedDescription

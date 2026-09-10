@@ -14,6 +14,15 @@ final class SettingsViewModel: ObservableObject {
     /// list, or Custom…" model picker. Kept independent of `aiProviderType`
     /// so switching providers and back doesn't lose it.
     @Published var gatewayModel: String = ""
+    /// The language AI-generated scan/search results are written in — the
+    /// app's own UI text is unaffected (stays Korean everywhere), only
+    /// `AIProvider.swift`'s prompts change. See `ScanResultLanguage`.
+    @Published var scanResultLanguage: ScanResultLanguage = .korean {
+        // Saved immediately on change (no separate "저장" button), matching
+        // how the map-provider picker elsewhere in this app behaves —
+        // there's no key/secret involved, so nothing to confirm first.
+        didSet { scanResultLanguage.save() }
+    }
     @Published var statusMessage: String?
 
     private static let aiProviderDefaultsKey = "aiProviderType"
@@ -25,6 +34,7 @@ final class SettingsViewModel: ObservableObject {
         aiProviderType = Self.currentAIProviderType()
         aiAPIKey = KeychainService.load(aiProviderType.keychainKey) ?? ""
         gatewayModel = Self.currentGatewayModel()
+        scanResultLanguage = ScanResultLanguage.current()
     }
 
     /// Reads the saved AI provider choice without needing an instance, so

@@ -135,7 +135,7 @@ struct MapScreenshotImportSheet: View {
 
         let provider = await AIProviderFactory.create(type: providerType, apiKey: apiKey)
         do {
-            let results = try await provider.analyzePlaces(imageDatas: [jpegData], prompt: defaultPlaceAnalysisPrompt)
+            let results = try await provider.analyzePlaces(imageDatas: [jpegData], prompt: defaultPlaceAnalysisPrompt())
             handleAnalysisResults(results)
         } catch {
             statusMessage = "사진을 카드에 추가했습니다. (정보 읽기 실패: \(error.localizedDescription))"

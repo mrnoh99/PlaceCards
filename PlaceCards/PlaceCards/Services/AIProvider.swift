@@ -30,6 +30,66 @@ enum AIProviderType: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// The language AI-generated *scan/search results* (category, memo,
+/// description, etc.) are written in — independent of the app's own UI,
+/// which stays Korean everywhere regardless of this setting. Exposed in
+/// Settings as "AI 응답 언어".
+enum ScanResultLanguage: String, Codable, CaseIterable, Identifiable {
+    case korean
+    case english
+    case japanese
+    case chinese
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .korean: return "한국어"
+        case .english: return "English"
+        case .japanese: return "日本語"
+        case .chinese: return "中文"
+        }
+    }
+
+    /// Used inside the (Korean-language) prompts below to name the target
+    /// language for the model.
+    private var promptLanguageName: String {
+        switch self {
+        case .korean: return "한국어"
+        case .english: return "영어(English)"
+        case .japanese: return "일본어(日本語)"
+        case .chinese: return "중국어(中文)"
+        }
+    }
+
+    /// Appended to a prompt to steer only its free-text *values* (never its
+    /// JSON key names, which the parsing code on this side depends on
+    /// staying exactly as written) into this language. `nil` for Korean,
+    /// since every prompt below is already written to produce Korean text
+    /// by default — appending a no-op instruction would just be noise.
+    var promptInstruction: String? {
+        guard self != .korean else { return nil }
+        return "응답 JSON의 키 이름은 그대로 두고, 텍스트 값(description, category, note, amenities 등)은 반드시 \(promptLanguageName)로 작성하세요."
+    }
+
+    private static let defaultsKey = "scanResultLanguage"
+
+    /// Reads the saved response-language choice without needing an
+    /// instance, mirroring `SettingsViewModel.currentAIProviderType()` —
+    /// looked up right before building a prompt.
+    static func current() -> ScanResultLanguage {
+        if let stored = UserDefaults.standard.string(forKey: defaultsKey),
+           let language = ScanResultLanguage(rawValue: stored) {
+            return language
+        }
+        return .korean
+    }
+
+    func save() {
+        UserDefaults.standard.set(rawValue, forKey: Self.defaultsKey)
+    }
+}
+
 /// Model IDs available on the factchat-cloud.mindlogic.ai gateway, as
 /// listed on its own "API Gateway" docs page (ported from Peragra, which
 /// uses this same third-party gateway as its default AI provider). Not
@@ -123,15 +183,23 @@ enum AIProviderFactory {
     }
 }
 
-let defaultPlaceAnalysisPrompt = """
-이 이미지(들)는 지도 앱 스크린샷이거나 SNS(예: 인스타그램) 게시물 스크린샷일 수 있습니다.
-이미지에 등장하는 모든 장소(상호명)를 찾아 각각에 대해 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
-한 이미지(또는 여러 이미지 전체)에 여러 장소가 나열되어 있으면 전부 별도 항목으로 포함하세요.
-확실하지 않은 장소명은 추측해서 만들어내지 말고 제외하세요.
-스캔의 목적은 이 장소에 대한 정보를 최대한 모으는 것입니다 — 이름·주소 외에도 이미지에 함께 적힌, 나중에 참고할 만한 내용(해시태그, 한줄평·추천 이유·특이사항 등, 예: "#한끼식사됨")이 있으면 description에 그대로 담아주세요. 그런 내용이 없으면 null로 답하세요.
-{"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "이름/주소로 담기지 않는, 메모로 남길 만한 내용 또는 null", "confidence": 0.0에서 1.0 사이 숫자}]}
-장소를 하나도 찾지 못했으면 {"places": []}로 답하세요.
-"""
+/// Built fresh (rather than a plain constant) so it always reflects the
+/// current "AI 응답 언어" setting (`ScanResultLanguage.current()`) — the
+/// prompt text itself stays Korean either way, only the appended
+/// instruction (and therefore the model's `description` output) changes.
+func defaultPlaceAnalysisPrompt() -> String {
+    let base = """
+    이 이미지(들)는 지도 앱 스크린샷이거나 SNS(예: 인스타그램) 게시물 스크린샷일 수 있습니다.
+    이미지에 등장하는 모든 장소(상호명)를 찾아 각각에 대해 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
+    한 이미지(또는 여러 이미지 전체)에 여러 장소가 나열되어 있으면 전부 별도 항목으로 포함하세요.
+    확실하지 않은 장소명은 추측해서 만들어내지 말고 제외하세요.
+    스캔의 목적은 이 장소에 대한 정보를 최대한 모으는 것입니다 — 이름·주소 외에도 이미지에 함께 적힌, 나중에 참고할 만한 내용(해시태그, 한줄평·추천 이유·특이사항 등, 예: "#한끼식사됨")이 있으면 description에 그대로 담아주세요. 그런 내용이 없으면 null로 답하세요.
+    {"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "이름/주소로 담기지 않는, 메모로 남길 만한 내용 또는 null", "confidence": 0.0에서 1.0 사이 숫자}]}
+    장소를 하나도 찾지 못했으면 {"places": []}로 답하세요.
+    """
+    guard let instruction = ScanResultLanguage.current().promptInstruction else { return base }
+    return base + "\n" + instruction
+}
 
 /// Every provider below ends up with the model's raw text reply and needs
 /// the same first step: pull the JSON object out of it (models don't
@@ -183,11 +251,13 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
 }
 
 private func webDetailsSearchPrompt(for query: String) -> String {
-    """
+    let base = """
     "\(query)"에 대한 정보를 웹에서 검색해서 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
     확실하지 않은 값은 추측해서 만들어내지 말고 null로 답하세요.
     {"phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "note": "그 외 참고할 만한 정보(메모로 남길 만한 것) 또는 null"}
     """
+    guard let instruction = ScanResultLanguage.current().promptInstruction else { return base }
+    return base + "\n" + instruction
 }
 
 private func parseWebDetails(from text: String) throws -> PlaceWebDetails {

@@ -94,6 +94,16 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Picker("AI 응답 언어", selection: $viewModel.scanResultLanguage) {
+                        ForEach(ScanResultLanguage.allCases) { language in
+                            Text(language.displayName).tag(language)
+                        }
+                    }
+                } footer: {
+                    Text("사진 스캔·웹 검색으로 채워지는 카테고리·메모 같은 텍스트를 어떤 언어로 작성할지 정합니다. 앱 화면 자체의 언어(한국어)에는 영향을 주지 않습니다.")
+                }
+
+                Section {
                     Button("전체 백업") { startBackup() }
                     Button("백업에서 복원", role: .destructive) { showingRestoreImporter = true }
                     if let backupMessage {
