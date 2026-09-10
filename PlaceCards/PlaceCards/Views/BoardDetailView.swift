@@ -26,9 +26,21 @@ struct BoardDetailView: View {
     @State private var isPresentingMergeSelection = false
     @State private var isPresentingCustomCategoryInput = false
     @State private var customCategoryInput = ""
+    @State private var searchQuery = ""
 
     private var allCards: [PlaceCard] {
         storageService.placeCards(inBoard: board.id)
+    }
+
+    /// Name/address-matched, mirroring `GalleryViewModel`'s own search —
+    /// applied first, ahead of every other filter below, so the status/
+    /// category chips and their counts reflect the search too.
+    private var searchFilteredCards: [PlaceCard] {
+        guard !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty else { return allCards }
+        return allCards.filter { card in
+            card.name.localizedCaseInsensitiveContains(searchQuery)
+                || card.address.localizedCaseInsensitiveContains(searchQuery)
+        }
     }
 
     private var categories: [String] {
@@ -55,10 +67,11 @@ struct BoardDetailView: View {
         return id
     }
 
-    /// Filtered by the status chip, then sorted — the exact set the list
-    /// renders. Mirrors Peragra's `TripDetailView.sortedPlaces`.
+    /// Search-, status chip-, and category-filtered, then sorted — the
+    /// exact set the list renders. Mirrors Peragra's
+    /// `TripDetailView.sortedPlaces`.
     private var cards: [PlaceCard] {
-        allCards
+        searchFilteredCards
             .filter(statusFilter.matches)
             .filter { card in
                 guard let categoryFilter else { return true }
@@ -105,15 +118,19 @@ struct BoardDetailView: View {
                         categoryFilter: $categoryFilter,
                         categories: categories,
                         filter: $statusFilter,
-                        allCount: allCards.count,
-                        favoriteCount: allCards.filter(\.isFavorite).count,
-                        visitedCount: allCards.filter(\.isVisited).count
+                        allCount: searchFilteredCards.count,
+                        favoriteCount: searchFilteredCards.filter(\.isFavorite).count,
+                        visitedCount: searchFilteredCards.filter(\.isVisited).count
                     )
                     if cards.isEmpty {
-                        ContentUnavailableView {
-                            Label("해당하는 장소가 없습니다", systemImage: "line.3.horizontal.decrease.circle")
-                        } description: {
-                            Text("다른 필터를 선택해보세요.")
+                        if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                            ContentUnavailableView.search
+                        } else {
+                            ContentUnavailableView {
+                                Label("해당하는 장소가 없습니다", systemImage: "line.3.horizontal.decrease.circle")
+                            } description: {
+                                Text("다른 필터를 선택해보세요.")
+                            }
                         }
                     } else {
                         List {
@@ -182,6 +199,7 @@ struct BoardDetailView: View {
         .onAppear { navigation.currentHomeBoardID = board.id }
         .navigationTitle(board.name)
         .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $searchQuery, prompt: "이름, 주소로 검색")
         .toolbar {
             if !isSelecting {
                 ToolbarItem(placement: .primaryAction) {

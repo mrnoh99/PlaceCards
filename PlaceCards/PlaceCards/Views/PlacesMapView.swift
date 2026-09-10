@@ -24,6 +24,7 @@ struct PlacesMapView: View {
     @EnvironmentObject private var navigation: AppNavigation
     @EnvironmentObject private var storageService: StorageService
     @State private var selectedCard: PlaceCard?
+    @State private var searchQuery = ""
     @AppStorage("mapDisplayProvider") private var displayProviderRaw: String = MapDisplayProvider.apple.rawValue
 
     private var displayProvider: MapDisplayProvider {
@@ -44,15 +45,24 @@ struct PlacesMapView: View {
     /// Narrowed to `navigation.mapFilterIDs` when a board's "지도에서
     /// 보기" bulk action set it (an explicit one-shot pick, so it wins);
     /// otherwise to the board Home is currently showing, if any; otherwise
-    /// every card, as usual.
+    /// every card, as usual — then further narrowed by `searchQuery`, so
+    /// searching always searches *within* whatever's already showing.
     private var visibleCards: [PlaceCard] {
+        let scoped: [PlaceCard]
         if let filterIDs = navigation.mapFilterIDs {
-            return viewModel.annotatedPlaceCards.filter { filterIDs.contains($0.id) }
+            scoped = viewModel.annotatedPlaceCards.filter { filterIDs.contains($0.id) }
+        } else if let boardID = navigation.currentHomeBoardID {
+            scoped = viewModel.annotatedPlaceCards.filter { $0.boardId == boardID }
+        } else {
+            scoped = viewModel.annotatedPlaceCards
         }
-        if let boardID = navigation.currentHomeBoardID {
-            return viewModel.annotatedPlaceCards.filter { $0.boardId == boardID }
+
+        let trimmedQuery = searchQuery.trimmingCharacters(in: .whitespaces)
+        guard !trimmedQuery.isEmpty else { return scoped }
+        return scoped.filter { card in
+            card.name.localizedCaseInsensitiveContains(trimmedQuery)
+                || card.address.localizedCaseInsensitiveContains(trimmedQuery)
         }
-        return viewModel.annotatedPlaceCards
     }
 
     private var mapNavigationTitle: String {
@@ -94,6 +104,20 @@ struct PlacesMapView: View {
             .sheet(item: $selectedCard) { card in
                 NavigationStack {
                     PlaceCardDetailView(card: card)
+                }
+            }
+            .searchable(text: $searchQuery, prompt: "장소 검색")
+            // Only the Apple map has a SwiftUI-owned camera
+            // (`viewModel.region`) this can recenter directly — the
+            // Google/Naver maps are WKWebViews with no such hook from
+            // here, so for those, matching pins simply being the only
+            // ones left on the map (via `visibleCards` above) is the
+            // whole effect of a search there.
+            .onChange(of: searchQuery) { _, newValue in
+                guard !newValue.trimmingCharacters(in: .whitespaces).isEmpty,
+                      let firstMatch = visibleCards.first else { return }
+                withAnimation {
+                    viewModel.region.center = viewModel.coordinate(for: firstMatch)
                 }
             }
         }

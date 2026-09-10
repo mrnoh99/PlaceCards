@@ -10,15 +10,26 @@ struct HomeView: View {
     @State private var isPresentingAddBoard = false
     @State private var boardPendingDelete: Board?
     @State private var boardPendingEdit: Board?
+    @State private var searchQuery = ""
+
+    private var filteredBoards: [Board] {
+        guard !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty else { return storageService.boards }
+        return storageService.boards.filter { board in
+            board.name.localizedCaseInsensitiveContains(searchQuery)
+                || board.subtitle.localizedCaseInsensitiveContains(searchQuery)
+        }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 if storageService.boards.isEmpty {
                     emptyState
+                } else if filteredBoards.isEmpty {
+                    ContentUnavailableView.search
                 } else {
                     List {
-                        ForEach(storageService.boards) { board in
+                        ForEach(filteredBoards) { board in
                             NavigationLink {
                                 BoardDetailView(board: board)
                             } label: {
@@ -59,6 +70,7 @@ struct HomeView: View {
             // user has actually left every board, not on every transient
             // onDisappear inside one. See `AppNavigation.currentHomeBoardID`.
             .onAppear { navigation.currentHomeBoardID = nil }
+            .searchable(text: $searchQuery, prompt: "게시판 검색")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {

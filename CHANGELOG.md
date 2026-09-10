@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (61차) — 홈·게시판 상세·지도에 검색 추가
+#### Added
+- `Views/HomeView.swift`: `.searchable`(신규) — 게시판 이름/부제목으로
+  검색. 갤러리는 이미 검색이 있었고(`GalleryView`), Settings을 제외한
+  나머지 화면(홈·게시판 상세·지도)에는 없었던 것을 채움.
+- `Views/BoardDetailView.swift`: `.searchable`(신규) — 이름/주소로
+  검색. `GalleryViewModel`과 동일하게 검색 결과가 상태 칩 개수에도
+  반영되고(카테고리 선택지 자체는 검색과 무관하게 그대로 유지),
+  결과가 없으면 `ContentUnavailableView.search` 표시.
+- `Views/PlacesMapView.swift`: `.searchable`(신규) — 이름/주소로
+  지도 위 마커를 좁힘(기존 게시판 범위/"지도에서 보기" 필터 위에
+  추가로 적용). Apple 지도는 첫 번째 일치 결과로 카메라도 이동함 —
+  Google/Naver 지도는 WKWebView라 이 화면에서 카메라를 직접 움직일
+  방법이 없어 마커가 좁혀지는 것만 적용됨.
+
 ### 2026-09-10 (60차) — 갤러리·지도가 홈의 현재 게시판을 따라감
 #### Added
 - `Services/AppNavigation.swift`: `currentHomeBoardID`(신규) — 홈 탭이
