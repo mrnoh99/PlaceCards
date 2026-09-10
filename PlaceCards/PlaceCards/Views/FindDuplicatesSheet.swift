@@ -17,6 +17,14 @@ struct FindDuplicatesSheet: View {
         _groups = State(initialValue: DuplicatePlaces.findDuplicateGroups(cards))
     }
 
+    /// Skips auto-detection entirely — for when the user has manually
+    /// selected 2+ cards to merge (`BoardDetailView`'s select mode)
+    /// rather than merging an automatically found duplicate group. Reuses
+    /// the exact same review-and-merge UI either way.
+    init(manualGroup: [PlaceCard]) {
+        _groups = State(initialValue: manualGroup.count > 1 ? [manualGroup] : [])
+    }
+
     private var remainingCount: Int {
         groups.indices.filter { !mergedGroupIndexes.contains($0) }.count
     }
