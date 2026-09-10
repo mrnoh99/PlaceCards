@@ -6,6 +6,7 @@ import SwiftUI
 struct BoardDetailView: View {
     let board: Board
     @EnvironmentObject private var storageService: StorageService
+    @EnvironmentObject private var navigation: AppNavigation
     @State private var isPresentingAddCard = false
     @State private var statusFilter = PlaceStatusFilter()
     @State private var sortMode: PlaceSortMode = .byCategory
@@ -316,6 +317,15 @@ struct BoardDetailView: View {
         }
 
         Button {
+            navigation.showOnMap(selectedIDs)
+            exitSelection()
+        } label: {
+            Label("지도에서 보기", systemImage: "map")
+                .font(.subheadline.weight(.medium))
+        }
+        .disabled(selectedIDs.isEmpty)
+
+        Button {
             isPresentingMergeSelection = true
         } label: {
             Label("병합", systemImage: "arrow.triangle.merge")
@@ -380,5 +390,6 @@ struct BoardDetailView: View {
     NavigationStack {
         BoardDetailView(board: Board(name: "도쿄 봄 여행", subtitle: "2026년 4월", coverIcon: "airplane"))
             .environmentObject(StorageService())
+            .environmentObject(AppNavigation())
     }
 }

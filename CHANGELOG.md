@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (28차) — 선택 모드에 "지도에서 보기" 추가
+#### Added
+- 게시판 다중 선택 모드의 하단 액션 바에 "지도에서 보기" 추가 — 선택한
+  장소만 지도 탭에 표시하고 자동으로 지도 탭으로 전환됨. PERAGRA의
+  `PlaceListingView`의 `onViewSelectedOnMap`을 참조했지만, PlaceCards의
+  지도는 PERAGRA(트립 안에 있는 화면 내 지도)와 달리 앱 전체가 공유하는
+  별도 탭이라 탭을 가로질러 전달해야 함.
+- `Services/AppNavigation.swift`(신규): `selectedTab`/`mapFilterIDs`를
+  들고 있는 앱 전역 내비게이션 상태. `MainTabView`에서 한 번 만들어서
+  탭들에 `.environmentObject`로 주입 — 어느 화면에서든(게시판 상세 등)
+  이걸 통해 지도 탭으로 전환하면서 보여줄 장소를 좁힐 수 있음.
+- 지도 탭(`PlacesMapView`)이 `mapFilterIDs`가 있으면 그 장소들만 표시하고
+  제목도 "선택한 장소"로 바뀌며, 툴바에 "전체 보기" 버튼이 나타나
+  필터를 해제할 수 있음.
+
 ### 2026-09-10 (27차) — 게시판 아이콘을 이모지에서 미니멀 외곽선으로 변경
 #### Changed
 - 게시판 커버가 이모지(✈️🗺️🏖️🏙️⛰️🍜🎡🚆)에서 미니멀 외곽선 SF Symbol
