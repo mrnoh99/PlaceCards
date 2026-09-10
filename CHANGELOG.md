@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-### 2026-09-10 — Gateway 모델 선택 기능 추가
+### 2026-09-10 (2차) — 게시판(Board) 구조 도입, Peragra 참조
+#### Changed
+- **홈 화면을 게시판 목록으로 전면 개편.** Peragra의 `Trip`/`TripsListView`/
+  `AddTripSheet` 구조를 참조. 이제 장소 카드를 만들기 전에 먼저 **게시판**을
+  만들어야 함(이름 + 부제목 + 커버 이모지 아이콘, `Board.coverEmojiChoices`는
+  Peragra의 `Trip.coverEmojiChoices`를 그대로 포팅).
+- `PlaceCard`에 `boardId`(필수) 필드 추가 — 모든 장소 카드는 이제 하나의
+  게시판에 속함.
+- `PlaceCardViewModel`이 `boardId`를 생성자에서 받아, 그 게시판 안에서만
+  카드를 생성하도록 변경.
+- `StorageService`가 게시판(`boards.json`)과 장소 카드(`placecards.json`)를
+  함께 관리. `deleteBoard`는 게시판 안의 카드와 사진 파일까지 함께 정리(카드
+  삭제 시에도 이제 사진 파일을 지우도록 함께 수정 — 이전엔 파일이 남았음).
+
+#### Added
+- `Models/Board.swift` — 게시판 모델.
+- `Views/AddBoardSheet.swift` — 새 게시판 만들기(Peragra의 `AddTripSheet`
+  구조를 그대로 반영: 이름/부제목 입력 + 이모지 그리드 선택).
+- `Views/BoardDetailView.swift` — 게시판 안의 장소 카드 목록 + 장소 추가
+  (Peragra의 `TripDetailView`를 단순화한 버전).
+- 홈 화면에서 스와이프 삭제는 **비어있는 게시판에서만** 나타남(Peragra와
+  동일한 안전장치 — 장소가 있는 게시판을 실수로 통째로 삭제하는 것을 방지).
+
+#### Notes
+- 갤러리/지도 탭은 게시판 구분 없이 전체 장소 카드를 보여주는 뷰로 유지함
+  (Peragra의 "All Places"에 대응).
+
+### 2026-09-10 (1차) — Gateway 모델 선택 기능 추가
 #### Added
 - 설정 화면의 AI 제공자를 Gateway로 선택하면 모델 Picker가 추가로 나타남
   (Claude Sonnet 5/Opus 5/Fable 5.1/5, GPT-5.6 Luna/Terra/Sol, GPT-5.5 중

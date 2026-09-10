@@ -44,16 +44,17 @@ PlaceCards/
   PlaceCards/
     PlaceCardsApp.swift        # 앱 진입점
     ContentView.swift          # 온보딩 ↔ 메인 탭 분기
-    Models/                    # PlaceCard, MediaBundle, SourceRecord 등
+    Models/                    # Board, PlaceCard, MediaBundle, SourceRecord 등
     Services/                  # Keychain, 로컬 저장, Google/Naver/AI 클라이언트
     ViewModels/                # Settings/PlaceCard/Gallery/Map ViewModel
-    Views/                     # Onboarding, Home, Gallery, Map, Settings, 카드 추가/상세
+    Views/                     # Onboarding, Home(게시판 목록), 게시판 상세, Gallery, Map, Settings
     Assets.xcassets
     Preview Content/
 ```
 
 ### 아키텍처 개요
 
+- **홈 화면 = 게시판(Board) 목록**: Peragra의 "Trip(보드)" 구조를 반영해, 장소 카드를 바로 추가하는 게 아니라 먼저 **게시판**(이름 + 부제목 + 커버 아이콘)을 만들고, 그 게시판 안에서 장소 카드를 추가하는 흐름으로 변경됨. `PlaceCard`는 이제 항상 `boardId`를 가지며, 비어있는 게시판만 삭제할 수 있음(Peragra와 동일하게 장소가 있는 게시판은 스와이프 삭제가 나타나지 않음). 갤러리/지도 탭은 게시판과 무관하게 전체 장소 카드를 보여주는 뷰로 유지됨.
 - **UI**: SwiftUI + MVVM (`06_아키텍처_단순화.md`의 Service/ViewModel 계층 구조를 따름)
 - **저장**: 로컬 JSON 파일(`StorageService`) — SwiftData/CoreData 선택은 기획 문서에서 미결 항목(`07_미해결항목.md` 3.2)으로 남아 있어, iOS 버전 제약이 없고 스키마가 자주 바뀌는 현재 단계에 맞춰 단순한 방식을 선택함
 - **지도 API**: Google Places API (New)와 Naver(Local Search + Geocoding) 모두 **앱에서 직접 호출**(BYOK), 백엔드 서버 없음. 처음에는 "Naver Client Secret은 앱에 넣을 수 없다"는 전제로 프록시 서버를 계획했지만, 같은 팀의 다른 앱(Peragra)이 사용자 본인의 Client ID/Secret으로 NCP·Naver Developers API를 기기에서 직접 호출하고 있는 것을 확인하고 그 방식으로 교체함 — 네이티브 `URLSession` 요청은 웹처럼 CORS 제약이 없고, 이건 앱 공용 비밀키가 아니라 사용자가 스스로 발급받아 넣는 BYOK 키이기 때문에 안전한 절충. 자세한 내용은 `Services/NaverLocalSearchService.swift`, `Services/NaverGeocodingService.swift` 주석 참고.

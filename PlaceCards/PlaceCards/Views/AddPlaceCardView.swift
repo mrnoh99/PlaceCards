@@ -120,5 +120,5 @@ struct AddPlaceCardView: View {
 }
 
 #Preview {
-    AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: StorageService()))
+    AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: StorageService(), boardId: "preview"))
 }

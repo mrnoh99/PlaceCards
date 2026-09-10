@@ -9,6 +9,9 @@ struct Coordinates: Codable, Equatable, Hashable {
 /// screenshots, shared links, direct API lookups, and photos taken on site.
 struct PlaceCard: Identifiable, Codable {
     var id: String = UUID().uuidString
+    /// The `Board` this card belongs to — every card is created inside a
+    /// board (see `BoardDetailView`), so this is never optional.
+    var boardId: String
 
     var name: String
     var category: String?

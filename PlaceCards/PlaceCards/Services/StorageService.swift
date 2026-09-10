@@ -1,19 +1,53 @@
 import Foundation
 import Combine
 
-/// Local, on-device storage for PlaceCards as a JSON file in the app's
-/// documents directory. Kept deliberately simple (no CoreData/SwiftData)
-/// so the schema can evolve freely while the data model is still settling.
+/// Local, on-device storage for Boards and their PlaceCards, as two JSON
+/// files in the app's documents directory. Kept deliberately simple (no
+/// CoreData/SwiftData) so the schema can evolve freely while the data model
+/// is still settling.
 @MainActor
 final class StorageService: ObservableObject {
+    @Published private(set) var boards: [Board] = []
     @Published private(set) var placeCards: [PlaceCard] = []
 
-    private let fileURL: URL
+    private let boardsFileURL: URL
+    private let placeCardsFileURL: URL
 
-    init(fileName: String = "placecards.json") {
+    init(boardsFileName: String = "boards.json", placeCardsFileName: String = "placecards.json") {
         let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        fileURL = directory.appendingPathComponent(fileName)
-        load()
+        boardsFileURL = directory.appendingPathComponent(boardsFileName)
+        placeCardsFileURL = directory.appendingPathComponent(placeCardsFileName)
+        loadBoards()
+        loadPlaceCards()
+    }
+
+    // MARK: - Boards
+
+    func saveBoard(_ board: Board) {
+        if let index = boards.firstIndex(where: { $0.id == board.id }) {
+            boards[index] = board
+        } else {
+            boards.append(board)
+        }
+        persistBoards()
+    }
+
+    /// Deletes the board and every PlaceCard inside it (and each of their
+    /// photos on disk), so nothing is left orphaned. Callers that want
+    /// Peragra's stricter "only an empty board can be deleted" rule should
+    /// check `placeCards(inBoard:).isEmpty` themselves before calling this.
+    func deleteBoard(_ board: Board) {
+        for card in placeCards(inBoard: board.id) {
+            delete(card)
+        }
+        boards.removeAll { $0.id == board.id }
+        persistBoards()
+    }
+
+    // MARK: - PlaceCards
+
+    func placeCards(inBoard boardId: String) -> [PlaceCard] {
+        placeCards.filter { $0.boardId == boardId }
     }
 
     func save(_ placeCard: PlaceCard) {
@@ -24,12 +58,15 @@ final class StorageService: ObservableObject {
         } else {
             placeCards.append(card)
         }
-        persist()
+        persistPlaceCards()
     }
 
     func delete(_ placeCard: PlaceCard) {
+        for item in placeCard.media.allItems {
+            MediaStore.delete(fileName: item.localPath)
+        }
         placeCards.removeAll { $0.id == placeCard.id }
-        persist()
+        persistPlaceCards()
     }
 
     func placeCard(id: String) -> PlaceCard? {
@@ -46,8 +83,26 @@ final class StorageService: ObservableObject {
         }
     }
 
-    private func load() {
-        guard let data = try? Data(contentsOf: fileURL) else { return }
+    // MARK: - Persistence
+
+    private func loadBoards() {
+        guard let data = try? Data(contentsOf: boardsFileURL) else { return }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        if let decoded = try? decoder.decode([Board].self, from: data) {
+            boards = decoded
+        }
+    }
+
+    private func persistBoards() {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(boards) else { return }
+        try? data.write(to: boardsFileURL, options: .atomic)
+    }
+
+    private func loadPlaceCards() {
+        guard let data = try? Data(contentsOf: placeCardsFileURL) else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         if let decoded = try? decoder.decode([PlaceCard].self, from: data) {
@@ -55,10 +110,10 @@ final class StorageService: ObservableObject {
         }
     }
 
-    private func persist() {
+    private func persistPlaceCards() {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         guard let data = try? encoder.encode(placeCards) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+        try? data.write(to: placeCardsFileURL, options: .atomic)
     }
 }

@@ -2,11 +2,10 @@ import SwiftUI
 
 struct MainTabView: View {
     @EnvironmentObject private var storageService: StorageService
-    @State private var isPresentingAddCard = false
 
     var body: some View {
         TabView {
-            HomeView(isPresentingAddCard: $isPresentingAddCard)
+            HomeView()
                 .tabItem { Label("홈", systemImage: "house") }
 
             GalleryView(viewModel: GalleryViewModel(storageService: storageService))
@@ -17,9 +16,6 @@ struct MainTabView: View {
 
             SettingsView()
                 .tabItem { Label("설정", systemImage: "gearshape") }
-        }
-        .sheet(isPresented: $isPresentingAddCard) {
-            AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService))
         }
     }
 }

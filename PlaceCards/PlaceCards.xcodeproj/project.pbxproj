@@ -36,6 +36,9 @@
 		399D8B1FE40645CA818BCCE6 /* PlaceCardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */; };
 		55A589DB25C70EF736B2A979 /* LinkMetadataFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */; };
 		B41E418C1D9CEC3EC98CCADB /* SharedLinkParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */; };
+		BB710F57850B0ACB5B361E10 /* Board.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4946F8B69968821E14AC20D3 /* Board.swift */; };
+		72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */; };
+		BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,6 +72,9 @@
 		28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardDetailView.swift; sourceTree = "<group>"; };
 		06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkMetadataFetcher.swift; sourceTree = "<group>"; };
 		F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedLinkParser.swift; sourceTree = "<group>"; };
+		4946F8B69968821E14AC20D3 /* Board.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Board.swift; sourceTree = "<group>"; };
+		5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBoardSheet.swift; sourceTree = "<group>"; };
+		F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -119,6 +125,7 @@
 				79768A1E8BB24A016C492201 /* PlaceCard.swift */,
 				FC0798C7624D4EB0FCD7FF84 /* MediaModels.swift */,
 				73BB0719390F96903381BE05 /* SourceModels.swift */,
+				4946F8B69968821E14AC20D3 /* Board.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -157,6 +164,8 @@
 				82DF0DA60DBBFC46C18127A0 /* OnboardingView.swift */,
 				AE9195A8E681FB51400A3DB6 /* MainTabView.swift */,
 				98E00E0CC8D64A894A3EA6AB /* HomeView.swift */,
+				5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */,
+				F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */,
 				778A14BCCA1249F619055685 /* GalleryView.swift */,
 				D94DFE07EC36E69E89F46838 /* PlacesMapView.swift */,
 				D653EFB11B5C301823C1537D /* SettingsView.swift */,
@@ -250,6 +259,9 @@
 				6D9EF9A1518470F76DA6A792 /* PlaceCard.swift in Sources */,
 				DFCAC6BDCDC8BB0716E42C58 /* MediaModels.swift in Sources */,
 				6053CAB58E1C97BA193319B3 /* SourceModels.swift in Sources */,
+				BB710F57850B0ACB5B361E10 /* Board.swift in Sources */,
+				72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */,
+				BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */,
 				C3406DD13ECA47C58C88ADD0 /* KeychainService.swift in Sources */,
 				CCC680FA33BDBF5F6DB8BD49 /* StorageService.swift in Sources */,
 				7887C1C9178ABED6AFF9E51A /* MediaStore.swift in Sources */,

@@ -136,6 +136,6 @@ private struct WrapTagsView: View {
 
 #Preview {
     NavigationStack {
-        PlaceCardDetailView(card: PlaceCard(name: "샘플 카페", address: "서울시 강남구"))
+        PlaceCardDetailView(card: PlaceCard(boardId: "preview", name: "샘플 카페", address: "서울시 강남구"))
     }
 }

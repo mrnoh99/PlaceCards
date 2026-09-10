@@ -13,9 +13,11 @@ final class PlaceCardViewModel: ObservableObject {
     @Published var candidateResults: [PlaceSearchResult] = []
 
     private let storageService: StorageService
+    private let boardId: String
 
-    init(storageService: StorageService) {
+    init(storageService: StorageService, boardId: String) {
         self.storageService = storageService
+        self.boardId = boardId
     }
 
     /// Runs the selected image through the user's chosen AI provider and
@@ -114,6 +116,7 @@ final class PlaceCardViewModel: ObservableObject {
 
     func createPlaceCard(from result: PlaceSearchResult, image: UIImage?, source: SourceType) throws -> PlaceCard {
         var card = PlaceCard(
+            boardId: boardId,
             name: result.name,
             category: result.category,
             address: result.address,
@@ -157,7 +160,7 @@ final class PlaceCardViewModel: ObservableObject {
     /// an error) when no credentials are set or the address can't be
     /// geocoded.
     func createManualPlaceCard(name: String, address: String) async -> PlaceCard {
-        var card = PlaceCard(name: name, address: address)
+        var card = PlaceCard(boardId: boardId, name: name, address: address)
         card.sources.append(SourceRecord(sourceType: .userManualInput, dataProvided: ["name", "address"]))
 
         if !address.trimmingCharacters(in: .whitespaces).isEmpty,

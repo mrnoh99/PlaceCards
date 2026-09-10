@@ -45,7 +45,9 @@ struct GalleryView: View {
     }
 }
 
-private struct PlaceCardGridCell: View {
+/// Also reused by `BoardDetailView`, which shows the same grid scoped to
+/// one board.
+struct PlaceCardGridCell: View {
     let card: PlaceCard
 
     var body: some View {
