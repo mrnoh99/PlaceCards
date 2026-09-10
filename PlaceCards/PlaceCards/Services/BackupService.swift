@@ -87,18 +87,18 @@ enum BackupService {
         return try makeEncoder().encode(backup)
     }
 
-    /// Replaces every board and place card with what's in `data` —
-    /// mirrors Peragra's `restore(from:context:)`: a full wipe and
-    /// rebuild, not a merge, keeping every id exactly as it was in the
-    /// backup (so restoring the same file twice is idempotent). Version
-    /// compatibility is checked the same minimal way Peragra does — only
-    /// the `app` tag, not `version` itself, since `Board`/`PlaceCard`
-    /// already tolerate an old file missing a newer optional field (every
-    /// field added since this app's first release is `Optional`, for
-    /// exactly this kind of forward/backward decode safety — see
-    /// `PlaceCard.memo`'s own doc comment).
-    @MainActor
-    static func restore(from data: Data, storageService: StorageService) throws {
+    /// Decodes a `BackupData` payload without applying it anywhere — used
+    /// on its own by `ImportBoardSheet` (to preview a board/place count
+    /// before the user commits to importing it) and by
+    /// `CloudBackupService.hasRestorableBackup()`, and internally by
+    /// `restore(from:storageService:)`. Version compatibility is checked
+    /// the same minimal way Peragra does — only the `app` tag, not
+    /// `version` itself, since `Board`/`PlaceCard` already tolerate an
+    /// old file missing a newer optional field (every field added since
+    /// this app's first release is `Optional`, for exactly this kind of
+    /// forward/backward decode safety — see `PlaceCard.memo`'s own doc
+    /// comment).
+    static func decode(_ data: Data) throws -> BackupData {
         let backup: BackupData
         do {
             backup = try makeDecoder().decode(BackupData.self, from: data)
@@ -106,8 +106,45 @@ enum BackupService {
             throw BackupError.invalidFile
         }
         guard backup.app == "placecards" else { throw BackupError.invalidFile }
+        return backup
+    }
 
+    /// Replaces every board and place card with what's in `data` —
+    /// mirrors Peragra's `restore(from:context:)`: a full wipe and
+    /// rebuild, not a merge, keeping every id exactly as it was in the
+    /// backup (so restoring the same file twice is idempotent).
+    @MainActor
+    static func restore(from data: Data, storageService: StorageService) throws {
+        let backup = try decode(data)
         storageService.replaceAll(boards: backup.boards, placeCards: backup.placeCards)
+    }
+
+    /// Adds a board (and its place cards) from a shared/exported file
+    /// into the current data, without touching anything already there —
+    /// mirrors Peragra's `importBoard(_:context:)`. Unlike `restore`,
+    /// every id is regenerated fresh so it can never collide with (or
+    /// silently overwrite) existing data, even importing the same file
+    /// twice. Takes an already-`decode`d `BackupData` rather than raw
+    /// `Data`, so the caller (`ImportBoardSheet`) can show a preview of
+    /// what's about to be imported before committing to it.
+    @MainActor
+    @discardableResult
+    static func importBoard(_ backup: BackupData, storageService: StorageService) -> [Board] {
+        var importedBoards: [Board] = []
+        for board in backup.boards {
+            var newBoard = board
+            newBoard.id = UUID().uuidString
+            let oldBoardID = board.id
+            for card in backup.placeCards where card.boardId == oldBoardID {
+                var newCard = card
+                newCard.id = UUID().uuidString
+                newCard.boardId = newBoard.id
+                storageService.save(newCard)
+            }
+            storageService.saveBoard(newBoard)
+            importedBoards.append(newBoard)
+        }
+        return importedBoards
     }
 }
 

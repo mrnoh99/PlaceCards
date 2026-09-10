@@ -29,6 +29,11 @@ struct MainTabView: View {
     @State private var pendingLinkText: String?
     @State private var isPresentingSharedLinkSheet = false
 
+    /// Shown once, right after a cold-launch auto-restore from
+    /// `CloudBackupService` actually found and applied something — see
+    /// `restoreFromCloudIfNeeded()`.
+    @State private var showingCloudRestoreAlert = false
+
     var body: some View {
         TabView(selection: $navigation.selectedTab) {
             HomeView()
@@ -49,13 +54,19 @@ struct MainTabView: View {
         }
         .environmentObject(navigation)
         .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .active else { return }
-            checkForSharedImage()
-            AutoBackupService.runIfDue(storageService: storageService)
+            if newPhase == .active {
+                checkForSharedImage()
+                AutoBackupService.runIfDue(storageService: storageService)
+                Task { await CloudBackupService.backup(storageService: storageService) }
+            } else if newPhase == .background {
+                Task { await CloudBackupService.backup(storageService: storageService) }
+            }
         }
         .task {
             checkForSharedImage()
             AutoBackupService.runIfDue(storageService: storageService)
+            await restoreFromCloudIfNeeded()
+            await CloudBackupService.backup(storageService: storageService)
         }
         .sheet(isPresented: $isPresentingSharedImportSheet) {
             if let pendingSharedImageData {
@@ -72,6 +83,22 @@ struct MainTabView: View {
                 SharedLinkBoardPickerSheet(linkText: pendingLinkText)
             }
         }
+        .alert("iCloud에서 복원됨", isPresented: $showingCloudRestoreAlert) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("iCloud에서 이전 백업을 찾아 게시판과 장소를 자동으로 복원했습니다.")
+        }
+    }
+
+    /// Only ever restores when local storage is still empty — a
+    /// legitimately empty first run (a brand-new install with nothing
+    /// backed up yet) must never be silently overwritten just because an
+    /// iCloud snapshot happens to exist from some other install.
+    private func restoreFromCloudIfNeeded() async {
+        guard storageService.boards.isEmpty else { return }
+        guard await CloudBackupService.hasRestorableBackup() else { return }
+        await CloudBackupService.restoreIfAvailable(storageService: storageService)
+        showingCloudRestoreAlert = true
     }
 
     private func checkForSharedImage() {

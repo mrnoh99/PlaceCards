@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Shows the place cards inside one board, and is where new place cards
 /// actually get created — mirrors Peragra's `TripDetailView` (simplified:
@@ -27,6 +28,11 @@ struct BoardDetailView: View {
     @State private var isPresentingCustomCategoryInput = false
     @State private var customCategoryInput = ""
     @State private var searchQuery = ""
+
+    /// The file `ShareLink`'s "파일로 공유" shares — a privacy-scrubbed
+    /// export of `cards` (whatever's currently shown, respecting search/
+    /// filters), refreshed whenever that set changes. See `SharePlaces`.
+    @State private var exportPlacesFileURL: URL?
 
     private var allCards: [PlaceCard] {
         storageService.placeCards(inBoard: board.id)
@@ -218,6 +224,11 @@ struct BoardDetailView: View {
                         }
                     }
                 }
+                if !cards.isEmpty {
+                    ToolbarItem(placement: .secondaryAction) {
+                        exportPlacesMenu
+                    }
+                }
             }
             if !allCards.isEmpty {
                 ToolbarItem(placement: .secondaryAction) {
@@ -230,6 +241,8 @@ struct BoardDetailView: View {
                 }
             }
         }
+        .task { refreshExportPlacesFile() }
+        .onChange(of: cards.count) { _, _ in refreshExportPlacesFile() }
         .sheet(isPresented: $isPresentingAddCard) {
             AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id))
         }
@@ -276,6 +289,40 @@ struct BoardDetailView: View {
             }
             Button("취소", role: .cancel) { customCategoryInput = "" }
         }
+    }
+
+    /// "내보내기" — a privacy-scrubbed share of `cards` (see
+    /// `SharePlaces`), ported from Peragra's own toolbar Export menu in
+    /// `TripDetailView`. The file is kept fresh by `refreshExportPlacesFile`
+    /// (`.task` + `.onChange(of: cards.count)`) rather than built lazily
+    /// here, since — unlike a per-row swipe menu — this one toolbar item
+    /// covers the *whole, currently-filtered* list, which can change
+    /// while the menu itself sits unopened.
+    @ViewBuilder
+    private var exportPlacesMenu: some View {
+        Menu {
+            Button {
+                copyPlacesAsText()
+            } label: {
+                Label("텍스트로 복사", systemImage: "doc.on.doc")
+            }
+            if let exportPlacesFileURL {
+                ShareLink(item: exportPlacesFileURL) {
+                    Label("파일로 공유", systemImage: "square.and.arrow.up")
+                }
+            }
+        } label: {
+            Label("내보내기", systemImage: "square.and.arrow.up")
+        }
+    }
+
+    private func refreshExportPlacesFile() {
+        exportPlacesFileURL = SharePlaces.writeTempFile(SharePlaces.buildPayload(from: cards))
+    }
+
+    private func copyPlacesAsText() {
+        guard let text = try? SharePlaces.toText(SharePlaces.buildPayload(from: cards)) else { return }
+        UIPasteboard.general.string = text
     }
 
     /// The bulk action bar shown above the tab bar while `isSelecting` —

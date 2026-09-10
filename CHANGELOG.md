@@ -2,6 +2,42 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (63차) — 장소 단위 공유·게시판 가져오기·조용한 iCloud 백업 (Peragra 이식 마무리)
+#### Added
+- `Services/SharePlaces.swift`(신규) — Peragra의 `SharePlaces`를 이식.
+  `BackupService`와 별도의, 개인정보를 뺀 가벼운 공유 포맷
+  (id·좌표·방문/즐겨찾기·태그·미디어 제외 — name/category/address/
+  phone/notes(=memo)/linkURL(=website)만). `BoardDetailView` 툴바의
+  "내보내기" 메뉴(신규, 텍스트로 복사 / 파일로 공유)에서 사용 —
+  현재 필터링된 `cards`를 대상으로 함.
+- `Services/BackupService.swift`: `decode(_:)`(신규, app 태그 확인
+  포함, `restore`도 이걸 재사용하도록 정리)와 `importBoard(_:storageService:)`
+  (신규) 추가. `importBoard`는 게시판·장소 전부에 새 UUID를 부여하는
+  추가(additive) 가져오기 — "백업에서 복원"(전체 교체)과 달리 기존
+  데이터를 건드리지 않음. Peragra의 `importBoard(_:context:)` 이식.
+- `Views/ImportBoardSheet.swift`(신규) — Peragra의 `ImportBoardSheet`
+  이식. 텍스트 붙여넣기 또는 파일 선택 → 게시판별 장소 개수 미리보기
+  → 확인 후 가져오기. 홈 화면 "추가" 메뉴(기존 "새 게시판" 버튼을
+  메뉴로 변경)에 "게시판 가져오기"로 진입.
+- `Services/CloudBackupService.swift`(신규) — Peragra의
+  `CloudBackupService` 이식. 사용자가 누르는 버튼 없이, 앱의 iCloud
+  컨테이너에 `placecards_auto_backup.json` 스냅샷을 계속 덮어씀
+  (포그라운드/백그라운드 전환마다). 콜드 스타트 시 로컬에 게시판이
+  하나도 없을 때만 자동 복원 시도(정상적으로 비어있는 첫 설치를
+  잘못 덮어쓰지 않도록) — 복원되면 "iCloud에서 복원됨" 알림 표시.
+  이 기능은 iCloud 컨테이너 entitlement가 실제로 프로비저닝되어
+  있어야 동작하며, 안 되어 있으면 각 호출이 조용히 아무 일도
+  하지 않음(App Group 때와 같은 종류의 Xcode/Apple Developer 계정
+  설정이 필요 — Signing & Capabilities에서 iCloud 추가 및 팀 지정).
+- `PlaceCards.entitlements`/`project.pbxproj`: iCloud 컨테이너
+  (`iCloud.com.mrnoh99.PlaceCards`, CloudDocuments) entitlement와
+  `com.apple.iCloud` SystemCapabilities 추가(PlaceCards 앱 타겟에만
+  — 공유 확장에는 불필요).
+- `Views/MainTabView.swift`: `.task`/`.onChange(of: scenePhase)`에서
+  콜드 스타트 시 `restoreFromCloudIfNeeded()`, 포그라운드·백그라운드
+  전환마다 `CloudBackupService.backup` 호출 — Peragra의
+  `TripsListView`와 동일한 트리거 지점.
+
 ### 2026-09-10 (62차) — 내보내기·백업/복원·자동 백업 (Peragra 이식)
 #### Added
 - `Services/BackupService.swift`(신규) — Peragra의 `BackupService`를

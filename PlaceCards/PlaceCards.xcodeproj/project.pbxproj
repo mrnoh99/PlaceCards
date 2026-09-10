@@ -43,6 +43,9 @@
 		B03C8BE8D6017F4DD50F81F5 /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 726A7E627D6573ABD7C7C9D7 /* BackupService.swift */; };
 		B45C0F564E059AC4CEA37FFD /* BackupFolderSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48F3227E6B4A834912F0707B /* BackupFolderSettings.swift */; };
 		AA5685E9E95EB70CCA220256 /* AutoBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34C85F15C3E10BE93A200392 /* AutoBackupService.swift */; };
+		DB00C929557F5AFA39997B04 /* SharePlaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6C1AD056BA6BB9E763D9BE /* SharePlaces.swift */; };
+		E1144BE521E15138DE7EC32A /* ImportBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76CBD8E07A8BD78DD2E51164 /* ImportBoardSheet.swift */; };
+		A5311A4AEF6683C1372FBD41 /* CloudBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF4F996FB557F5646DB46C6 /* CloudBackupService.swift */; };
 		72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */; };
 		26281DCA1D52ED3C056FC699 /* EditBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBF0779067DD3CE85A2443D /* EditBoardSheet.swift */; };
 		BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */; };
@@ -103,6 +106,9 @@
 		726A7E627D6573ABD7C7C9D7 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
 		48F3227E6B4A834912F0707B /* BackupFolderSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupFolderSettings.swift; sourceTree = "<group>"; };
 		34C85F15C3E10BE93A200392 /* AutoBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoBackupService.swift; sourceTree = "<group>"; };
+		AD6C1AD056BA6BB9E763D9BE /* SharePlaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharePlaces.swift; sourceTree = "<group>"; };
+		76CBD8E07A8BD78DD2E51164 /* ImportBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportBoardSheet.swift; sourceTree = "<group>"; };
+		5BF4F996FB557F5646DB46C6 /* CloudBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudBackupService.swift; sourceTree = "<group>"; };
 		5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBoardSheet.swift; sourceTree = "<group>"; };
 		1EBF0779067DD3CE85A2443D /* EditBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditBoardSheet.swift; sourceTree = "<group>"; };
 		F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardDetailView.swift; sourceTree = "<group>"; };
@@ -224,6 +230,8 @@
 				74B4C3C6D38A815385431E6A /* MapOpenContext.swift */,
 				726A7E627D6573ABD7C7C9D7 /* BackupService.swift */,
 				34C85F15C3E10BE93A200392 /* AutoBackupService.swift */,
+				AD6C1AD056BA6BB9E763D9BE /* SharePlaces.swift */,
+				5BF4F996FB557F5646DB46C6 /* CloudBackupService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -259,6 +267,7 @@
 				783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */,
 				4D43E9A4ADB4780134F4EECA /* SharedPhotoBoardPickerSheet.swift */,
 				4C33C95BB876F24E926E2910 /* SharedLinkBoardPickerSheet.swift */,
+				76CBD8E07A8BD78DD2E51164 /* ImportBoardSheet.swift */,
 				4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */,
 				1179E13A408F9863A8E33444 /* GoogleMapWebView.swift */,
 				A241590A64DC54139736AAF5 /* NaverMapWebView.swift */,
@@ -327,6 +336,9 @@
 						CreatedOnToolsVersion = 16.0;
 						SystemCapabilities = {
 							"com.apple.ApplicationGroups.iOS" = {
+								enabled = 1;
+							};
+							"com.apple.iCloud" = {
 								enabled = 1;
 							};
 						};
@@ -423,6 +435,9 @@
 				44E9FCDFFA00BA728BAE1B90 /* PlaceCategoryIcon.swift in Sources */,
 				B03C8BE8D6017F4DD50F81F5 /* BackupService.swift in Sources */,
 				AA5685E9E95EB70CCA220256 /* AutoBackupService.swift in Sources */,
+				DB00C929557F5AFA39997B04 /* SharePlaces.swift in Sources */,
+				E1144BE521E15138DE7EC32A /* ImportBoardSheet.swift in Sources */,
+				A5311A4AEF6683C1372FBD41 /* CloudBackupService.swift in Sources */,
 				FC9DFF6409F934D40EC33563 /* DuplicatePlaces.swift in Sources */,
 				75C0903DDB6825E6ADBFEDDB /* AppNavigation.swift in Sources */,
 				D06AA2E29ADD5F58CD65FCA1 /* PhotoMetadata.swift in Sources */,

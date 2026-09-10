@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var boardPendingDelete: Board?
     @State private var boardPendingEdit: Board?
     @State private var searchQuery = ""
+    @State private var isPresentingImportBoard = false
 
     private var filteredBoards: [Board] {
         guard !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty else { return storageService.boards }
@@ -75,15 +76,27 @@ struct HomeView: View {
             .searchable(text: $searchQuery, prompt: "게시판 검색")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        isPresentingAddBoard = true
+                    Menu {
+                        Button {
+                            isPresentingAddBoard = true
+                        } label: {
+                            Label("새 게시판", systemImage: "plus")
+                        }
+                        Button {
+                            isPresentingImportBoard = true
+                        } label: {
+                            Label("게시판 가져오기", systemImage: "square.and.arrow.down")
+                        }
                     } label: {
-                        Label("새 게시판", systemImage: "plus")
+                        Label("추가", systemImage: "plus")
                     }
                 }
             }
             .sheet(isPresented: $isPresentingAddBoard) {
                 AddBoardSheet()
+            }
+            .sheet(isPresented: $isPresentingImportBoard) {
+                ImportBoardSheet()
             }
             .sheet(item: $boardPendingEdit) { board in
                 EditBoardSheet(board: board)
