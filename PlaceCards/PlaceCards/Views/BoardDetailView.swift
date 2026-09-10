@@ -13,6 +13,7 @@ struct BoardDetailView: View {
     @State private var hereCoordinate: Coordinates?
     @State private var categoryFilter: String?
     @State private var cardPendingDelete: PlaceCard?
+    @State private var selectedCard: PlaceCard?
 
     private var allCards: [PlaceCard] {
         storageService.placeCards(inBoard: board.id)
@@ -79,34 +80,28 @@ struct BoardDetailView: View {
                     } else {
                         List {
                             ForEach(cards) { card in
-                                // A `NavigationLink { } label: { PlaceCardListRow(...) }`
-                                // here would make the *whole row* the link's
-                                // tap target inside a List, swallowing taps
-                                // on PlaceCardListRow's own favorite/visited
-                                // buttons before they ever fire. Using an
-                                // invisible NavigationLink alongside the real
-                                // (visible, interactive) row content instead
-                                // still gives the row its disclosure chevron
-                                // and "tap anywhere else to open detail"
-                                // behavior, but lets the row's own buttons
-                                // take priority over it.
-                                ZStack {
-                                    NavigationLink {
-                                        PlaceCardDetailView(card: card)
-                                    } label: {
-                                        EmptyView()
+                                // No NavigationLink/Button wraps the row —
+                                // in a List, either one claims the whole
+                                // row as its own tap target and swallows
+                                // taps on PlaceCardListRow's own favorite/
+                                // visited buttons before they ever fire
+                                // (confirmed broken; Peragra's own
+                                // PlaceRowView/PlaceListingView sidesteps
+                                // this the same way, with no NavigationLink
+                                // around its row at all). A plain
+                                // .onTapGesture on the row instead only
+                                // fires for points the row's own Buttons
+                                // don't already claim, so both work.
+                                PlaceCardListRow(card: card)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { selectedCard = card }
+                                    .swipeActions(edge: .trailing) {
+                                        Button(role: .destructive) {
+                                            cardPendingDelete = card
+                                        } label: {
+                                            Label("삭제", systemImage: "trash")
+                                        }
                                     }
-                                    .opacity(0)
-
-                                    PlaceCardListRow(card: card)
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        cardPendingDelete = card
-                                    } label: {
-                                        Label("삭제", systemImage: "trash")
-                                    }
-                                }
                             }
                         }
                         .listStyle(.plain)
@@ -127,6 +122,9 @@ struct BoardDetailView: View {
         }
         .sheet(isPresented: $isPresentingAddCard) {
             AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id))
+        }
+        .navigationDestination(item: $selectedCard) { card in
+            PlaceCardDetailView(card: card)
         }
         .confirmationDialog(
             "\"\(cardPendingDelete?.name ?? "")\"을 삭제할까요?",

@@ -59,6 +59,14 @@ struct PlaceCardListRow: View {
                 }
                 .font(.caption2)
             }
+
+            // Stands in for the disclosure chevron a NavigationLink would
+            // normally add — this row is tapped via BoardDetailView's own
+            // `.onTapGesture` instead (see there for why), which gets no
+            // such indicator for free.
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
     }

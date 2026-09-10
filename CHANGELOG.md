@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (19차) — 게시판 리스트 행 탭 방식을 PERAGRA처럼 NavigationLink 없이 재구성
+#### Fixed
+- 직전(18차) 커밋의 "보이지 않는 NavigationLink를 겹쳐두는" 방식도
+  여전히 제대로 동작하지 않았음(List 안에서는 NavigationLink가 있으면
+  보이든 안 보이든 행 전체를 셀 단위 선택 탭으로 가져가버려 안쪽 버튼과
+  계속 충돌). PERAGRA의 `PlaceListingView`/`PlaceRowView`를 참고해
+  구조를 바꿈 — PERAGRA는 행에 NavigationLink를 전혀 쓰지 않고
+  즐겨찾기·방문 버튼을 일반 `.buttonStyle(.plain)` 버튼으로만 두고,
+  상세 편집은 별도의 명시적 버튼(시트)으로 연다.
+- `BoardDetailView`도 이제 행에 NavigationLink를 아예 두지 않고,
+  `PlaceCardListRow`에 `.onTapGesture`만 달아 `selectedCard` 상태를
+  통해 `.navigationDestination(item:)`으로 상세화면을 연다 — 버튼이
+  없는 영역을 탭했을 때만 이 제스처가 걸리므로 즐겨찾기·방문·전화·지도
+  등 행 안의 모든 버튼이 정상적으로 눌림.
+- `PlaceCardListRow`에 자동으로 없어진 디스클로저 화살표를 대신할
+  `chevron.right` 아이콘을 오른쪽에 직접 추가.
+
 ### 2026-09-10 (18차) — 게시판 리스트에서 방문/즐겨찾기 토글 버튼이 안 눌리는 문제 수정
 #### Fixed
 - 게시판 장소 목록(`BoardDetailView`)에서 `PlaceCardListRow`를
