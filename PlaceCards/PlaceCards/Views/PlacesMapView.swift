@@ -166,6 +166,7 @@ struct PlacesMapView: View {
             id: card.id,
             name: card.name,
             address: card.address,
+            emoji: PlaceCategoryIcon.emoji(for: card.category),
             visited: card.isVisited,
             latitude: coordinate.latitude,
             longitude: coordinate.longitude,

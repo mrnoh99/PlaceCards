@@ -44,6 +44,37 @@ enum PlaceCategoryIcon {
         return "tag"
     }
 
+    /// Same category buckets as `symbolName(for:)`, as an actual emoji
+    /// character instead of an SF Symbol name — for the one spot that
+    /// needs a real glyph rather than a system image: the Naver Map
+    /// marker icon (`NaverMapWebView`/`naver-map-embed.html`), which is a
+    /// plain HTML string, not a SwiftUI `Image`.
+    static func emoji(for category: String?) -> String {
+        guard let category, !category.isEmpty else { return "📍" }
+        let text = category.lowercased()
+
+        if isCafe(text) { return "☕" }
+        if text.contains("restaurant") || text.contains("food") || text.contains("식당") || text.contains("음식") {
+            return "🍴"
+        }
+        if text.contains("hotel") || text.contains("lodging") || text.contains("호텔") || text.contains("숙박") {
+            return "🏨"
+        }
+        if text.contains("bar") || text.contains("pub") || text.contains("nightlife") || text.contains("술집") {
+            return "🍷"
+        }
+        if text.contains("shop") || text.contains("store") || text.contains("쇼핑") {
+            return "🛍️"
+        }
+        if text.contains("museum") || text.contains("gallery") || text.contains("박물관") || text.contains("미술관") {
+            return "🖼️"
+        }
+        if text.contains("park") || text.contains("공원") {
+            return "🌳"
+        }
+        return "📍"
+    }
+
     /// Collapses every cafe/coffee-shop variant — Google's "Cafe"/"Coffee
     /// shop", or Korean "카페"/"커피숍"/"커피전문점" — into one canonical
     /// "카페" label, so they show and filter as a single category instead

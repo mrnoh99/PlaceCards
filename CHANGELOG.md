@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (55차) — 지도 탭 Naver 지도에 "undefined" 마커 라벨 표시 수정
+#### Fixed
+- `Views/NaverMapWebView.swift`: `MarkerPlace`에 `emoji` 필드가 없어서,
+  Peragra가 호스팅 중인 공용 임베드 페이지(`naver-map-embed.html`)가
+  마커 아이콘 HTML에 `place.emoji`를 그대로 이어붙이며 모든 마커에
+  문자 그대로 "undefined"가 찍혔음(정보 팝업의 이름/주소는 별도
+  필드라 정상 표시됨). 그 페이지는 Peragra용으로 작성되어 이 필드가
+  없을 수 있다는 걸 가정하지 않음.
+- `Services/PlaceCategoryIcon.swift`: `emoji(for:)`(신규) — 기존
+  `symbolName(for:)`와 같은 카테고리 분류를 SF Symbol 대신 실제
+  이모지 문자로 반환. 마커 아이콘이 일반 HTML 문자열이라 SwiftUI
+  `Image`를 못 쓰는 이 한 곳을 위한 것.
+- `Views/PlacesMapView.swift`: `naverMarker(for:)`가 `emoji:
+  PlaceCategoryIcon.emoji(for: card.category)`를 채우도록 수정.
+
 ### 2026-09-10 (54차) — 공유 확장에 링크(URL/텍스트) 공유 지원 추가
 #### Added
 - `PlaceCardsShare/Info.plist`: `NSExtensionActivationRule`에

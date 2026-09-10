@@ -24,6 +24,12 @@ struct NaverMapWebView: UIViewRepresentable {
         let id: String
         let name: String
         let address: String
+        /// The embed page's marker icon renders this directly as text
+        /// (`place.emoji`, in `naver-map-embed.html`) — without it, every
+        /// marker's icon literally reads "undefined" (a bare string
+        /// concatenation with no nil-check on the page's side, since it
+        /// was written for Peragra, where this field is never missing).
+        let emoji: String
         let visited: Bool
         let latitude: Double
         let longitude: Double
