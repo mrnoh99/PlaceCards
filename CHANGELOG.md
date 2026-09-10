@@ -2,6 +2,51 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (62차) — 내보내기·백업/복원·자동 백업 (Peragra 이식)
+#### Added
+- `Services/BackupService.swift`(신규) — Peragra의 `BackupService`를
+  이식. `BackupData`(app/version 태그 + `[Board]`/`[PlaceCard]`,
+  ISO8601·pretty-printed·sortedKeys JSON)를 중심으로 `exportData`
+  (전체 백업), `exportBoard`(게시판 하나만, "내보내기"용),
+  `restore`(전체 교체 — app 태그만 확인하고 version은 강제하지 않음,
+  Peragra와 동일). `Board`/`PlaceCard`가 이미 plain `Codable`이라
+  Peragra처럼 별도 Backup 전용 구조체로 필드를 일일이 재선언할 필요는
+  없었음. `BackupDocument: FileDocument`(신규)로 `.fileExporter` 연동.
+  Peragra와 마찬가지로 사진 파일 자체는 포함하지 않음(같은 기기에서
+  복원할 때만 정상 표시 — Peragra는 애초에 미디어 모델이 없어 이
+  경계가 명확하지 않았던 부분이라 문서 주석·설정 화면 문구로 명시).
+- `Services/StorageService.swift`: `replaceAll(boards:placeCards:)`
+  (신규) — 복원 전용. 복원된 데이터가 더 이상 가리키지 않는 미디어
+  파일만 삭제(같은 기기 복원 시 아직 남아있는 사진을 실수로 지우지
+  않도록).
+- `Models/BackupFolderSettings.swift`(신규) — Peragra의
+  `BackupFolderSettings`를 이식(`@Observable` 대신 이 앱의 다른
+  설정 클래스들과 같은 `ObservableObject` 싱글턴). 폴더의 보안
+  스코프 북마크, 자동 백업 on/off, 주기(일/주), 마지막 백업 시각,
+  재인증 필요 여부를 UserDefaults에 저장.
+- `Services/AutoBackupService.swift`(신규) — Peragra의
+  `AutoBackupService`를 이식. `runNow`/`runIfDue`. Peragra처럼
+  `BGTaskScheduler`/진짜 백그라운드 실행은 쓰지 않고(둘 다 관련
+  entitlement가 없음), 앱이 열릴 때(콜드 스타트·포그라운드 전환)
+  마지막 백업 이후 설정한 주기가 지났는지만 확인.
+- `Views/MainTabView.swift`: `.task`/`.onChange(of: scenePhase)`에서
+  `AutoBackupService.runIfDue` 호출 — Peragra의 `TripsListView`와
+  동일한 트리거 지점.
+- `Views/SettingsView.swift`: "데이터"(전체 백업/복원,
+  `.fileExporter`+`.fileImporter`+되돌릴 수 없다는 확인 다이얼로그)와
+  "자동 백업"(폴더 선택 `.fileImporter(allowedContentTypes: [.folder])`
+  로 보안 스코프 북마크 생성, 토글, 주기 세그먼트, 마지막 백업 표시,
+  지금 백업/폴더 변경/끄기 버튼) 섹션 추가 — Peragra의 `SettingsSheet`
+  구조를 그대로 따름.
+- `Views/HomeView.swift`: 게시판 행에 "내보내기"(신규, leading
+  swipe action) — Peragra의 `ExportBoardMenu`를 이식. 텍스트로
+  복사(pasteboard) / 파일로 공유(`ShareLink`, `BackupService
+  .exportBoard`로 만든 게시판 단위 JSON) 메뉴.
+- 이번에 이식한 범위는 요청한 3가지(내보내기/백업·복원/자동 백업
+  예약)로 한정 — Peragra에 더 있는 장소 단위 공유(`SharePlaces`)·
+  게시판 가져오기(`ImportBoardSheet`)·조용한 iCloud 안전망
+  (`CloudBackupService`)은 이번엔 포함하지 않음.
+
 ### 2026-09-10 (61차) — 홈·게시판 상세·지도에 검색 추가
 #### Added
 - `Views/HomeView.swift`: `.searchable`(신규) — 게시판 이름/부제목으로

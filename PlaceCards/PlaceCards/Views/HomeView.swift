@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The board list — the app's home screen. Mirrors Peragra's
 /// `TripsListView`: a board (name + subtitle + cover icon) is created
@@ -55,6 +56,7 @@ struct HomeView: View {
                                     Label("수정", systemImage: "pencil")
                                 }
                                 .tint(.blue)
+                                ExportBoardMenu(board: board, storageService: storageService)
                             }
                         }
                     }
@@ -145,6 +147,52 @@ private struct BoardRow: View {
             Spacer()
         }
         .padding(.vertical, 4)
+    }
+}
+
+/// "내보내기" swipe action — ported from Peragra's own `ExportBoardMenu`
+/// (`TripsListView.swift`): a board plus its own place cards, as one
+/// self-contained JSON file (`BackupService.exportBoard`), either shared
+/// via the system share sheet or copied as raw text. The file is
+/// prepared once the menu itself appears (`.task`), which for a `Menu`
+/// inside `.swipeActions` only actually happens once the row is swiped
+/// open — not eagerly for every board in the list.
+private struct ExportBoardMenu: View {
+    let board: Board
+    let storageService: StorageService
+    @State private var exportFileURL: URL?
+
+    var body: some View {
+        Menu {
+            Button {
+                copyAsText()
+            } label: {
+                Label("텍스트로 복사", systemImage: "doc.on.doc")
+            }
+            if let exportFileURL {
+                ShareLink(item: exportFileURL) {
+                    Label("파일로 공유", systemImage: "square.and.arrow.up")
+                }
+            }
+        } label: {
+            Label("내보내기", systemImage: "square.and.arrow.up")
+        }
+        .tint(.blue)
+        .task { prepareFile() }
+    }
+
+    private func prepareFile() {
+        guard let data = try? BackupService.exportBoard(board, storageService: storageService) else { return }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(BackupService.boardFilename(for: board))
+        try? data.write(to: url, options: .atomic)
+        exportFileURL = url
+    }
+
+    private func copyAsText() {
+        guard let data = try? BackupService.exportBoard(board, storageService: storageService),
+              let text = String(data: data, encoding: .utf8) else { return }
+        UIPasteboard.general.string = text
     }
 }
 

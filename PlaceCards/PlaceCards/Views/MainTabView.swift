@@ -51,9 +51,11 @@ struct MainTabView: View {
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             checkForSharedImage()
+            AutoBackupService.runIfDue(storageService: storageService)
         }
         .task {
             checkForSharedImage()
+            AutoBackupService.runIfDue(storageService: storageService)
         }
         .sheet(isPresented: $isPresentingSharedImportSheet) {
             if let pendingSharedImageData {

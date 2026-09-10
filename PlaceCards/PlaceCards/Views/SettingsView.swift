@@ -1,7 +1,20 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
+    @EnvironmentObject private var storageService: StorageService
+    @ObservedObject private var backupFolderSettings = BackupFolderSettings.shared
+
+    @State private var showingBackupExporter = false
+    @State private var backupDocument: BackupDocument?
+    @State private var showingRestoreImporter = false
+    @State private var showingRestoreConfirm = false
+    @State private var restorePendingURL: URL?
+    @State private var backupMessage: String?
+
+    @State private var showingBackupFolderPicker = false
+    @State private var autoBackupMessage: String?
 
     /// Sentinel tag for "Custom…" in the gateway model picker below,
     /// mirroring Peragra's own `SettingsSheet.customModelTag`.
@@ -90,6 +103,109 @@ struct SettingsView: View {
                     }
                 }
 
+                Section {
+                    Button("전체 백업") { startBackup() }
+                    Button("백업에서 복원", role: .destructive) { showingRestoreImporter = true }
+                    if let backupMessage {
+                        Text(backupMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("데이터")
+                } footer: {
+                    Text("모든 게시판·장소를 직접 고른 파일로 백업하거나, 백업 파일에서 복원합니다 — 복원하면 지금 앱에 있는 모든 데이터가 그 파일 내용으로 교체됩니다. 사진 자체는 백업에 포함되지 않고, 같은 기기에서 복원할 때만 정상적으로 보입니다.")
+                }
+                .fileExporter(
+                    isPresented: $showingBackupExporter,
+                    document: backupDocument,
+                    contentType: .json,
+                    defaultFilename: BackupService.filename()
+                ) { result in
+                    switch result {
+                    case .success: backupMessage = "백업을 저장했습니다."
+                    case .failure: backupMessage = "백업을 저장하지 못했습니다."
+                    }
+                }
+                .fileImporter(isPresented: $showingRestoreImporter, allowedContentTypes: [.json]) { result in
+                    switch result {
+                    case .success(let url):
+                        restorePendingURL = url
+                        showingRestoreConfirm = true
+                    case .failure:
+                        backupMessage = "파일을 읽지 못했습니다."
+                    }
+                }
+                .confirmationDialog(
+                    "이 백업으로 모든 게시판·장소를 교체할까요?",
+                    isPresented: $showingRestoreConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button("복원", role: .destructive) { performRestore() }
+                    Button("취소", role: .cancel) { restorePendingURL = nil }
+                } message: {
+                    Text("되돌릴 수 없습니다.")
+                }
+
+                Section {
+                    if backupFolderSettings.folderDisplayName == nil {
+                        Button("백업 폴더 선택…") { showingBackupFolderPicker = true }
+                    } else {
+                        LabeledContent("폴더", value: backupFolderSettings.folderDisplayName ?? "")
+                        Toggle(
+                            "자동으로 백업",
+                            isOn: Binding(
+                                get: { backupFolderSettings.autoBackupEnabled },
+                                set: { backupFolderSettings.setAutoBackupEnabled($0) }
+                            )
+                        )
+                        Picker(
+                            "주기",
+                            selection: Binding(
+                                get: { backupFolderSettings.autoBackupIntervalDays },
+                                set: { backupFolderSettings.setAutoBackupIntervalDays($0) }
+                            )
+                        ) {
+                            Text("매일").tag(1)
+                            Text("매주").tag(7)
+                        }
+                        .pickerStyle(.segmented)
+
+                        if let lastAutoBackupAt = backupFolderSettings.lastAutoBackupAt {
+                            Text("마지막 백업: \(lastAutoBackupAt.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if backupFolderSettings.needsReauthorization {
+                            Text("이 폴더에 대한 접근 권한이 끊어졌습니다. 아래에서 폴더를 다시 선택해주세요.")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
+
+                        Button("지금 백업") {
+                            autoBackupMessage = AutoBackupService.runNow(storageService: storageService)
+                                ? "선택한 폴더에 백업했습니다."
+                                : "폴더에 쓰지 못했습니다 — 아래에서 폴더를 다시 선택해주세요."
+                        }
+                        Button("폴더 변경…") { showingBackupFolderPicker = true }
+                        Button("자동 백업 끄기", role: .destructive) { backupFolderSettings.clearFolder() }
+                    }
+                    if let autoBackupMessage {
+                        Text(autoBackupMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("자동 백업")
+                } footer: {
+                    Text("폴더를 한 번 선택해두면, 앱을 열 때마다(위 주기당 최대 한 번) PlaceCards가 그 폴더에 새 백업을 저장합니다.")
+                }
+                .fileImporter(
+                    isPresented: $showingBackupFolderPicker,
+                    allowedContentTypes: [.folder],
+                    onCompletion: handleBackupFolderPicked
+                )
+
                 Section("정보") {
                     LabeledContent("API 키 저장 방식", value: "iOS 키체인 (기기 내)")
                     Text("PlaceCards는 사용자가 등록한 API 키로 직접 Google/Naver/AI 서비스를 호출합니다(BYOK). 키는 iCloud와 동기화되지 않으며 이 기기에만 저장됩니다.")
@@ -138,8 +254,49 @@ struct SettingsView: View {
             }
         }
     }
+
+    private func startBackup() {
+        do {
+            backupDocument = BackupDocument(data: try BackupService.exportData(storageService: storageService))
+            showingBackupExporter = true
+        } catch {
+            backupMessage = "백업을 준비하지 못했습니다."
+        }
+    }
+
+    private func performRestore() {
+        guard let url = restorePendingURL else { return }
+        restorePendingURL = nil
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url)
+            try BackupService.restore(from: data, storageService: storageService)
+            backupMessage = "백업에서 복원했습니다."
+        } catch {
+            backupMessage = (error as? BackupService.BackupError)?.errorDescription ?? "그 파일에서 복원하지 못했습니다."
+        }
+    }
+
+    private func handleBackupFolderPicked(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            guard let bookmark = try? url.bookmarkData() else {
+                autoBackupMessage = "백업 폴더를 설정하지 못했습니다."
+                return
+            }
+            backupFolderSettings.setFolder(bookmark: bookmark, displayName: url.lastPathComponent)
+            backupFolderSettings.setAutoBackupEnabled(true)
+            autoBackupMessage = nil
+        case .failure:
+            autoBackupMessage = "백업 폴더를 설정하지 못했습니다."
+        }
+    }
 }
 
 #Preview {
     SettingsView()
+        .environmentObject(StorageService())
 }

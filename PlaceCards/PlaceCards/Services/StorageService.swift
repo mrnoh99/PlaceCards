@@ -82,6 +82,26 @@ final class StorageService: ObservableObject {
         placeCards.first { $0.id == id }
     }
 
+    /// Wholesale-replaces every board and place card — used only by
+    /// `BackupService.restore(from:storageService:)`. Only deletes media
+    /// files no card in the *restored* set still references, rather than
+    /// unconditionally wiping every current card's media first: a backup
+    /// never contains the actual image bytes (see `BackupService`'s own
+    /// doc comment), so on a same-device restore the files a restored
+    /// card still points at are still sitting on disk untouched, and
+    /// blindly deleting them before the swap would silently break photos
+    /// a lossless restore should have kept.
+    func replaceAll(boards newBoards: [Board], placeCards newPlaceCards: [PlaceCard]) {
+        let keptFileNames = Set(newPlaceCards.flatMap { $0.media.allItems.map(\.localPath) })
+        for item in placeCards.flatMap({ $0.media.allItems }) where !keptFileNames.contains(item.localPath) {
+            MediaStore.delete(fileName: item.localPath)
+        }
+        boards = newBoards
+        placeCards = newPlaceCards
+        persistBoards()
+        persistPlaceCards()
+    }
+
     func search(query: String, tags: [String] = []) -> [PlaceCard] {
         placeCards.filter { card in
             let matchesQuery = query.isEmpty
