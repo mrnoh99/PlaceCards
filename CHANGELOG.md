@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (4차) — 전체/즐겨찾기/방문 필터 칩 (Peragra 참조)
+#### Added
+- `Views/PlaceStatusFilterBar.swift`(신규): 장소 목록 상단에 "전체 (n) /
+  ⭐ 즐겨찾기 (n) / ✅ 방문 (n)" 칩을 가로 스크롤로 표시. Peragra의
+  `TripDetailView.collectionFilterBar`("All (n)" + Favorites/Visited
+  기본 리스트 칩)와 `PlaceFilterBar`의 `FilterChip` 스타일을 그대로 반영,
+  PlaceCards엔 범용 리스트 시스템이 없어 `isFavorite`/`isVisited` 두 플래그
+  기준의 3단 필터로 단순화함.
+- 게시판 상세 화면과 갤러리 화면 모두에 적용 — 각 카운트는 검색/태그 등
+  다른 필터가 이미 적용된 결과 기준으로 계산됨(Peragra의
+  `preCategoryFiltered`와 동일한 이유: 칩 옆 숫자가 다른 필터와 무관하게
+  고정되어 헷갈리지 않도록).
+- 게시판 상세: 게시판에 카드가 있지만 필터 결과가 0개인 경우와, 게시판에
+  카드가 아예 없는 경우를 구분해서 서로 다른 안내 문구를 보여줌.
+
 ### 2026-09-10 (3차) — 카드 셀에 정보 추가 (Peragra의 PlaceRowView 참조)
 #### Added
 - 게시판 상세/갤러리의 장소 카드 셀에 정보 추가 (기존의 간결함과 "탭하면

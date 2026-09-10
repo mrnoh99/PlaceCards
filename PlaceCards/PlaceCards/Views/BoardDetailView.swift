@@ -7,32 +7,53 @@ struct BoardDetailView: View {
     let board: Board
     @EnvironmentObject private var storageService: StorageService
     @State private var isPresentingAddCard = false
+    @State private var statusFilter: PlaceStatusFilter = .all
+
+    private var allCards: [PlaceCard] {
+        storageService.placeCards(inBoard: board.id).sorted { $0.updatedAt > $1.updatedAt }
+    }
 
     private var cards: [PlaceCard] {
-        storageService.placeCards(inBoard: board.id).sorted { $0.updatedAt > $1.updatedAt }
+        allCards.filter(statusFilter.matches)
     }
 
     var body: some View {
         Group {
-            if cards.isEmpty {
+            if allCards.isEmpty {
                 ContentUnavailableView {
                     Label("장소가 없습니다", systemImage: "mappin.slash")
                 } description: {
                     Text("오른쪽 위 + 버튼으로 이 게시판에 첫 장소를 추가해보세요.")
                 }
             } else {
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
-                        ForEach(cards) { card in
-                            NavigationLink {
-                                PlaceCardDetailView(card: card)
-                            } label: {
-                                PlaceCardGridCell(card: card)
+                VStack(spacing: 0) {
+                    PlaceStatusFilterBar(
+                        filter: $statusFilter,
+                        allCount: allCards.count,
+                        favoriteCount: allCards.filter(\.isFavorite).count,
+                        visitedCount: allCards.filter(\.isVisited).count
+                    )
+                    if cards.isEmpty {
+                        ContentUnavailableView {
+                            Label("해당하는 장소가 없습니다", systemImage: "line.3.horizontal.decrease.circle")
+                        } description: {
+                            Text("다른 필터를 선택해보세요.")
+                        }
+                    } else {
+                        ScrollView {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
+                                ForEach(cards) { card in
+                                    NavigationLink {
+                                        PlaceCardDetailView(card: card)
+                                    } label: {
+                                        PlaceCardGridCell(card: card)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
                             }
-                            .buttonStyle(.plain)
+                            .padding()
                         }
                     }
-                    .padding()
                 }
             }
         }

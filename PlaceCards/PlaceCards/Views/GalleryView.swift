@@ -9,18 +9,26 @@ struct GalleryView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
-                    ForEach(viewModel.filteredPlaceCards) { card in
-                        NavigationLink {
-                            PlaceCardDetailView(card: card)
-                        } label: {
-                            PlaceCardGridCell(card: card)
+            VStack(spacing: 0) {
+                PlaceStatusFilterBar(
+                    filter: $viewModel.statusFilter,
+                    allCount: viewModel.totalCount,
+                    favoriteCount: viewModel.favoriteCount,
+                    visitedCount: viewModel.visitedCount
+                )
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
+                        ForEach(viewModel.filteredPlaceCards) { card in
+                            NavigationLink {
+                                PlaceCardDetailView(card: card)
+                            } label: {
+                                PlaceCardGridCell(card: card)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding()
                 }
-                .padding()
             }
             .navigationTitle("갤러리")
             .searchable(text: $viewModel.searchQuery, prompt: "이름, 주소로 검색")
