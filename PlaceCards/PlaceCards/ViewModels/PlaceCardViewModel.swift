@@ -6,14 +6,21 @@ import CoreLocation
 /// One AI-extracted (or manually added) place awaiting review before being
 /// saved as a card — mirrors Peragra's `AddPlaceSheet.CandidateRow`,
 /// simplified to this app's own "AI extracts a name/address guess, then
-/// verify against Google Places" flow: no category/phone/notes fields of
-/// its own, since `createPlaceCard(from:)` already fills those in from
+/// verify against Google Places" flow: no category/phone fields of its
+/// own, since `createPlaceCard(from:)` already fills those in from
 /// whichever Google result gets picked.
 struct PlaceCandidateRow: Identifiable {
     let id = UUID()
     var selected = true
     var name: String
     var address: String
+    /// Whatever the AI scan found worth keeping beyond the name/address
+    /// themselves (`AIAnalysisResult.description` — a hashtag, a one-line
+    /// impression, anything that doesn't fit a specific field) — carried
+    /// straight into the saved card's `memo` at `createCards()`. The
+    /// whole point of scanning a photo is gathering everything usable
+    /// about the place, not just enough to identify it.
+    var scannedNote: String? = nil
     var searchResults: [PlaceSearchResult] = []
     /// The specific Google Places result the user tapped, if any — takes
     /// priority over the raw name/address at save time since it carries
@@ -88,7 +95,9 @@ final class PlaceCardViewModel: ObservableObject {
 
         do {
             let results = try await provider.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt)
-            candidateRows = results.map { PlaceCandidateRow(name: $0.placeName, address: $0.address ?? "") }
+            candidateRows = results.map {
+                PlaceCandidateRow(name: $0.placeName, address: $0.address ?? "", scannedNote: $0.description)
+            }
             if candidateRows.isEmpty {
                 errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요."
             }
@@ -225,12 +234,14 @@ final class PlaceCardViewModel: ObservableObject {
         var created: [PlaceCard] = []
         for row in candidateRows where row.selected && !row.name.trimmingCharacters(in: .whitespaces).isEmpty {
             if let chosen = row.chosenResult {
-                if let card = try? await createPlaceCard(from: chosen, images: selectedImages, source: source) {
+                if let card = try? await createPlaceCard(
+                    from: chosen, images: selectedImages, source: source, note: row.scannedNote
+                ) {
                     created.append(card)
                 }
             } else {
                 let card = await createManualPlaceCard(
-                    name: row.name, address: row.address, images: selectedImages, source: source
+                    name: row.name, address: row.address, images: selectedImages, source: source, note: row.scannedNote
                 )
                 created.append(card)
             }
@@ -238,7 +249,14 @@ final class PlaceCardViewModel: ObservableObject {
         return created
     }
 
-    func createPlaceCard(from result: PlaceSearchResult, images: [UIImage], source: SourceType) async throws -> PlaceCard {
+    /// `note` is whatever the AI scan found worth keeping beyond name/
+    /// address (`PlaceCandidateRow.scannedNote`) — folded into `memo`
+    /// here while every other field comes from `result` (the verified
+    /// Google Places match), so the two sources combine instead of the
+    /// scan's extra context getting lost the moment a result is chosen.
+    func createPlaceCard(
+        from result: PlaceSearchResult, images: [UIImage], source: SourceType, note: String? = nil
+    ) async throws -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId,
             name: result.name,
@@ -248,7 +266,8 @@ final class PlaceCardViewModel: ObservableObject {
             rating: result.rating,
             reviewCount: result.reviewCount,
             phone: result.phone,
-            website: result.website
+            website: result.website,
+            memo: PlaceCard.combinedMemo(nil, appending: note)
         )
 
         for image in images {
@@ -319,9 +338,12 @@ final class PlaceCardViewModel: ObservableObject {
     /// Manually-entered places have no coordinates at all — unlike a card
     /// created from a chosen Google Places result, there's no automatic
     /// geocoding fallback here; picking "Google에서 검색" is how a manual
-    /// entry gets coordinates.
-    func createManualPlaceCard(name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput) async -> PlaceCard {
-        var card = PlaceCard(boardId: boardId, name: name, address: address)
+    /// entry gets coordinates. `note` is the AI scan's leftover context
+    /// (`PlaceCandidateRow.scannedNote`), same as `createPlaceCard(from:)`.
+    func createManualPlaceCard(
+        name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput, note: String? = nil
+    ) async -> PlaceCard {
+        var card = PlaceCard(boardId: boardId, name: name, address: address, memo: PlaceCard.combinedMemo(nil, appending: note))
         card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
 
         for image in images {

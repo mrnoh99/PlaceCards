@@ -201,6 +201,21 @@ struct AddPlaceCardView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
+                // Whatever the AI scan found beyond name/address (a
+                // hashtag, a one-line impression) — editable here since
+                // it's still just a draft, and folded into the saved
+                // card's memo field at `createCards()` either way.
+                TextField(
+                    "메모 (선택)",
+                    text: Binding(
+                        get: { row.wrappedValue.scannedNote ?? "" },
+                        set: { row.wrappedValue.scannedNote = $0.isEmpty ? nil : $0 }
+                    ),
+                    axis: .vertical
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
                 if row.wrappedValue.chosenResult != nil {
                     Label("Google 지도에서 확인됨", systemImage: "checkmark.seal")
                         .font(.caption2)

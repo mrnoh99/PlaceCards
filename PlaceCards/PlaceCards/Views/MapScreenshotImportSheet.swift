@@ -175,6 +175,7 @@ struct MapScreenshotImportSheet: View {
            let extractedAddress = result.address?.trimmingCharacters(in: .whitespaces), !extractedAddress.isEmpty {
             card.address = extractedAddress
         }
+        card.memo = PlaceCard.combinedMemo(card.memo, appending: result.description)
         storageService.save(card)
         onApplied(card)
         statusMessage = "AI가 읽은 정보를 채웠습니다."

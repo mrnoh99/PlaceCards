@@ -71,6 +71,25 @@ extension PlaceCard: Hashable {
 }
 
 extension PlaceCard {
+    /// Folds a newly scanned note (an AI photo-analysis "description" —
+    /// a hashtag, a one-line impression, anything worth keeping that
+    /// isn't the name/address themselves) into an existing memo, rather
+    /// than overwriting it: appended as a new line, and skipped if
+    /// already present so re-scanning the same photo doesn't keep piling
+    /// up duplicates. Shared by every place this app turns an AI scan
+    /// into a saved/updated card (`PlaceCardViewModel.createPlaceCard`,
+    /// `EditPlaceCardSheet`, `MapScreenshotImportSheet`).
+    static func combinedMemo(_ existing: String?, appending note: String?) -> String? {
+        guard let note else { return existing }
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedNote.isEmpty else { return existing }
+
+        let currentMemo = (existing ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if currentMemo.isEmpty { return trimmedNote }
+        if currentMemo.contains(trimmedNote) { return currentMemo }
+        return currentMemo + "\n" + trimmedNote
+    }
+
     /// Fills in anything only a duplicate had, folding its media and tags
     /// in too. The caller is expected to save `self` afterward and remove
     /// `duplicates` from storage via

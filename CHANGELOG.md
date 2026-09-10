@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (58차) — 사진 스캔의 이름/주소 외 정보를 메모로 수집
+#### Added
+- `Services/AIProvider.swift`: `defaultPlaceAnalysisPrompt`가
+  이름/주소로 담기지 않는, 나중에 참고할 만한 내용(해시태그, 한줄평·
+  추천 이유 등, 예: "#한끼식사됨")을 `description`에 담도록 명시적으로
+  요청하도록 수정. 이 필드는 이미 AI 응답에서 추출되고 있었지만
+  지금까지는 어디에도 쓰이지 않고 버려지고 있었음 — 스캔의 목적이
+  이름/주소 확인만이 아니라 카드에 남길 만한 정보를 최대한 모으는
+  것이므로, 그 정보가 갈 곳(메모 필드)을 만듦.
+- `Models/PlaceCard.swift`: `combinedMemo(_:appending:)`(신규) — 스캔한
+  메모를 기존 메모에 새 줄로 덧붙이되(덮어쓰지 않음) 이미 있는
+  내용이면 중복 추가하지 않는 공용 로직. 아래 세 곳에서 재사용.
+- `ViewModels/PlaceCardViewModel.swift`: `PlaceCandidateRow.scannedNote`
+  (신규) — AI가 스캔한 추가 정보를 담고, "장소 추가" 화면에서 수정도
+  가능. `createCards()`가 이 값을 `createPlaceCard(from:...:note:)`/
+  `createManualPlaceCard(...:note:)`에 전달해 최종 카드의 `memo`로
+  저장함. Google 검색 결과를 선택한 경우 이름·주소·좌표 등은 Google
+  쪽 정보가 우선하고, 사진에서 스캔한 메모만 별도로 합쳐짐.
+- `Views/AddPlaceCardView.swift`: 후보 행마다 "메모 (선택)" 입력란
+  추가 — AI가 채워주거나, 직접 입력/수정 가능.
+- `Views/EditPlaceCardSheet.swift`/`Views/MapScreenshotImportSheet.swift`:
+  카드 편집 중 사진으로 AI 정보를 읽어올 때도 `description`을 메모에
+  같은 방식으로 합침(기존엔 두 곳 다 이름/주소만 채우고 나머지는
+  버렸음).
+
 ### 2026-09-10 (57차) — 장소 검색에 주소 기반 100m 거리 검증 추가
 #### Changed
 - `ViewModels/PlaceCardViewModel.swift`: `search(rowID:)`가 이름만으로

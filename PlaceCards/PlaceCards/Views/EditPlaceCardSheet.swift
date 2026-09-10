@@ -367,6 +367,9 @@ struct EditPlaceCardSheet: View {
            let extractedAddress = result.address?.trimmingCharacters(in: .whitespaces), !extractedAddress.isEmpty {
             address = extractedAddress
         }
+        if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: result.description) {
+            memoText = combined
+        }
         photoAnalysisMessage = "AI가 읽은 정보를 채웠습니다."
     }
 
