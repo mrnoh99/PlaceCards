@@ -19,6 +19,16 @@ struct MainTabView: View {
     /// than always asking which board to create a new one in.
     @State private var pendingMapScreenshotCard: PlaceCard?
 
+    /// Same hand-off as `pendingSharedImageData`, for a shared link/text
+    /// instead of a photo (e.g. the "share this page" prompt iOS offers
+    /// for maps.google.com, or Naver Map's own share). Always goes
+    /// through the board picker rather than `MapOpenContext` like the
+    /// photo flow does — a link resolves to a place *name*, which is what
+    /// creating a new card needs, not a field an existing card has to
+    /// receive it in.
+    @State private var pendingLinkText: String?
+    @State private var isPresentingSharedLinkSheet = false
+
     var body: some View {
         TabView(selection: $navigation.selectedTab) {
             HomeView()
@@ -55,18 +65,28 @@ struct MainTabView: View {
                 MapScreenshotImportSheet(card: card, imageData: pendingSharedImageData) { _ in }
             }
         }
+        .sheet(isPresented: $isPresentingSharedLinkSheet) {
+            if let pendingLinkText {
+                SharedLinkBoardPickerSheet(linkText: pendingLinkText)
+            }
+        }
     }
 
     private func checkForSharedImage() {
-        guard let data = SharedImportStore.takePendingImage() else { return }
-        pendingSharedImageData = data
-
-        if let cardID = MapOpenContext.recentCardID(), let card = storageService.placeCard(id: cardID) {
-            pendingMapScreenshotCard = card
-        } else {
-            isPresentingSharedImportSheet = true
+        if let data = SharedImportStore.takePendingImage() {
+            pendingSharedImageData = data
+            if let cardID = MapOpenContext.recentCardID(), let card = storageService.placeCard(id: cardID) {
+                pendingMapScreenshotCard = card
+            } else {
+                isPresentingSharedImportSheet = true
+            }
+            MapOpenContext.clear()
         }
-        MapOpenContext.clear()
+
+        if let text = SharedImportStore.takePendingLink() {
+            pendingLinkText = text
+            isPresentingSharedLinkSheet = true
+        }
     }
 }
 

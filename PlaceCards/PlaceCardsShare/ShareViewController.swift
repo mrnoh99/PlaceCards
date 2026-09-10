@@ -2,14 +2,16 @@ import UIKit
 import UniformTypeIdentifiers
 
 /// The Share Extension's entry point — lets PlaceCards appear in the
-/// system share sheet for images, so a photo (e.g. a screenshot of a map
-/// app's info card, taken right before switching apps) can be handed
-/// straight to the app instead of first saving it to Photos and reopening
-/// PlaceCards to pick it from there. No storyboard — its view is built in
-/// code (see `setUpUI`) purely so tapping the PlaceCards row in the share
-/// sheet doesn't just flash an empty screen and vanish, which read as
-/// "nothing happened" even when the photo saved correctly; it briefly
-/// shows a spinner, then a ✓/✗ before dismissing.
+/// system share sheet for both images (a screenshot of a map app's info
+/// card, taken right before switching apps) and links/text (the "share
+/// this page" prompt iOS offers for a URL like maps.google.com, or Naver
+/// Map's own "공유" text) — either can be handed straight to the app
+/// instead of first saving a screenshot to Photos, or copying a link by
+/// hand. No storyboard — its view is built in code (see `setUpUI`) purely
+/// so tapping the PlaceCards row in the share sheet doesn't just flash an
+/// empty screen and vanish, which read as "nothing happened" even when
+/// the share saved correctly; it briefly shows a spinner, then a ✓/✗
+/// before dismissing.
 final class ShareViewController: UIViewController {
     private let statusLabel = UILabel()
     private let spinner = UIActivityIndicatorView(style: .medium)
@@ -47,19 +49,38 @@ final class ShareViewController: UIViewController {
         preferredContentSize = CGSize(width: 280, height: 140)
     }
 
+    /// Picks the one attachment this share actually is — an image takes
+    /// priority when somehow both are offered, since that's the more
+    /// established flow — then hands it to the matching handler. Checked
+    /// against `UTType.url`/`.plainText` (rather than trusting the
+    /// `NSExtensionActivationRule` alone) since an item can register more
+    /// type identifiers than what actually triggered the match.
     private func handleSharedItem() {
-        guard let item = extensionContext?.inputItems.first as? NSExtensionItem else {
+        guard let item = extensionContext?.inputItems.first as? NSExtensionItem, let attachments = item.attachments, !attachments.isEmpty else {
             SharedImportStore.recordDebugStatus("공유 항목(NSExtensionItem)을 찾지 못함")
             finish(success: false, message: "공유된 항목을 찾지 못했습니다")
             return
         }
-        guard let provider = item.attachments?.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }) else {
-            let types = item.attachments?.flatMap(\.registeredTypeIdentifiers).joined(separator: ", ") ?? "없음"
-            SharedImportStore.recordDebugStatus("이미지 타입의 첨부를 찾지 못함 (첨부 타입: \(types))")
-            finish(success: false, message: "이미지를 찾지 못했습니다")
+
+        if let imageProvider = attachments.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }) {
+            handleImageAttachment(imageProvider)
+            return
+        }
+        if let urlProvider = attachments.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.url.identifier) }) {
+            handleLinkAttachment(urlProvider, typeIdentifier: UTType.url.identifier)
+            return
+        }
+        if let textProvider = attachments.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) }) {
+            handleLinkAttachment(textProvider, typeIdentifier: UTType.plainText.identifier)
             return
         }
 
+        let types = attachments.flatMap(\.registeredTypeIdentifiers).joined(separator: ", ")
+        SharedImportStore.recordDebugStatus("지원하는 타입의 첨부를 찾지 못함 (첨부 타입: \(types))")
+        finish(success: false, message: "지원하지 않는 형식입니다")
+    }
+
+    private func handleImageAttachment(_ provider: NSItemProvider) {
         provider.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { [weak self] loadedItem, error in
             if let error {
                 SharedImportStore.recordDebugStatus("loadItem 실패: \(error.localizedDescription)")
@@ -92,6 +113,41 @@ final class ShareViewController: UIViewController {
             }
             SharedImportStore.savePendingImage(data)
             SharedImportStore.recordDebugStatus("사진 저장 성공 (\(data.count) bytes)")
+            self?.finish(success: true, message: "PlaceCards로 저장됨")
+        }
+    }
+
+    /// A shared URL (the "share this page" prompt for maps.google.com) or
+    /// plain text (Naver Map's own share, or a URL handed back as text) —
+    /// both are handed to `SharedLinkParser`/`resolveSearchQuery` on the
+    /// main app side, so this only needs to capture whichever string form
+    /// comes back and hand it off as-is.
+    private func handleLinkAttachment(_ provider: NSItemProvider, typeIdentifier: String) {
+        provider.loadItem(forTypeIdentifier: typeIdentifier, options: nil) { [weak self] loadedItem, error in
+            if let error {
+                SharedImportStore.recordDebugStatus("링크 loadItem 실패: \(error.localizedDescription)")
+                self?.finish(success: false, message: "링크를 불러오지 못했습니다")
+                return
+            }
+
+            let text: String?
+            switch loadedItem {
+            case let url as URL:
+                text = url.absoluteString
+            case let string as String:
+                text = string
+            case let data as Data:
+                text = String(data: data, encoding: .utf8)
+            default:
+                text = nil
+            }
+            guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                SharedImportStore.recordDebugStatus("링크 데이터를 읽지 못함 (전달된 타입: \(String(describing: loadedItem.map { type(of: $0) })))")
+                self?.finish(success: false, message: "링크를 읽지 못했습니다")
+                return
+            }
+            SharedImportStore.savePendingLink(text)
+            SharedImportStore.recordDebugStatus("링크 저장 성공 (\(text.prefix(80)))")
             self?.finish(success: true, message: "PlaceCards로 저장됨")
         }
     }

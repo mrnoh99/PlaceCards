@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (54차) — 공유 확장에 링크(URL/텍스트) 공유 지원 추가
+#### Added
+- `PlaceCardsShare/Info.plist`: `NSExtensionActivationRule`에
+  `NSExtensionActivationSupportsWebURLWithMaxCount`/
+  `NSExtensionActivationSupportsText` 추가 — 지금까지는 이미지만
+  받도록 되어 있어서, "구글에서 열기"로 지도를 연 상태에서 스크린샷을
+  찍으면 iOS가 자동으로 띄우는 "이 페이지(maps.google.com) 공유"
+  시트(이미지가 아니라 URL을 공유하는, 스크린샷 공유와는 다른 별도
+  흐름)에는 PlaceCards가 아예 뜨지 않았음(Peragra는 이미 지원해서
+  뜸). 이제 그 시트에서도 PlaceCards가 표시됨.
+- `PlaceCardsShare/ShareViewController.swift`: 첨부가 이미지인지
+  URL/텍스트인지에 따라 `handleImageAttachment`/`handleLinkAttachment`
+  로 분기하도록 재구성. 링크·텍스트는 문자열 그대로
+  `SharedImportStore.savePendingLink`에 저장.
+- `Services/SharedImportStore.swift`: `savePendingLink`/`takePendingLink`
+  (신규) — 이미지용 pending 슬롯과 별도 파일이라 이미지 공유와 링크
+  공유가 연달아 와도 서로 덮어쓰지 않음.
+- `Views/SharedLinkBoardPickerSheet.swift`(신규): `SharedPhotoBoardPickerSheet`
+  와 동일한 구조로, 공유받은 링크를 추가할 게시판을 고르면
+  `AddPlaceCardView`를 그 링크가 이미 채워진 채로 엶.
+- `Views/AddPlaceCardView.swift`: `initialLinkText` 파라미터(신규) —
+  받은 링크를 새 행의 "장소명" 필드에 그대로 넣어, 이미 있던 "링크를
+  직접 붙여넣고 Google에서 검색" 흐름(`PlaceCardViewModel.search(rowID:)`
+  → `SharedLinkParser`)을 그대로 재사용함. 새로운 파싱 로직을 따로
+  만들지 않음.
+- `Views/MainTabView.swift`: `checkForSharedImage()`가 대기 중인 링크도
+  함께 확인해 `SharedLinkBoardPickerSheet`를 띄우도록 확장. 사진
+  흐름과 달리 `MapOpenContext`(최근에 "지도에서 열기"한 카드에 바로
+  반영)는 적용하지 않음 — 링크는 장소 *이름*으로 해석되는 데이터라
+  기존 카드의 특정 필드에 채워 넣을 대상이 명확하지 않고, 새 카드를
+  만드는 기존 흐름과 훨씬 자연스럽게 맞아서.
+
 ### 2026-09-10 (53차) — 공유 확장이 아예 실행되지 않던 근본 원인 수정
 #### Fixed
 - `PlaceCardsShare/Info.plist`: `NSExtensionPrincipalClass`가

@@ -12,6 +12,7 @@ import Foundation
 enum SharedImportStore {
     private static let appGroupID = "group.com.mrnoh99.PlaceCards"
     private static let pendingFileName = "pending-shared-image.jpg"
+    private static let pendingLinkFileName = "pending-shared-link.txt"
     private static let debugStatusFileName = "share-debug-status.txt"
 
     private static var containerURL: URL? {
@@ -66,6 +67,24 @@ enum SharedImportStore {
     static func lastDebugStatus() -> String? {
         guard let url = containerURL?.appendingPathComponent(debugStatusFileName),
               let data = try? Data(contentsOf: url) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// Called by the Share Extension when the shared item is a link or
+    /// plain text (e.g. the URL iOS offers to share right after a
+    /// screenshot taken inside Safari/a web view, or Naver Map's own
+    /// "공유" text) rather than an image — a separate pending slot from
+    /// `savePendingImage` so an image share and a link share in quick
+    /// succession can't clobber each other.
+    static func savePendingLink(_ text: String) {
+        guard let url = containerURL?.appendingPathComponent(pendingLinkFileName) else { return }
+        try? text.data(using: .utf8)?.write(to: url, options: .atomic)
+    }
+
+    static func takePendingLink() -> String? {
+        guard let url = containerURL?.appendingPathComponent(pendingLinkFileName),
+              let data = try? Data(contentsOf: url) else { return nil }
+        try? FileManager.default.removeItem(at: url)
         return String(data: data, encoding: .utf8)
     }
 }

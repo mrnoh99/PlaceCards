@@ -30,11 +30,20 @@ struct AddPlaceCardView: View {
     /// `initialImageData` seeds the picker with a photo handed over from
     /// outside the normal PhotosPicker flow — namely a photo shared into
     /// the app through the Share Extension (see `SharedPhotoBoardPickerSheet`).
-    init(viewModel: PlaceCardViewModel, initialImageData: Data? = nil) {
+    /// `initialLinkText` does the same for a shared link/text (see
+    /// `SharedLinkBoardPickerSheet`) — dropped straight into a blank row's
+    /// name field exactly as if the user had pasted it there by hand, so
+    /// it goes through the same `PlaceCardViewModel.search(rowID:)` →
+    /// `SharedLinkParser` resolution already used for manual paste, with
+    /// no separate code path of its own.
+    init(viewModel: PlaceCardViewModel, initialImageData: Data? = nil, initialLinkText: String? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel)
         if let initialImageData, let image = UIImage(data: initialImageData) {
             _pickedImages = State(initialValue: [image])
             _pickedImageDatas = State(initialValue: [initialImageData])
+        }
+        if let initialLinkText, !initialLinkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            viewModel.candidateRows = [PlaceCandidateRow(name: initialLinkText, address: "")]
         }
     }
 
