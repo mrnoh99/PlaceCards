@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (68차) — Apple 지도 마커도 Google·Naver처럼 탭하면 정보 팝업부터
+#### Changed
+- `Views/PlacesMapView.swift`: Apple 지도에서 마커를 탭하면 바로
+  전체 카드가 열리던 것을, Google/Naver 지도(WKWebView 페이지의
+  마커 정보창)와 같은 2단계 흐름으로 변경 — 먼저 이름·주소와 "카드
+  보기" 버튼이 있는 작은 팝업(콜아웃)이 뜨고, 그 버튼을 눌러야 전체
+  화면 카드가 열림. 같은 마커를 다시 탭하면 팝업이 접힘.
+
 ### 2026-09-10 (67차) — 지도에서 카드 선택 시 전체화면으로 열기
 #### Changed
 - `Views/PlacesMapView.swift`: 마커를 탭해 `PlaceCardDetailView`를 열

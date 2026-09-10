@@ -25,6 +25,12 @@ struct PlacesMapView: View {
     @EnvironmentObject private var storageService: StorageService
     @State private var selectedCard: PlaceCard?
     @State private var searchQuery = ""
+    /// The Apple map's own marker-tap callout, keyed by card id — mirrors
+    /// the info popup Google/Naver's web-based maps already show on a
+    /// marker tap (name, address, a "카드 보기" button) instead of the
+    /// old behavior of jumping straight to the full card. Tapping the
+    /// same marker again collapses it back down.
+    @State private var calloutCardID: String?
     @AppStorage("mapDisplayProvider") private var displayProviderRaw: String = MapDisplayProvider.apple.rawValue
 
     private var displayProvider: MapDisplayProvider {
@@ -137,13 +143,50 @@ struct PlacesMapView: View {
             annotationItems: visibleCards
         ) { card in
             MapAnnotation(coordinate: viewModel.coordinate(for: card)) {
-                Button {
-                    selectedCard = card
-                } label: {
-                    VStack(spacing: 2) {
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(.red)
+                appleMapAnnotation(for: card)
+            }
+        }
+    }
+
+    /// A tap toggles a small callout above the pin (name/address/"카드
+    /// 보기") instead of jumping straight into the full card — the same
+    /// two-step "tap marker, then tap to open the card" flow Google/Naver
+    /// already offer via their own web page's marker info window.
+    @ViewBuilder
+    private func appleMapAnnotation(for card: PlaceCard) -> some View {
+        VStack(spacing: 6) {
+            if calloutCardID == card.id {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(card.name)
+                        .font(.subheadline.bold())
+                        .lineLimit(1)
+                    if !card.address.isEmpty {
+                        Text(card.address)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Button("카드 보기") {
+                        selectedCard = card
+                    }
+                    .font(.caption)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.mini)
+                }
+                .padding(8)
+                .frame(maxWidth: 220, alignment: .leading)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+                .shadow(radius: 2)
+            }
+
+            Button {
+                calloutCardID = (calloutCardID == card.id) ? nil : card.id
+            } label: {
+                VStack(spacing: 2) {
+                    Image(systemName: "mappin.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(.red)
+                    if calloutCardID != card.id {
                         Text(card.name)
                             .font(.caption2)
                             .padding(.horizontal, 4)
