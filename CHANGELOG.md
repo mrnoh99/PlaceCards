@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (43차) — 빌드 오류 수정: 확장의 Info.plist에 CFBundleIdentifier 누락
+#### Fixed
+- `PlaceCardsShare/Info.plist`: "Embedded binary's bundle identifier is
+  not prefixed with the parent app's bundle identifier" 오류 수정 —
+  `GENERATE_INFOPLIST_FILE = NO`로 직접 제공하는 Info.plist에는 Xcode가
+  자동으로 채워주지 않는 `CFBundleIdentifier`(`$(PRODUCT_BUNDLE_IDENTIFIER)`)와
+  `CFBundleExecutable`/`CFBundleName`/`CFBundlePackageType`/
+  `CFBundleShortVersionString`/`CFBundleVersion`/`CFBundleDevelopmentRegion`가
+  빠져 있었음 — 빌드 설정에 지정한 `com.mrnoh99.PlaceCards.Share`가
+  실제로는 적용되지 않고 있었던 것. 표준 보일러플레이트 키를 모두 추가.
+
 ### 2026-09-10 (42차) — 빌드 오류 수정: SharedPhotoBoardPickerSheet
 #### Fixed
 - `Views/SharedPhotoBoardPickerSheet.swift`: `.sheet(item:onDismiss:)`에
