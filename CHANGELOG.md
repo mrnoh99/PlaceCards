@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (44차) — "지도에서 열기"에 Naver/Kakao/Tmap 다시 추가 (한국 주소 한정)
+#### Added
+- `Services/MapOpeners.swift`: `KoreaRegion`, `NaverMapOpener`,
+  `KakaoMapOpener`, `TmapOpener` 복원(39차에서 제거했던 것). 정보
+  소스(Naver Local Search/Geocoding API 연동)는 39차 결정대로 계속
+  제거된 상태로 두고, 이번엔 "지도에서 열기" 메뉴에만 다시 추가 —
+  카드의 좌표가 한국 영역 안일 때만 각 opener가 링크를 만들어내므로,
+  한국 밖 장소는 지금처럼 Google Maps/Apple 지도만 뜸.
+- `Views/PlaceCardDetailView.swift`, `Views/PlaceCardListRow.swift`,
+  `Views/GalleryView.swift`: "지도에서 열기"/지도 메뉴가 Google Maps·
+  Apple 지도에 이어 (한국 내 장소일 때) Naver Map·Kakao Map·Tmap도
+  보여줌.
+
 ### 2026-09-10 (43차) — 빌드 오류 수정: 확장의 Info.plist에 CFBundleIdentifier 누락
 #### Fixed
 - `PlaceCardsShare/Info.plist`: "Embedded binary's bundle identifier is

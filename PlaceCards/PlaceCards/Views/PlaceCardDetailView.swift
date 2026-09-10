@@ -175,8 +175,9 @@ struct PlaceCardDetailView: View {
         .font(.caption)
     }
 
-    /// "지도에서 열기" — offers Google Maps and Apple Maps, the app's only
-    /// two supported map providers.
+    /// "지도에서 열기" — Google Maps와 Apple 지도는 항상, Naver/Kakao
+    /// Map·Tmap은 한국 내 장소일 때만 제공(각 opener가 좌표로 직접
+    /// 판단, `KoreaRegion` 참고).
     @ViewBuilder
     private var mapMenu: some View {
         Menu {
@@ -185,6 +186,15 @@ struct PlaceCardDetailView: View {
             }
             if card.coordinates != nil {
                 Button("Apple 지도") { AppleMapsOpener.open(for: card) }
+            }
+            if let url = NaverMapOpener.url(for: card) {
+                Button("Naver Map") { openURL(url) }
+            }
+            if let url = KakaoMapOpener.url(for: card) {
+                Button("Kakao Map") { openURL(url) }
+            }
+            if let url = TmapOpener.url(for: card) {
+                Button("Tmap") { openURL(url) }
             }
         } label: {
             Label("지도에서 열기", systemImage: "map")
