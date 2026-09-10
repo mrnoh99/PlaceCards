@@ -29,6 +29,13 @@ final class ShareViewController: UIViewController {
             let data: Data?
             switch loadedItem {
             case let url as URL:
+                // A URL handed back for a Photos-library-backed image (a
+                // screenshot, say, since those save straight to Photos) is
+                // commonly security-scoped — reading it without this call
+                // fails silently (Data(contentsOf:) just returns nil via
+                // try?), so nothing gets sent and there's no error to see.
+                let didStartAccessing = url.startAccessingSecurityScopedResource()
+                defer { if didStartAccessing { url.stopAccessingSecurityScopedResource() } }
                 data = try? Data(contentsOf: url)
             case let image as UIImage:
                 data = image.jpegData(compressionQuality: 0.9)

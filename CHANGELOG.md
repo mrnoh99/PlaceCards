@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (47차) — 공유 확장에서 사진이 안 보내지던 문제 수정
+#### Fixed
+- `PlaceCardsShare/ShareViewController.swift`: 공유 항목이 `URL`로
+  전달될 때(사진 라이브러리에 저장된 이미지, 즉 스크린샷을 공유할 때
+  흔한 경우) `startAccessingSecurityScopedResource()` 없이 읽고 있어
+  `Data(contentsOf:)`가 조용히 실패(`try?`라 에러도 안 남음)하던 문제
+  수정 — 아무 사진도 전달되지 않았는데 겉으론 아무 일도 없었던 것처럼
+  보였던 원인.
+
 ### 2026-09-10 (46차) — "지도" 탭에서 Apple/Google/Naver 지도 선택
 #### Added
 - `Views/PlacesMapView.swift`: 내비게이션 바에 세그먼트 피커(Apple/
