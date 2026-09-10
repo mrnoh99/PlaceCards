@@ -10,11 +10,24 @@ final class GalleryViewModel: ObservableObject {
     @Published var sortMode: PlaceSortMode = .byCategory
     @Published var distanceReference: DistanceReference?
     @Published var hereCoordinate: Coordinates?
+    /// The board the Home tab is currently drilled into
+    /// (`AppNavigation.currentHomeBoardID`), synced in by `GalleryView` —
+    /// nil (Home at its board list) shows every card, as before; set,
+    /// this narrows everything below to that one board, same as opening
+    /// it from Home directly would.
+    @Published var boardScopeID: String?
 
     private let storageService: StorageService
 
     init(storageService: StorageService) {
         self.storageService = storageService
+    }
+
+    /// Every card in scope — every board, or just `boardScopeID` — before
+    /// any of the filters below narrow it further.
+    private var scopedCards: [PlaceCard] {
+        guard let boardScopeID else { return storageService.placeCards }
+        return storageService.placeCards(inBoard: boardScopeID)
     }
 
     /// Search/tag-filtered, but before the all/favorite/visited chip —
@@ -23,7 +36,10 @@ final class GalleryViewModel: ObservableObject {
     /// stale next to them (mirrors Peragra's `preCategoryFiltered`).
     private var searchFilteredPlaceCards: [PlaceCard] {
         let tags = selectedTag.map { [$0] } ?? []
-        let matched = storageService.search(query: searchQuery, tags: tags)
+        var matched = storageService.search(query: searchQuery, tags: tags)
+        if let boardScopeID {
+            matched = matched.filter { $0.boardId == boardScopeID }
+        }
         guard let categoryFilter else { return matched }
         return matched.filter { card in
             guard let category = card.category, !category.isEmpty else { return false }
@@ -74,15 +90,15 @@ final class GalleryViewModel: ObservableObject {
     /// `PlaceCardSorting` already falls back to leaving the list unsorted
     /// if the chosen reference turns out to have none.
     var referenceCandidates: [PlaceCard] {
-        storageService.placeCards
+        scopedCards
     }
 
     var allTags: [String] {
-        Array(Set(storageService.placeCards.flatMap { $0.tags })).sorted()
+        Array(Set(scopedCards.flatMap { $0.tags })).sorted()
     }
 
     var allCategories: [String] {
-        let normalized = storageService.placeCards.compactMap { card -> String? in
+        let normalized = scopedCards.compactMap { card -> String? in
             guard let category = card.category, !category.isEmpty else { return nil }
             return PlaceCategoryIcon.normalizedLabel(for: category)
         }

@@ -22,6 +22,7 @@ private enum MapDisplayProvider: String, CaseIterable, Identifiable {
 struct PlacesMapView: View {
     @StateObject private var viewModel: MapViewModel
     @EnvironmentObject private var navigation: AppNavigation
+    @EnvironmentObject private var storageService: StorageService
     @State private var selectedCard: PlaceCard?
     @AppStorage("mapDisplayProvider") private var displayProviderRaw: String = MapDisplayProvider.apple.rawValue
 
@@ -33,11 +34,31 @@ struct PlacesMapView: View {
         _viewModel = StateObject(wrappedValue: viewModel)
     }
 
+    /// The board Home is currently showing, if any — used for the
+    /// navigation title, and to look up its name.
+    private var scopedBoard: Board? {
+        guard let boardID = navigation.currentHomeBoardID else { return nil }
+        return storageService.boards.first { $0.id == boardID }
+    }
+
     /// Narrowed to `navigation.mapFilterIDs` when a board's "지도에서
-    /// 보기" bulk action set it — otherwise every card, as usual.
+    /// 보기" bulk action set it (an explicit one-shot pick, so it wins);
+    /// otherwise to the board Home is currently showing, if any; otherwise
+    /// every card, as usual.
     private var visibleCards: [PlaceCard] {
-        guard let filterIDs = navigation.mapFilterIDs else { return viewModel.annotatedPlaceCards }
-        return viewModel.annotatedPlaceCards.filter { filterIDs.contains($0.id) }
+        if let filterIDs = navigation.mapFilterIDs {
+            return viewModel.annotatedPlaceCards.filter { filterIDs.contains($0.id) }
+        }
+        if let boardID = navigation.currentHomeBoardID {
+            return viewModel.annotatedPlaceCards.filter { $0.boardId == boardID }
+        }
+        return viewModel.annotatedPlaceCards
+    }
+
+    private var mapNavigationTitle: String {
+        if navigation.mapFilterIDs != nil { return "선택한 장소" }
+        if let scopedBoard { return scopedBoard.name }
+        return "지도"
     }
 
     var body: some View {
@@ -52,7 +73,7 @@ struct PlacesMapView: View {
                     naverMap
                 }
             }
-            .navigationTitle(navigation.mapFilterIDs == nil ? "지도" : "선택한 장소")
+            .navigationTitle(mapNavigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -180,4 +201,5 @@ struct PlacesMapView: View {
 #Preview {
     PlacesMapView(viewModel: MapViewModel(storageService: StorageService()))
         .environmentObject(AppNavigation())
+        .environmentObject(StorageService())
 }

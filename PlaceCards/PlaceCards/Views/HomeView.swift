@@ -6,6 +6,7 @@ import SwiftUI
 /// `BoardDetailView`.
 struct HomeView: View {
     @EnvironmentObject private var storageService: StorageService
+    @EnvironmentObject private var navigation: AppNavigation
     @State private var isPresentingAddBoard = false
     @State private var boardPendingDelete: Board?
     @State private var boardPendingEdit: Board?
@@ -49,6 +50,15 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("PlaceCards")
+            // Fires whenever this root board list becomes visible again —
+            // initial load, and every pop back to it (from BoardDetailView,
+            // whatever depth) — but not while a deeper push (e.g. a place
+            // card detail within a board) merely covers BoardDetailView,
+            // since this view itself isn't reappearing then. That's what
+            // makes clearing the scope here safe: it only clears once the
+            // user has actually left every board, not on every transient
+            // onDisappear inside one. See `AppNavigation.currentHomeBoardID`.
+            .onAppear { navigation.currentHomeBoardID = nil }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -129,4 +139,5 @@ private struct BoardRow: View {
 #Preview {
     HomeView()
         .environmentObject(StorageService())
+        .environmentObject(AppNavigation())
 }

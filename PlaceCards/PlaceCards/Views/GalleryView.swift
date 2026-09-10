@@ -2,9 +2,19 @@ import SwiftUI
 
 struct GalleryView: View {
     @StateObject private var viewModel: GalleryViewModel
+    @EnvironmentObject private var navigation: AppNavigation
+    @EnvironmentObject private var storageService: StorageService
 
     init(viewModel: GalleryViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
+    }
+
+    /// The board Home is currently showing, if any — used for the
+    /// navigation title only; the actual filtering already happens
+    /// inside `viewModel` via `boardScopeID`.
+    private var scopedBoard: Board? {
+        guard let boardScopeID = viewModel.boardScopeID else { return nil }
+        return storageService.boards.first { $0.id == boardScopeID }
     }
 
     var body: some View {
@@ -36,8 +46,16 @@ struct GalleryView: View {
                     .padding()
                 }
             }
-            .navigationTitle("갤러리")
+            .navigationTitle(scopedBoard.map { "갤러리 · \($0.name)" } ?? "갤러리")
             .searchable(text: $viewModel.searchQuery, prompt: "이름, 주소로 검색")
+            // Home tab's board (if any) is only known once this tab
+            // itself becomes visible — synced here rather than read once
+            // at init, since the user may navigate around Home first and
+            // only then switch to this tab.
+            .onAppear { viewModel.boardScopeID = navigation.currentHomeBoardID }
+            .onChange(of: navigation.currentHomeBoardID) { _, newValue in
+                viewModel.boardScopeID = newValue
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
@@ -222,4 +240,5 @@ struct PlaceCardGridCell: View {
     let storageService = StorageService()
     GalleryView(viewModel: GalleryViewModel(storageService: storageService))
         .environmentObject(storageService)
+        .environmentObject(AppNavigation())
 }

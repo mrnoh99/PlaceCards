@@ -173,6 +173,13 @@ struct BoardDetailView: View {
                 bulkActionBar
             }
         }
+        // Fires whenever this view becomes topmost — the initial push
+        // from Home, and again on popping back to it from a deeper push
+        // (e.g. PlaceCardDetailView) — so Gallery/Map (via
+        // `AppNavigation.currentHomeBoardID`) stay scoped to this board
+        // for as long as Home is anywhere inside it, not just while this
+        // exact screen is on top.
+        .onAppear { navigation.currentHomeBoardID = board.id }
         .navigationTitle(board.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

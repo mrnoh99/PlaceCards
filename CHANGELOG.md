@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (60차) — 갤러리·지도가 홈의 현재 게시판을 따라감
+#### Added
+- `Services/AppNavigation.swift`: `currentHomeBoardID`(신규) — 홈 탭이
+  현재 어느 게시판 안에 들어가 있는지(게시판 목록이면 nil) 추적.
+  `HomeView`(목록으로 돌아올 때 비움)와 `BoardDetailView`(들어갈 때
+  채움)가 각자의 `.onAppear`로 갱신 — 게시판 안에서 장소 상세보기로
+  더 들어가도(그 화면이 `BoardDetailView`를 덮는 것일 뿐 홈 목록
+  자체가 다시 나타나는 게 아니므로) 게시판 범위가 풀리지 않음.
+- `ViewModels/GalleryViewModel.swift`: `boardScopeID`(신규) — 설정되면
+  검색·태그·카테고리·거리 기준 등 모든 파생 목록이 그 게시판으로
+  좁혀짐(칩 개수까지 일관되게).
+- `Views/GalleryView.swift`: 탭이 보일 때마다(`onAppear`/`onChange`)
+  `navigation.currentHomeBoardID`를 `viewModel.boardScopeID`로 동기화.
+  범위가 있으면 내비게이션 타이틀에 게시판 이름 표시("갤러리 ·
+  게시판명").
+- `Views/PlacesMapView.swift`: `visibleCards`가 기존 `mapFilterIDs`
+  (게시판의 "지도에서 보기" 일회성 액션, 여전히 우선)에 이어
+  `currentHomeBoardID`도 확인하도록 확장. 범위가 있으면 타이틀에
+  게시판 이름 표시.
+- 결과: 홈에서 특정 게시판에 들어가 있으면 갤러리·지도 탭도 그
+  게시판의 장소만 보여주고, 홈이 게시판 목록(전체)이면 갤러리·지도도
+  전체를 보여줌.
+
 ### 2026-09-10 (59차) — 카드 편집에 "웹 검색으로 채우기" 추가
 #### Added
 - `Services/AIProvider.swift`: `AIProvider.searchWebForDetails(name:address:)`
