@@ -36,10 +36,21 @@ final class GalleryViewModel: ObservableObject {
         }
     }
 
+    /// The reference card's own id when distance-sorting from another
+    /// saved card (never set for "현재 위치") — pinned to the top of
+    /// `filteredPlaceCards` below rather than sorted in as an ordinary
+    /// entry.
+    private var pinnedReferenceCardID: String? {
+        guard case .card(let id) = distanceReference else { return nil }
+        return id
+    }
+
     /// Filtered by the status chip, then sorted — the exact set the grid
     /// renders. Mirrors Peragra's `TripDetailView.sortedPlaces`.
     var filteredPlaceCards: [PlaceCard] {
-        searchFilteredPlaceCards.filter(statusFilter.matches).sorted(by: sortMode, distanceFrom: distanceReferenceCoordinate)
+        searchFilteredPlaceCards
+            .filter(statusFilter.matches)
+            .sorted(by: sortMode, distanceFrom: distanceReferenceCoordinate, pinnedID: pinnedReferenceCardID)
     }
 
     var totalCount: Int {

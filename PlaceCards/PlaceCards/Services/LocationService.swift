@@ -19,19 +19,35 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
             manager.delegate = self
             switch manager.authorizationStatus {
             case .notDetermined:
+                // Don't start the timeout yet — it's not waiting on a
+                // location fix yet, but on however long the person takes
+                // to respond to the system permission dialog, which
+                // routinely exceeds a few seconds. Starting it here was
+                // the actual bug behind "현재 위치" never showing a
+                // distance on first use: the timeout fired and resolved
+                // this call with nil before the person even answered the
+                // prompt, so the real fix that arrived once they granted
+                // it (see locationManagerDidChangeAuthorization) had
+                // nothing left to resume — `continuation` was already
+                // nil, so it was silently dropped every time.
                 manager.requestWhenInUseAuthorization()
             case .authorizedWhenInUse, .authorizedAlways:
                 manager.requestLocation()
+                startTimeout()
             default:
                 finish(with: nil)
             }
-            // A denied/restricted authorization never calls back, and even
-            // an authorized fetch can hang (poor signal, background
-            // throttling) — this guarantees the caller isn't stuck waiting
-            // forever.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
-                self?.finish(with: nil)
-            }
+        }
+    }
+
+    /// A denied/restricted authorization never calls back, and even an
+    /// authorized fetch can hang (poor signal, background throttling) —
+    /// this guarantees the caller isn't stuck waiting forever. Only
+    /// started once a location fix has actually been requested, not
+    /// while still waiting on the permission dialog.
+    private func startTimeout() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            self?.finish(with: nil)
         }
     }
 
@@ -39,6 +55,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             manager.requestLocation()
+            startTimeout()
         case .denied, .restricted:
             finish(with: nil)
         default:

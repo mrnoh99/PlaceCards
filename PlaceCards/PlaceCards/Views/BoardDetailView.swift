@@ -31,13 +31,21 @@ struct BoardDetailView: View {
         }
     }
 
+    /// The reference card's own id when distance-sorting from another
+    /// saved card (never set for "현재 위치") — pinned to the top of
+    /// `cards` below rather than sorted in as an ordinary entry.
+    private var pinnedReferenceCardID: String? {
+        guard case .card(let id) = distanceReference else { return nil }
+        return id
+    }
+
     /// Filtered by the status chip, then sorted — the exact set the list
     /// renders. Mirrors Peragra's `TripDetailView.sortedPlaces`.
     private var cards: [PlaceCard] {
         allCards
             .filter(statusFilter.matches)
             .filter { categoryFilter == nil || $0.category == categoryFilter }
-            .sorted(by: sortMode, distanceFrom: distanceReferenceCoordinate)
+            .sorted(by: sortMode, distanceFrom: distanceReferenceCoordinate, pinnedID: pinnedReferenceCardID)
     }
 
     /// Every card in this board, offered by name as a "Distance from…"
