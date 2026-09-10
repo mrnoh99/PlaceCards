@@ -62,10 +62,14 @@ struct AIAnalysisResult {
     let confidence: Double
 }
 
-/// A user-supplied AI account (BYOK) that can look at a screenshot or photo
-/// and guess the place it shows.
+/// A user-supplied AI account (BYOK) that can look at one or more
+/// screenshots/photos and extract every place they show — a single
+/// screenshot's caption or map info card often names several distinct
+/// places at once, and several screenshots may be handed over together so
+/// the model can cross-reference them (mirrors Peragra's
+/// `AIExtractionService.extractPlaces(images:)`).
 protocol AIProvider {
-    func analyzeImage(imageData: Data, prompt: String) async throws -> AIAnalysisResult
+    func analyzePlaces(imageDatas: [Data], prompt: String) async throws -> [AIAnalysisResult]
 }
 
 enum AIProviderFactory {
@@ -80,17 +84,20 @@ enum AIProviderFactory {
 }
 
 let defaultPlaceAnalysisPrompt = """
-이 이미지는 지도 앱 스크린샷이거나 SNS(예: 인스타그램) 게시물일 수 있습니다.
-이미지에서 알아볼 수 있는 장소(상호명)를 찾아 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
-{"placeName": "장소명", "address": "주소 또는 null", "description": "간단한 설명 또는 null", "confidence": 0.0에서 1.0 사이 숫자}
+이 이미지(들)는 지도 앱 스크린샷이거나 SNS(예: 인스타그램) 게시물 스크린샷일 수 있습니다.
+이미지에 등장하는 모든 장소(상호명)를 찾아 각각에 대해 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
+한 이미지(또는 여러 이미지 전체)에 여러 장소가 나열되어 있으면 전부 별도 항목으로 포함하세요.
+확실하지 않은 장소명은 추측해서 만들어내지 말고 제외하세요.
+{"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "간단한 설명 또는 null", "confidence": 0.0에서 1.0 사이 숫자}]}
+장소를 하나도 찾지 못했으면 {"places": []}로 답하세요.
 """
 
 /// The three providers below all end up with the model's raw text reply and
 /// need the same last step: pull the JSON object out of it (models don't
 /// reliably skip prose/markdown fences despite the prompt asking for none —
 /// confirmed the hard way while building Peragra's equivalent extraction
-/// service) and decode it into an `AIAnalysisResult`.
-private func parsePlaceAnalysisResult(from text: String) throws -> AIAnalysisResult {
+/// service) and decode it into a list of `AIAnalysisResult`s.
+private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisResult] {
     var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     if let fenceRange = trimmed.range(of: "```(?:json)?\\s*([\\s\\S]*?)\\s*```", options: .regularExpression) {
         trimmed = trimmed[fenceRange]
@@ -112,16 +119,21 @@ private func parsePlaceAnalysisResult(from text: String) throws -> AIAnalysisRes
         let description: String?
         let confidence: Double?
     }
+    struct ExtractedPlacesResponse: Decodable {
+        let places: [ExtractedPlace]
+    }
 
-    guard let parsed = try? JSONDecoder().decode(ExtractedPlace.self, from: data) else {
+    guard let parsed = try? JSONDecoder().decode(ExtractedPlacesResponse.self, from: data) else {
         throw PlaceCardsError.decodingError("장소 정보를 추출하지 못했습니다.")
     }
-    return AIAnalysisResult(
-        placeName: parsed.placeName,
-        address: parsed.address,
-        description: parsed.description,
-        confidence: parsed.confidence ?? 0.5
-    )
+    return parsed.places.map { place in
+        AIAnalysisResult(
+            placeName: place.placeName,
+            address: place.address,
+            description: place.description,
+            confidence: place.confidence ?? 0.5
+        )
+    }
 }
 
 /// Maps a failed HTTP response to a typed error the same way across every
@@ -144,10 +156,10 @@ private func performOpenAICompatibleChatRequest(
     apiKey: String,
     model: String,
     prompt: String,
-    imageData: Data,
+    imageDatas: [Data],
     serviceLabel: String,
     session: URLSession
-) async throws -> AIAnalysisResult {
+) async throws -> [AIAnalysisResult] {
     guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 
     var request = URLRequest(url: endpoint)
@@ -155,17 +167,15 @@ private func performOpenAICompatibleChatRequest(
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
 
-    let imageDataURL = "data:image/jpeg;base64,\(imageData.base64EncodedString())"
+    var content: [[String: Any]] = [["type": "text", "text": prompt]]
+    for imageData in imageDatas {
+        let imageDataURL = "data:image/jpeg;base64,\(imageData.base64EncodedString())"
+        content.append(["type": "image_url", "image_url": ["url": imageDataURL]])
+    }
     let body: [String: Any] = [
         "model": model,
         "messages": [
-            [
-                "role": "user",
-                "content": [
-                    ["type": "text", "text": prompt],
-                    ["type": "image_url", "image_url": ["url": imageDataURL]]
-                ]
-            ]
+            ["role": "user", "content": content]
         ]
     ]
     request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -183,7 +193,7 @@ private func performOpenAICompatibleChatRequest(
     else {
         throw PlaceCardsError.decodingError("\(serviceLabel) 응답을 해석할 수 없습니다.")
     }
-    return try parsePlaceAnalysisResult(from: text)
+    return try parsePlaceAnalysisResults(from: text)
 }
 
 // MARK: - Claude (Anthropic Messages API)
@@ -199,7 +209,7 @@ final class ClaudeProvider: AIProvider {
         self.session = session
     }
 
-    func analyzeImage(imageData: Data, prompt: String) async throws -> AIAnalysisResult {
+    func analyzePlaces(imageDatas: [Data], prompt: String) async throws -> [AIAnalysisResult] {
         guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 
         let url = URL(string: "https://api.anthropic.com/v1/messages")!
@@ -209,24 +219,23 @@ final class ClaudeProvider: AIProvider {
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        var content: [[String: Any]] = imageDatas.map { imageData in
+            [
+                "type": "image",
+                "source": [
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": imageData.base64EncodedString()
+                ]
+            ]
+        }
+        content.append(["type": "text", "text": prompt])
+
         let body: [String: Any] = [
             "model": model,
-            "max_tokens": 1024,
+            "max_tokens": 4096,
             "messages": [
-                [
-                    "role": "user",
-                    "content": [
-                        [
-                            "type": "image",
-                            "source": [
-                                "type": "base64",
-                                "media_type": "image/jpeg",
-                                "data": imageData.base64EncodedString()
-                            ]
-                        ],
-                        ["type": "text", "text": prompt]
-                    ]
-                ]
+                ["role": "user", "content": content]
             ]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -240,7 +249,7 @@ final class ClaudeProvider: AIProvider {
         guard let text = decoded.content.first(where: { $0.type == "text" })?.text else {
             throw PlaceCardsError.decodingError("Claude 응답을 해석할 수 없습니다.")
         }
-        return try parsePlaceAnalysisResult(from: text)
+        return try parsePlaceAnalysisResults(from: text)
     }
 }
 
@@ -265,13 +274,13 @@ final class OpenAIProvider: AIProvider {
         self.session = session
     }
 
-    func analyzeImage(imageData: Data, prompt: String) async throws -> AIAnalysisResult {
+    func analyzePlaces(imageDatas: [Data], prompt: String) async throws -> [AIAnalysisResult] {
         try await performOpenAICompatibleChatRequest(
             endpoint: URL(string: "https://api.openai.com/v1/chat/completions")!,
             apiKey: apiKey,
             model: model,
             prompt: prompt,
-            imageData: imageData,
+            imageDatas: imageDatas,
             serviceLabel: "OpenAI",
             session: session
         )
@@ -299,7 +308,7 @@ final class GatewayProvider: AIProvider {
         self.session = session
     }
 
-    func analyzeImage(imageData: Data, prompt: String) async throws -> AIAnalysisResult {
+    func analyzePlaces(imageDatas: [Data], prompt: String) async throws -> [AIAnalysisResult] {
         // Trailing slash matters — the gateway's documented endpoint is
         // "/v1/gateway/chat/completions/" and a request without one risks
         // a 404 or a broken POST-to-GET redirect on a Django-style backend
@@ -310,7 +319,7 @@ final class GatewayProvider: AIProvider {
             apiKey: apiKey,
             model: model,
             prompt: prompt,
-            imageData: imageData,
+            imageDatas: imageDatas,
             serviceLabel: "Gateway",
             session: session
         )
@@ -330,7 +339,7 @@ final class GeminiProvider: AIProvider {
         self.session = session
     }
 
-    func analyzeImage(imageData: Data, prompt: String) async throws -> AIAnalysisResult {
+    func analyzePlaces(imageDatas: [Data], prompt: String) async throws -> [AIAnalysisResult] {
         guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 
         var components = URLComponents(
@@ -345,15 +354,14 @@ final class GeminiProvider: AIProvider {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        var parts: [[String: Any]] = [["text": prompt]]
+        for imageData in imageDatas {
+            parts.append(["inline_data": ["mime_type": "image/jpeg", "data": imageData.base64EncodedString()]])
+        }
+
         let body: [String: Any] = [
             "contents": [
-                [
-                    "role": "user",
-                    "parts": [
-                        ["text": prompt],
-                        ["inline_data": ["mime_type": "image/jpeg", "data": imageData.base64EncodedString()]]
-                    ]
-                ]
+                ["role": "user", "parts": parts]
             ]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -367,11 +375,11 @@ final class GeminiProvider: AIProvider {
             let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let candidates = json["candidates"] as? [[String: Any]],
             let content = candidates.first?["content"] as? [String: Any],
-            let parts = content["parts"] as? [[String: Any]],
-            let text = parts.first?["text"] as? String
+            let responseParts = content["parts"] as? [[String: Any]],
+            let text = responseParts.first?["text"] as? String
         else {
             throw PlaceCardsError.decodingError("Gemini 응답을 해석할 수 없습니다.")
         }
-        return try parsePlaceAnalysisResult(from: text)
+        return try parsePlaceAnalysisResults(from: text)
     }
 }
