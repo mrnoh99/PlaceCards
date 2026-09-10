@@ -107,187 +107,211 @@ struct BoardDetailView: View {
     }
 
     var body: some View {
-        Group {
-            if allCards.isEmpty {
-                ContentUnavailableView {
-                    Label("장소가 없습니다".localized, systemImage: "mappin.slash")
-                } description: {
-                    Text("오른쪽 위 + 버튼으로 이 게시판에 첫 장소를 추가해보세요.".localized)
+        mainContent
+            .safeAreaInset(edge: .bottom) {
+                if isSelecting {
+                    bulkActionBar
                 }
-            } else {
-                VStack(spacing: 0) {
-                    PlaceStatusFilterBar(
-                        sortMode: $sortMode,
-                        distanceReference: $distanceReference,
-                        hereCoordinate: $hereCoordinate,
-                        referenceCandidates: referenceCandidates,
-                        categoryFilter: $categoryFilter,
-                        categories: categories,
-                        filter: $statusFilter,
-                        allCount: searchFilteredCards.count,
-                        favoriteCount: searchFilteredCards.filter(\.isFavorite).count,
-                        visitedCount: searchFilteredCards.filter(\.isVisited).count
-                    )
-                    if cards.isEmpty {
-                        if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
-                            ContentUnavailableView.search
-                        } else {
-                            ContentUnavailableView {
-                                Label("해당하는 장소가 없습니다".localized, systemImage: "line.3.horizontal.decrease.circle")
-                            } description: {
-                                Text("다른 필터를 선택해보세요.".localized)
-                            }
-                        }
+            }
+            // Fires whenever this view becomes topmost — the initial push
+            // from Home, and again on popping back to it from a deeper push
+            // (e.g. PlaceCardDetailView) — so Gallery/Map (via
+            // `AppNavigation.currentHomeBoardID`) stay scoped to this board
+            // for as long as Home is anywhere inside it, not just while this
+            // exact screen is on top.
+            .onAppear { navigation.currentHomeBoardID = board.id }
+            .navigationTitle(board.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $searchQuery, prompt: "이름, 주소로 검색".localized)
+            .toolbar { toolbarContent }
+            .task { refreshExportPlacesFile() }
+            .onChange(of: cards.count) { _, _ in refreshExportPlacesFile() }
+            .sheet(isPresented: $isPresentingAddCard) {
+                AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id))
+            }
+            .sheet(isPresented: $isPresentingFindDuplicates) {
+                FindDuplicatesSheet(cards: allCards)
+            }
+            .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {
+                FindDuplicatesSheet(manualGroup: selectedCards)
+            }
+            .navigationDestination(item: $selectedCard) { card in
+                PlaceCardDetailView(card: card)
+            }
+            .confirmationDialog(
+                deleteCardConfirmationTitle,
+                isPresented: Binding(
+                    get: { cardPendingDelete != nil },
+                    set: { if !$0 { cardPendingDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("삭제".localized, role: .destructive) {
+                    if let card = cardPendingDelete {
+                        storageService.delete(card)
+                    }
+                    cardPendingDelete = nil
+                }
+                Button("취소".localized, role: .cancel) { cardPendingDelete = nil }
+            }
+            .confirmationDialog(
+                bulkDeleteConfirmationTitle,
+                isPresented: $isConfirmingBulkDelete,
+                titleVisibility: .visible
+            ) {
+                Button(bulkDeleteConfirmationButtonTitle, role: .destructive) {
+                    deleteSelected()
+                }
+                Button("취소".localized, role: .cancel) {}
+            }
+            .alert("카테고리 입력".localized, isPresented: $isPresentingCustomCategoryInput) {
+                TextField("카테고리".localized, text: $customCategoryInput)
+                Button("변경".localized) {
+                    applyCategory(customCategoryInput)
+                    customCategoryInput = ""
+                }
+                Button("취소".localized, role: .cancel) { customCategoryInput = "" }
+            }
+    }
+
+    /// The three "\"이름\"을 삭제할까요?"/"N개 ..." confirmation strings
+    /// below, and `mainContent`/`toolbarContent` further down, all used to
+    /// be written directly inline in `body` — split out because the
+    /// compiler couldn't type-check `body` as one expression once nearly
+    /// every literal in it became a non-literal `String` via `.localized`
+    /// ("unable to type-check this expression in reasonable time").
+    private var deleteCardConfirmationTitle: String {
+        "\"" + (cardPendingDelete?.name ?? "") + "\"을 삭제할까요?".localized
+    }
+
+    private var bulkDeleteConfirmationTitle: String {
+        "\(selectedIDs.count)" + "개 장소를 삭제할까요?".localized
+    }
+
+    private var bulkDeleteConfirmationButtonTitle: String {
+        "\(selectedIDs.count)" + "개 삭제".localized
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
+        if allCards.isEmpty {
+            ContentUnavailableView {
+                Label("장소가 없습니다".localized, systemImage: "mappin.slash")
+            } description: {
+                Text("오른쪽 위 + 버튼으로 이 게시판에 첫 장소를 추가해보세요.".localized)
+            }
+        } else {
+            VStack(spacing: 0) {
+                PlaceStatusFilterBar(
+                    sortMode: $sortMode,
+                    distanceReference: $distanceReference,
+                    hereCoordinate: $hereCoordinate,
+                    referenceCandidates: referenceCandidates,
+                    categoryFilter: $categoryFilter,
+                    categories: categories,
+                    filter: $statusFilter,
+                    allCount: searchFilteredCards.count,
+                    favoriteCount: searchFilteredCards.filter(\.isFavorite).count,
+                    visitedCount: searchFilteredCards.filter(\.isVisited).count
+                )
+                if cards.isEmpty {
+                    if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                        ContentUnavailableView.search
                     } else {
-                        List {
-                            ForEach(cards) { card in
-                                // No NavigationLink/Button wraps the row —
-                                // in a List, either one claims the whole
-                                // row as its own tap target and swallows
-                                // taps on PlaceCardListRow's own favorite/
-                                // visited buttons before they ever fire
-                                // (confirmed broken; Peragra's own
-                                // PlaceRowView/PlaceListingView sidesteps
-                                // this the same way, with no NavigationLink
-                                // around its row at all). A plain
-                                // .onTapGesture on the row instead only
-                                // fires for points the row's own Buttons
-                                // don't already claim, so both work.
-                                HStack(alignment: .top, spacing: 8) {
-                                    if isSelecting {
-                                        Button {
-                                            toggleSelection(card)
-                                        } label: {
-                                            Image(systemName: selectedIDs.contains(card.id) ? "checkmark.circle.fill" : "circle")
-                                                .font(.title3)
-                                                .foregroundStyle(selectedIDs.contains(card.id) ? Color.accentColor : .secondary)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .padding(.top, 6)
-                                    }
-                                    PlaceCardListRow(card: card, referenceCoordinate: distanceReferenceCoordinate)
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    if isSelecting {
-                                        toggleSelection(card)
-                                    } else {
-                                        selectedCard = card
-                                    }
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    if !isSelecting {
-                                        Button(role: .destructive) {
-                                            cardPendingDelete = card
-                                        } label: {
-                                            Label("삭제".localized, systemImage: "trash")
-                                        }
-                                    }
-                                }
-                            }
+                        ContentUnavailableView {
+                            Label("해당하는 장소가 없습니다".localized, systemImage: "line.3.horizontal.decrease.circle")
+                        } description: {
+                            Text("다른 필터를 선택해보세요.".localized)
                         }
-                        .listStyle(.plain)
                     }
+                } else {
+                    List {
+                        ForEach(cards) { card in
+                            cardRow(card)
+                        }
+                    }
+                    .listStyle(.plain)
                 }
             }
         }
-        .safeAreaInset(edge: .bottom) {
+    }
+
+    // No NavigationLink/Button wraps the row — in a List, either one
+    // claims the whole row as its own tap target and swallows taps on
+    // PlaceCardListRow's own favorite/visited buttons before they ever
+    // fire (confirmed broken; Peragra's own PlaceRowView/PlaceListingView
+    // sidesteps this the same way, with no NavigationLink around its row
+    // at all). A plain .onTapGesture on the row instead only fires for
+    // points the row's own Buttons don't already claim, so both work.
+    @ViewBuilder
+    private func cardRow(_ card: PlaceCard) -> some View {
+        HStack(alignment: .top, spacing: 8) {
             if isSelecting {
-                bulkActionBar
+                Button {
+                    toggleSelection(card)
+                } label: {
+                    Image(systemName: selectedIDs.contains(card.id) ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(selectedIDs.contains(card.id) ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
+            }
+            PlaceCardListRow(card: card, referenceCoordinate: distanceReferenceCoordinate)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isSelecting {
+                toggleSelection(card)
+            } else {
+                selectedCard = card
             }
         }
-        // Fires whenever this view becomes topmost — the initial push
-        // from Home, and again on popping back to it from a deeper push
-        // (e.g. PlaceCardDetailView) — so Gallery/Map (via
-        // `AppNavigation.currentHomeBoardID`) stay scoped to this board
-        // for as long as Home is anywhere inside it, not just while this
-        // exact screen is on top.
-        .onAppear { navigation.currentHomeBoardID = board.id }
-        .navigationTitle(board.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $searchQuery, prompt: "이름, 주소로 검색".localized)
-        .toolbar {
+        .swipeActions(edge: .trailing) {
             if !isSelecting {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        isPresentingAddCard = true
-                    } label: {
-                        Label("장소 추가".localized, systemImage: "plus")
-                    }
-                }
-                if allCards.count > 1 {
-                    ToolbarItem(placement: .secondaryAction) {
-                        Button {
-                            isPresentingFindDuplicates = true
-                        } label: {
-                            Label("중복 찾기".localized, systemImage: "arrow.triangle.merge")
-                        }
-                    }
-                }
-                if !cards.isEmpty {
-                    ToolbarItem(placement: .secondaryAction) {
-                        exportPlacesMenu
-                    }
+                Button(role: .destructive) {
+                    cardPendingDelete = card
+                } label: {
+                    Label("삭제".localized, systemImage: "trash")
                 }
             }
-            if !allCards.isEmpty {
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if !isSelecting {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isPresentingAddCard = true
+                } label: {
+                    Label("장소 추가".localized, systemImage: "plus")
+                }
+            }
+            if allCards.count > 1 {
                 ToolbarItem(placement: .secondaryAction) {
                     Button {
-                        isSelecting.toggle()
-                        if !isSelecting { selectedIDs.removeAll() }
+                        isPresentingFindDuplicates = true
                     } label: {
-                        Text(isSelecting ? "취소".localized : "선택".localized)
+                        Label("중복 찾기".localized, systemImage: "arrow.triangle.merge")
                     }
                 }
             }
-        }
-        .task { refreshExportPlacesFile() }
-        .onChange(of: cards.count) { _, _ in refreshExportPlacesFile() }
-        .sheet(isPresented: $isPresentingAddCard) {
-            AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id))
-        }
-        .sheet(isPresented: $isPresentingFindDuplicates) {
-            FindDuplicatesSheet(cards: allCards)
-        }
-        .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {
-            FindDuplicatesSheet(manualGroup: selectedCards)
-        }
-        .navigationDestination(item: $selectedCard) { card in
-            PlaceCardDetailView(card: card)
-        }
-        .confirmationDialog(
-            "\"" + (cardPendingDelete?.name ?? "") + "\"을 삭제할까요?".localized,
-            isPresented: Binding(
-                get: { cardPendingDelete != nil },
-                set: { if !$0 { cardPendingDelete = nil } }
-            ),
-            titleVisibility: .visible
-        ) {
-            Button("삭제".localized, role: .destructive) {
-                if let card = cardPendingDelete {
-                    storageService.delete(card)
+            if !cards.isEmpty {
+                ToolbarItem(placement: .secondaryAction) {
+                    exportPlacesMenu
                 }
-                cardPendingDelete = nil
             }
-            Button("취소".localized, role: .cancel) { cardPendingDelete = nil }
         }
-        .confirmationDialog(
-            "\(selectedIDs.count)" + "개 장소를 삭제할까요?".localized,
-            isPresented: $isConfirmingBulkDelete,
-            titleVisibility: .visible
-        ) {
-            Button("\(selectedIDs.count)" + "개 삭제".localized, role: .destructive) {
-                deleteSelected()
+        if !allCards.isEmpty {
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    isSelecting.toggle()
+                    if !isSelecting { selectedIDs.removeAll() }
+                } label: {
+                    Text(isSelecting ? "취소".localized : "선택".localized)
+                }
             }
-            Button("취소".localized, role: .cancel) {}
-        }
-        .alert("카테고리 입력".localized, isPresented: $isPresentingCustomCategoryInput) {
-            TextField("카테고리".localized, text: $customCategoryInput)
-            Button("변경".localized) {
-                applyCategory(customCategoryInput)
-                customCategoryInput = ""
-            }
-            Button("취소".localized, role: .cancel) { customCategoryInput = "" }
         }
     }
 

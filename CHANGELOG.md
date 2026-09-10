@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (76차) — 빌드 오류 수정: BoardDetailView body 타입체크 시간 초과
+#### Fixed
+- `Views/BoardDetailView.swift`: 같은 "unable to type-check this
+  expression in reasonable time" 오류가 `body`에서 발생. `Group { if
+  allCards.isEmpty {...} else {...} }`를 `mainContent`(신규,
+  `@ViewBuilder`)로, `List`의 `ForEach` 행 내용을 `cardRow(_:)`(신규)
+  로, `.toolbar { ... }` 안의 여러 `ToolbarItem`을 `toolbarContent`
+  (신규, `@ToolbarContentBuilder`)로 분리. 두 `confirmationDialog`의
+  `"\"이름\"을 삭제할까요?"`/`"N개 ...` 문자열도(75차와 같은 `+` 체인
+  패턴) `deleteCardConfirmationTitle`/`bulkDeleteConfirmationTitle`/
+  `bulkDeleteConfirmationButtonTitle` 계산 프로퍼티로 분리. `body`
+  자체는 이제 이 조각들을 조합하는 모디파이어 체인만 남음.
+
 ### 2026-09-10 (75차) — 빌드 오류 수정: body 타입체크 시간 초과
 #### Fixed
 - `Views/EditPlaceCardSheet.swift`, `Views/MapScreenshotImportSheet.swift`:
