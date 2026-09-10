@@ -79,9 +79,25 @@ struct BoardDetailView: View {
                     } else {
                         List {
                             ForEach(cards) { card in
-                                NavigationLink {
-                                    PlaceCardDetailView(card: card)
-                                } label: {
+                                // A `NavigationLink { } label: { PlaceCardListRow(...) }`
+                                // here would make the *whole row* the link's
+                                // tap target inside a List, swallowing taps
+                                // on PlaceCardListRow's own favorite/visited
+                                // buttons before they ever fire. Using an
+                                // invisible NavigationLink alongside the real
+                                // (visible, interactive) row content instead
+                                // still gives the row its disclosure chevron
+                                // and "tap anywhere else to open detail"
+                                // behavior, but lets the row's own buttons
+                                // take priority over it.
+                                ZStack {
+                                    NavigationLink {
+                                        PlaceCardDetailView(card: card)
+                                    } label: {
+                                        EmptyView()
+                                    }
+                                    .opacity(0)
+
                                     PlaceCardListRow(card: card)
                                 }
                                 .swipeActions(edge: .trailing) {

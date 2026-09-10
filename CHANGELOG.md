@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-10 (18차) — 게시판 리스트에서 방문/즐겨찾기 토글 버튼이 안 눌리는 문제 수정
+#### Fixed
+- 게시판 장소 목록(`BoardDetailView`)에서 `PlaceCardListRow`를
+  `NavigationLink`의 label로 그대로 감쌌던 게 원인 — `List` 안에서는
+  NavigationLink가 행 전체를 탭 영역으로 가져가버려서, 행 안의
+  방문/즐겨찾기 버튼을 눌러도 토글 대신 상세화면으로 넘어가거나 아예
+  반응이 없었음. 보이지 않는(`opacity(0)`) NavigationLink를
+  `PlaceCardListRow`와 같은 `ZStack`에 겹쳐 두는 방식으로 변경 — 행의
+  디스클로저 화살표·"다른 곳 탭하면 상세화면 열림" 동작은 그대로
+  유지되면서, 행 자체의 버튼이 우선적으로 탭을 받도록 함.
+#### Changed
+- `PlaceCardListRow`의 평점 표시(주소 아래)에서 별 아이콘을 빼고 숫자만
+  표시하도록 변경(`Label(..., systemImage: "star")` → 그냥 `Text`).
+
 ### 2026-09-10 (17차) — "거리" 정렬에서 거리 같은 카드는 카테고리순으로
 #### Changed
 - "거리" 정렬 시, 기준으로부터의 거리가 같은 카드끼리는(대표적으로

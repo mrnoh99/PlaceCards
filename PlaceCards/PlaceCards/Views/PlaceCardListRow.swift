@@ -49,7 +49,7 @@ struct PlaceCardListRow: View {
 
                 HStack(spacing: 10) {
                     if let rating = card.rating {
-                        Label(String(format: "%.1f", rating), systemImage: "star")
+                        Text(String(format: "%.1f", rating))
                             .foregroundStyle(.orange)
                     }
                     Spacer()
