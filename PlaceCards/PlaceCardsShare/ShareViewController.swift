@@ -15,6 +15,19 @@ import UniformTypeIdentifiers
 final class ShareViewController: UIViewController {
     private let statusLabel = UILabel()
     private let spinner = UIActivityIndicatorView(style: .medium)
+    private let viewDidLoadTime = Date()
+    /// For a link/text share, `loadItem` (`handleLinkAttachment`) usually
+    /// resolves in well under a frame's time — no network I/O involved —
+    /// so without this floor, `finish()` could fire before the "PlaceCards로
+    /// 저장 중…" spinner/label have even been on screen long enough for a
+    /// glance to register real text: reported as the popup flashing and
+    /// vanishing with only the trailing "…" catching the eye. `finish()`
+    /// waits out whatever's left of this floor before switching to the
+    /// ✓/✗ state, so the "저장 중…" text is reliably visible first.
+    private static let minimumLoadingDisplaySeconds: TimeInterval = 0.5
+    /// How long the ✓/✗ result itself stays up before auto-dismissing —
+    /// long enough to actually read it, short enough not to feel stuck.
+    private static let resultDisplaySeconds: TimeInterval = 1.0
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -154,15 +167,19 @@ final class ShareViewController: UIViewController {
 
     /// Shows a brief success/failure message in place of the spinner, then
     /// dismisses on its own shortly after — so tapping PlaceCards always
-    /// ends with a visible result instead of the sheet just closing.
+    /// ends with a visible result instead of the sheet just closing. Waits
+    /// out `minimumLoadingDisplaySeconds` first (see its own comment) so
+    /// the "저장 중…" state isn't skipped past before it can be read.
     private func finish(success: Bool, message: String) {
-        DispatchQueue.main.async { [weak self] in
+        let elapsed = Date().timeIntervalSince(viewDidLoadTime)
+        let remainingFloor = max(0, Self.minimumLoadingDisplaySeconds - elapsed)
+        DispatchQueue.main.asyncAfter(deadline: .now() + remainingFloor) { [weak self] in
             guard let self else { return }
             spinner.stopAnimating()
             spinner.isHidden = true
             statusLabel.text = (success ? "✓ " : "✗ ") + message
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.resultDisplaySeconds) { [weak self] in
                 self?.extensionContext?.completeRequest(returningItems: nil)
             }
         }
