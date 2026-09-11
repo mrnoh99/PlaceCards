@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (114차) — 전체 속도 저하(이미지 캐시/다운샘플링) + Naver/Google 라벨 항상 "Google"로 고정되던 문제
+#### Added
+- `Services/MediaStore.swift`: "전체적으로 속도가 너무 늦다" 제보 —
+  리스트/그리드 셀, 상세보기의 히어로 배너·사진 스트립이 전부 자기
+  `body`에서 직접 `MediaStore.loadImage`를 호출하고 있었는데, 캐시가
+  전혀 없어서 스크롤/리렌더될 때마다(즉 사실상 매 프레임마다) 원본
+  해상도(수천 픽셀짜리 사진 그대로 저장됨) JPEG를 디스크에서 다시
+  디코딩하고 있었다 — 앱 전체가 느려지는 근본 원인으로 보임.
+  `NSCache` 기반 인메모리 캐시를 추가하고, 작은 썸네일 용도로는
+  ImageIO의 `CGImageSourceCreateThumbnailAtIndex`로 다운샘플링해서
+  디코딩하는 `loadThumbnail(fileName:maxPixelSize:)`를 새로 추가 —
+  전체 해상도로 디코딩한 뒤 SwiftUI가 축소해서 그리는 것보다 훨씬 싸다.
+  `PlaceCardListRow`(56pt)/`PlaceCardGridCell`(그리드 셀)/
+  `PlaceCardDetailView`의 히어로 배너·사진 스트립(96pt)이 이걸 쓰도록
+  교체 — 전체화면 사진 뷰어(`PhotoViewerSheet`)는 확대/축소가 필요해
+  원본 해상도(`loadImage`, 이제 캐시는 됨)를 그대로 유지.
+- `Services/Localization.swift`: `"Naver에서 검색"`/`"Naver 지도에서
+  확인됨"` 추가.
+#### Fixed
+- `Views/AddPlaceCardView.swift`: "naver로 보내도 구글에서 찾고 있다"
+  제보를 조사하다가, 실제 검증은 113차 수정 이후 제대로 Naver로 가고
+  있을 가능성이 높은데도 이 화면의 "Google에서 검색" 버튼/"Google
+  지도에서 확인됨" 라벨이 항상 고정 문구였다는 걸 발견 — 실제로 어느
+  쪽으로 검증됐는지와 무관하게 무조건 "Google"이라고 표시하고 있어서,
+  사용자 입장에선 (실제로 Naver로 갔더라도) Google로만 가는 것처럼
+  보일 수밖에 없었다. `row.originSource`를 기준으로 Naver 공유
+  출처면 "Naver에서 검색"/"Naver 지도에서 확인됨"으로 표시하도록
+  수정 — 다음 테스트에서 실제로 어느 쪽이 쓰이는지 화면에서 바로
+  확인 가능.
+
 ### 2026-09-11 (113차) — 네이버 공유인데 네이버 검색결과가 없다고 나오던 문제 수정
 #### Fixed
 - `ViewModels/PlaceCardViewModel.swift`(`search(rowID:)`): 네이버 지도에서

@@ -344,7 +344,7 @@ struct PlaceCardDetailView: View {
     /// the grid/list cells already do.
     @ViewBuilder
     private var heroPhotoSection: some View {
-        if let heroPhotoItem, let image = MediaStore.loadImage(fileName: heroPhotoItem.localPath) {
+        if let heroPhotoItem, let image = MediaStore.loadThumbnail(fileName: heroPhotoItem.localPath, maxPixelSize: 1000) {
             Button {
                 guard isHeroPhotoTappable else { return }
                 photoViewerStartIndex = heroPhotoIndex
@@ -373,7 +373,7 @@ struct PlaceCardDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array(card.media.allItems.enumerated()), id: \.element.id) { index, item in
-                        if let image = MediaStore.loadImage(fileName: item.localPath) {
+                        if let image = MediaStore.loadThumbnail(fileName: item.localPath, maxPixelSize: 288) {
                             Button {
                                 photoViewerStartIndex = index
                                 isPresentingPhotoViewer = true

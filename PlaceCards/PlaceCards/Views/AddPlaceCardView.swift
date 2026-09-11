@@ -272,9 +272,14 @@ struct AddPlaceCardView: View {
                 .foregroundStyle(.secondary)
 
                 if row.wrappedValue.chosenResult != nil {
-                    Label("Google 지도에서 확인됨".localized, systemImage: "checkmark.seal")
-                        .font(.caption2)
-                        .foregroundStyle(.green)
+                    Label(
+                        row.wrappedValue.originSource == .naverMapShare
+                            ? "Naver 지도에서 확인됨".localized
+                            : "Google 지도에서 확인됨".localized,
+                        systemImage: "checkmark.seal"
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.green)
                 }
 
                 Button {
@@ -283,7 +288,19 @@ struct AddPlaceCardView: View {
                     if row.wrappedValue.isSearching {
                         ProgressView()
                     } else {
-                        Text("Google에서 검색".localized)
+                        // Which backend this actually verifies against
+                        // isn't up to the user's choice here — a Naver
+                        // Map share always checks against Naver's own
+                        // listings (see `PlaceCardViewModel.search(rowID:)`)
+                        // — so the button's own label should say which
+                        // one it's really about to call rather than always
+                        // claiming Google, which was actively misleading
+                        // once this button could mean either.
+                        Text(
+                            row.wrappedValue.originSource == .naverMapShare
+                                ? "Naver에서 검색".localized
+                                : "Google에서 검색".localized
+                        )
                     }
                 }
                 .font(.caption)

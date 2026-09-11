@@ -91,7 +91,7 @@ struct PlaceCardListRow: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color.secondary.opacity(0.15))
             if let firstItem = card.coverPhoto,
-               let image = MediaStore.loadImage(fileName: firstItem.localPath) {
+               let image = MediaStore.loadThumbnail(fileName: firstItem.localPath, maxPixelSize: 168) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
