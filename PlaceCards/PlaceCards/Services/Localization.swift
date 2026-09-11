@@ -220,7 +220,7 @@ enum Localization {
         "메모 없음": "No memo",
         "모델": "Model",
         "모두 병합했습니다": "Everything Merged",
-        "모든 게시판·장소를 직접 고른 파일로 백업하거나, 백업 파일에서 복원합니다 — 복원하면 지금 앱에 있는 모든 데이터가 그 파일 내용으로 교체됩니다. 사진 자체는 백업에 포함되지 않고, 같은 기기에서 복원할 때만 정상적으로 보입니다.": "Back up every board and place to a file you choose, or restore from a backup file — restoring replaces everything currently in the app with that file's contents. Photos themselves aren't included in the backup, and only appear correctly when restoring on the same device.",
+        "모든 게시판·장소를 직접 고른 파일로 백업하거나, 백업 파일에서 복원합니다 — 복원하면 지금 앱에 있는 모든 데이터가 그 파일 내용으로 교체됩니다. 사진도 함께 포함되므로 다른 기기에서 복원해도 정상적으로 보입니다(그만큼 파일 용량은 커질 수 있습니다).": "Back up every board and place to a file you choose, or restore from a backup file — restoring replaces everything currently in the app with that file's contents. Photos are included too, so they show up correctly even when restoring on a different device (the file will be larger as a result).",
         "방문함": "Visited",
         "백업 폴더 선택…": "Choose Backup Folder…",
         "백업 폴더를 설정하지 못했습니다.": "Couldn't set the backup folder.",

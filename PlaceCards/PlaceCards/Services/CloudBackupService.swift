@@ -39,17 +39,44 @@ enum CloudBackupService {
         return resolved
     }
 
+    /// A cheap "did anything actually change" fingerprint, checked before
+    /// paying for a full re-export — `BackupService.exportData` now embeds
+    /// every photo's actual bytes (see its own doc comment), so where this
+    /// used to be a small, harmless JSON re-write on every single
+    /// foreground/background transition `MainTabView` triggers it from,
+    /// skipping it here when nothing's new avoids repeatedly re-reading
+    /// and re-writing however many megabytes of photos this device has.
+    /// Card count/deletion and any card edit are both covered by
+    /// `updatedAt`; a board-only edit (a rename, no card touched) can slip
+    /// past this undetected — an acceptable trade for how rarely that
+    /// happens against how often this fires otherwise, and it's still
+    /// caught the next time any card actually changes.
+    @MainActor
+    private static var lastBackedUpFingerprint: Int?
+
+    @MainActor
+    private static func fingerprint(for storageService: StorageService) -> Int {
+        var hasher = Hasher()
+        hasher.combine(storageService.boards.count)
+        hasher.combine(storageService.placeCards.count)
+        hasher.combine(storageService.placeCards.map(\.updatedAt).max())
+        return hasher.finalize()
+    }
+
     /// Best-effort — exports the full data set and overwrites the single
     /// snapshot file in the app's iCloud container. Never throws; a
     /// failure here (no container, no iCloud account, a write error)
     /// just means this particular snapshot didn't happen.
     @MainActor
     static func backup(storageService: StorageService) async {
+        let currentFingerprint = fingerprint(for: storageService)
+        guard currentFingerprint != lastBackedUpFingerprint else { return }
         guard let containerURL = await resolveContainerDocumentsURL() else { return }
         guard let data = try? BackupService.exportData(storageService: storageService) else { return }
         try? FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
         let fileURL = containerURL.appendingPathComponent(filename)
         try? data.write(to: fileURL, options: .atomic)
+        lastBackedUpFingerprint = currentFingerprint
     }
 
     /// Whether a real, non-empty snapshot exists — checked before

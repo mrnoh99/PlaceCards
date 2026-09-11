@@ -199,7 +199,7 @@ struct SettingsView: View {
         } header: {
             Text("데이터".localized)
         } footer: {
-            Text("모든 게시판·장소를 직접 고른 파일로 백업하거나, 백업 파일에서 복원합니다 — 복원하면 지금 앱에 있는 모든 데이터가 그 파일 내용으로 교체됩니다. 사진 자체는 백업에 포함되지 않고, 같은 기기에서 복원할 때만 정상적으로 보입니다.".localized)
+            Text("모든 게시판·장소를 직접 고른 파일로 백업하거나, 백업 파일에서 복원합니다 — 복원하면 지금 앱에 있는 모든 데이터가 그 파일 내용으로 교체됩니다. 사진도 함께 포함되므로 다른 기기에서 복원해도 정상적으로 보입니다(그만큼 파일 용량은 커질 수 있습니다).".localized)
         }
         .fileExporter(
             isPresented: $showingBackupExporter,

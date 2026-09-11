@@ -12,14 +12,16 @@ import UniformTypeIdentifiers
 /// parallel `Backup*` struct.
 ///
 /// Peragra has no photo/media model at all, so its backups are pure
-/// metadata. PlaceCards does have photos (`PlaceCard.media`), but this
-/// follows Peragra's scope exactly and does **not** bundle the actual
-/// image files — only `MediaItem`'s filename references travel with the
-/// backup (harmless on a same-device restore, where those files are
-/// still on disk; on a different device or after a reinstall, a restored
-/// card's photos just won't have a thumbnail, same as Peragra never
-/// having had media in the first place). `SettingsView` says as much in
-/// the footer text next to the buttons that use this.
+/// metadata. PlaceCards does have photos (`PlaceCard.media`), and unlike
+/// the first version of this file (ported from Peragra's own scope
+/// exactly), this now bundles the actual image bytes too — `mediaFiles`
+/// below, base64-encoded inline by `Data`'s own `Codable` conformance
+/// (simplest option within Foundation alone; no zip/archive library this
+/// project depends on) — so a restore/import on a *different* device or
+/// after a reinstall actually brings photos back, not just metadata
+/// pointing at files that were never there. `SettingsView`'s footer text
+/// next to the buttons that use this was written for the old,
+/// metadata-only behavior and needs to stay in sync with this comment.
 enum BackupService {
     struct BackupData: Codable {
         var app = "placecards"
@@ -27,6 +29,15 @@ enum BackupService {
         var exportedAt: Date = Date()
         var boards: [Board]
         var placeCards: [PlaceCard]
+        /// Every referenced photo's actual bytes, keyed by
+        /// `MediaItem.localPath` (the filename `MediaStore` resolves).
+        /// Added after this backup format's first release, so an older
+        /// backup file simply decodes this as `nil` — its cards restore
+        /// with no photos, exactly like this format always behaved before
+        /// this field existed (every field added since first release is
+        /// `Optional` for exactly this forward/backward decode safety —
+        /// see `PlaceCard.memo`'s own doc comment).
+        var mediaFiles: [String: Data]?
     }
 
     enum BackupError: LocalizedError {
@@ -75,7 +86,8 @@ enum BackupService {
     /// folder backup (`AutoBackupService`).
     @MainActor
     static func exportData(storageService: StorageService) throws -> Data {
-        let backup = BackupData(boards: storageService.boards, placeCards: storageService.placeCards)
+        let placeCards = storageService.placeCards
+        let backup = BackupData(boards: storageService.boards, placeCards: placeCards, mediaFiles: collectMediaFiles(for: placeCards))
         return try makeEncoder().encode(backup)
     }
 
@@ -83,8 +95,41 @@ enum BackupService {
     /// 내보내기" (Export Board), shared via `ShareLink`.
     @MainActor
     static func exportBoard(_ board: Board, storageService: StorageService) throws -> Data {
-        let backup = BackupData(boards: [board], placeCards: storageService.placeCards(inBoard: board.id))
+        let placeCards = storageService.placeCards(inBoard: board.id)
+        let backup = BackupData(boards: [board], placeCards: placeCards, mediaFiles: collectMediaFiles(for: placeCards))
         return try makeEncoder().encode(backup)
+    }
+
+    /// Every referenced photo's actual bytes for `placeCards`, keyed by
+    /// filename — read straight from disk (`MediaStore.loadData`, no
+    /// `UIImage` decode/re-encode round trip), so a backup carries
+    /// pixel-identical copies of whatever's already stored rather than a
+    /// lossy recompression. Deduplicated by filename, though two different
+    /// cards sharing one file name shouldn't happen in the first place
+    /// (`StorageService.delete` treats each card's media as its own).
+    private static func collectMediaFiles(for placeCards: [PlaceCard]) -> [String: Data] {
+        var files: [String: Data] = [:]
+        for card in placeCards {
+            for item in card.media.allItems where files[item.localPath] == nil {
+                if let data = MediaStore.loadData(fileName: item.localPath) {
+                    files[item.localPath] = data
+                }
+            }
+        }
+        return files
+    }
+
+    /// Writes every embedded photo back to `MediaStore` under its original
+    /// filename — a same-device restore just overwrites identical bytes
+    /// (harmless), while a cross-device restore/import is exactly the case
+    /// this exists for: without it, a restored/imported card's
+    /// `MediaItem.localPath` would point at a filename nothing on the
+    /// receiving device has ever written.
+    private static func writeMediaFiles(_ mediaFiles: [String: Data]?) {
+        guard let mediaFiles else { return }
+        for (fileName, data) in mediaFiles {
+            try? MediaStore.writeData(data, fileName: fileName)
+        }
     }
 
     /// Decodes a `BackupData` payload without applying it anywhere — used
@@ -117,6 +162,7 @@ enum BackupService {
     static func restore(from data: Data, storageService: StorageService) throws {
         let backup = try decode(data)
         storageService.replaceAll(boards: backup.boards, placeCards: backup.placeCards)
+        writeMediaFiles(backup.mediaFiles)
     }
 
     /// Adds a board (and its place cards) from a shared/exported file
@@ -130,6 +176,7 @@ enum BackupService {
     @MainActor
     @discardableResult
     static func importBoard(_ backup: BackupData, storageService: StorageService) -> [Board] {
+        writeMediaFiles(backup.mediaFiles)
         var importedBoards: [Board] = []
         for board in backup.boards {
             var newBoard = board

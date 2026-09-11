@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (117차) — 백업에 사진 실제 포함
+#### Changed
+- `Services/BackupService.swift`: Peragra(사진/미디어 모델이 아예 없는
+  자매 앱)의 백업 로직을 그대로 이식하면서 "실제 이미지 바이트는
+  포함하지 않는다"는 설계 범위도 그대로 따랐던 것을 확인 — 이번에
+  `BackupData`에 `mediaFiles: [String: Data]?`(파일명 → 원본 바이트,
+  `Data`의 기본 Codable 동작으로 JSON 안에 base64로 인코딩) 필드를
+  추가해 실제로 포함하도록 확장. zip 같은 아카이브 형식 대신 단일 JSON
+  파일 구조를 그대로 유지 — 이 프로젝트가 의존하는 압축 라이브러리가
+  없어서 Foundation만으로 되는 가장 단순한 방법을 택함(용량은 base64
+  오버헤드만큼 더 커짐). "전체 백업"/"게시판 내보내기"/자동 폴더 백업/
+  iCloud 자동 백업 전부 같은 `exportData`/`exportBoard`를 쓰므로 동일하게
+  적용됨. 복원(`restore`)·게시판 가져오기(`importBoard`) 둘 다 임베드된
+  사진을 원래 파일명 그대로 `MediaStore`에 다시 써서, 다른 기기에서
+  복원/가져오기해도 사진이 정상적으로 보임. 이전 버전에서 만든 백업
+  파일(사진 없음)은 `mediaFiles`가 없어도 그냥 nil로 디코딩되어 기존과
+  동일하게 동작(카드는 복원, 사진만 없음).
+- `Services/MediaStore.swift`: `loadData(fileName:)`(UIImage 디코드/
+  재인코딩 없이 원본 바이트 그대로 읽기)/`writeData(_:fileName:)`(이미
+  정해진 파일명으로 그대로 쓰기, 복원용) 추가.
+- `Services/CloudBackupService.swift`: iCloud 자동 백업은 앱을 열고 닫을
+  때마다(포그라운드/백그라운드 전환마다) 매번 재실행되는데, 이제 사진
+  바이트까지 포함되면서 변경 사항이 없어도 매번 몇 MB~수십 MB를
+  다시 읽고 쓰는 건 낭비라 카드 개수/최근 수정 시각 기반의 가벼운
+  "변경 없으면 건너뛰기" 체크 추가. 게시판 이름만 바뀐 경우처럼 카드가
+  전혀 안 바뀐 board 전용 수정은 이 체크로 못 잡을 수 있지만(다음에
+  카드가 바뀌면 그때 반영됨), 매 전환마다 도는 빈도를 생각하면 감수할
+  만한 트레이드오프.
+- `Views/SettingsView.swift`: "사진 자체는 백업에 포함되지 않고..." 안내
+  문구를 새 동작에 맞게 수정.
+
 ### 2026-09-11 (116차) — 사용자 제보 6건 처리
 #### Added
 - `Models/PlaceCard.swift`: `reservationInfo`(예약 방법, 예: "캐치테이블

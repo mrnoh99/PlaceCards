@@ -111,6 +111,24 @@ struct MediaStore {
         return image
     }
 
+    /// Raw, undecoded bytes for a stored photo — used by `BackupService` to
+    /// embed a card's actual photos in an exported backup with no
+    /// unnecessary decode/re-encode round trip through `UIImage` (which
+    /// would also silently recompress a JPEG a second time).
+    static func loadData(fileName: String) -> Data? {
+        try? Data(contentsOf: directoryURL.appendingPathComponent(fileName))
+    }
+
+    /// Writes bytes under an exact, already-known filename — unlike
+    /// `saveImage(data:)`, which always mints a fresh UUID name for a
+    /// newly captured/downloaded photo. `BackupService.restore`/
+    /// `.importBoard` need this instead: a restored/imported card's
+    /// `MediaItem.localPath` values are fixed at export time and must
+    /// resolve to those same names afterward.
+    static func writeData(_ data: Data, fileName: String) throws {
+        try data.write(to: directoryURL.appendingPathComponent(fileName), options: .atomic)
+    }
+
     static func delete(fileName: String) {
         let url = directoryURL.appendingPathComponent(fileName)
         try? FileManager.default.removeItem(at: url)
