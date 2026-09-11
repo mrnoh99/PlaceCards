@@ -83,31 +83,44 @@ struct PlaceStatusFilterBar: View {
         return referenceCandidates.first { $0.id == id }
     }
 
+    /// Two separate horizontally-scrolling rows rather than one long one
+    /// — the sort/reference/category menus on top, the 전체/즐겨찾기/방문
+    /// status chips on their own line below. A single combined row could
+    /// run wide enough (a long category name, all three menus showing at
+    /// once) that the status chips ended up scrolled out of view entirely
+    /// rather than just needing a scroll to reach.
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                sortMenu
-                if sortMode == .distance {
-                    referenceMenu
+        VStack(alignment: .leading, spacing: 4) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    sortMenu
+                    if sortMode == .distance {
+                        referenceMenu
+                    }
+                    if !categories.isEmpty {
+                        categoryMenu
+                    }
                 }
-                if !categories.isEmpty {
-                    categoryMenu
-                }
-                Divider().frame(height: 20)
-                chip(title: "전체 (".localized + "\(allCount))", isSelected: filter.isAll) {
-                    filter.favoriteOnly = false
-                    filter.visitedOnly = false
-                }
-                chip(title: "⭐ 즐겨찾기 (".localized + "\(favoriteCount))", isSelected: filter.favoriteOnly) {
-                    filter.favoriteOnly.toggle()
-                }
-                chip(title: "✅ 방문 (".localized + "\(visitedCount))", isSelected: filter.visitedOnly) {
-                    filter.visitedOnly.toggle()
-                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    chip(title: "전체 (".localized + "\(allCount))", isSelected: filter.isAll) {
+                        filter.favoriteOnly = false
+                        filter.visitedOnly = false
+                    }
+                    chip(title: "⭐ 즐겨찾기 (".localized + "\(favoriteCount))", isSelected: filter.favoriteOnly) {
+                        filter.favoriteOnly.toggle()
+                    }
+                    chip(title: "✅ 방문 (".localized + "\(visitedCount))", isSelected: filter.visitedOnly) {
+                        filter.visitedOnly.toggle()
+                    }
+                }
+                .padding(.horizontal)
+            }
         }
+        .padding(.vertical, 8)
     }
 
     private var sortMenu: some View {
