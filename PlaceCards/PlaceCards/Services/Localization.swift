@@ -100,6 +100,7 @@ enum Localization {
         "앱 언어": "App Language",
         "카드 검색": "Search cards",
         "카테고리 검색": "Search categories",
+        "카테고리별 보기": "Browse by Category",
         "앱 화면 전체에서 사용하는 언어입니다. 사진 스캔·웹 검색 결과의 언어는 아래 \"AI 응답 언어\"에서 따로 정합니다.": "This is the language used throughout the app's screens. The language of photo-scan and web-search results is set separately below, under \"AI Response Language\".",
         " API 키가 저장되었습니다.": " API key saved.",
         " 정보를 채웠습니다.": " filled in.",

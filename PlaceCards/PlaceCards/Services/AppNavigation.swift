@@ -30,8 +30,21 @@ final class AppNavigation: ObservableObject {
     /// views' own comments for why that's enough here.
     @Published var currentHomeBoardID: String?
 
+    /// Set by `HomeView`'s own category chips (browsing "by category"
+    /// rather than by board) — `GalleryView` consumes this once, via
+    /// `.onChange` rather than `.onAppear` (so merely revisiting the tab
+    /// doesn't keep reapplying a filter the user has since cleared), and
+    /// resets it back to nil right after, the same one-shot shape as
+    /// `mapFilterIDs`/`showOnMap(_:)` below.
+    @Published var galleryCategoryFilter: String?
+
     func showOnMap(_ ids: Set<String>) {
         mapFilterIDs = ids
         selectedTab = .map
+    }
+
+    func showInGallery(category: String) {
+        galleryCategoryFilter = category
+        selectedTab = .gallery
     }
 }

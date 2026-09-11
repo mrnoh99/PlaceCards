@@ -1,11 +1,32 @@
 import SwiftUI
 
+/// Which layout the "갤러리" tab renders its cards in — a segmented
+/// toggle in the toolbar, not a Settings option, same reasoning as
+/// `PlacesMapView`'s own map-provider picker: it's a per-visit display
+/// choice, not something worth burying elsewhere. Persisted via
+/// `@AppStorage` purely so it doesn't reset every time the tab is left
+/// and revisited.
+private enum GalleryLayout: String, CaseIterable, Identifiable {
+    case grid, list
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .grid: return "square.grid.2x2"
+        case .list: return "list.bullet"
+        }
+    }
+}
+
 struct GalleryView: View {
     @StateObject private var viewModel: GalleryViewModel
     @EnvironmentObject private var navigation: AppNavigation
     @EnvironmentObject private var storageService: StorageService
 
+    @AppStorage("galleryLayout") private var layoutRaw: String = GalleryLayout.grid.rawValue
     @State private var selectedCard: PlaceCard?
+    @State private var cardPendingDelete: PlaceCard?
     @State private var isPresentingFindDuplicates = false
 
     /// Multi-select mode for bulk actions — mirrors `BoardDetailView`'s
@@ -40,6 +61,10 @@ struct GalleryView: View {
         viewModel.filteredPlaceCards.filter { selectedIDs.contains($0.id) }
     }
 
+    private var layout: GalleryLayout {
+        GalleryLayout(rawValue: layoutRaw) ?? .grid
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -55,14 +80,7 @@ struct GalleryView: View {
                     favoriteCount: viewModel.favoriteCount,
                     visitedCount: viewModel.visitedCount
                 )
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
-                        ForEach(viewModel.filteredPlaceCards) { card in
-                            gridCell(card)
-                        }
-                    }
-                    .padding()
-                }
+                cardsContent
             }
             .safeAreaInset(edge: .bottom) {
                 if isSelecting {
@@ -83,6 +101,17 @@ struct GalleryView: View {
             .onChange(of: navigation.currentHomeBoardID) { _, newValue in
                 viewModel.boardScopeID = newValue
             }
+            // One-shot: `HomeView`'s "카테고리별 보기" chips set this and
+            // switch to this tab; consumed here (via `.onChange`, not
+            // `.onAppear`, so merely revisiting this tab afterward doesn't
+            // keep reapplying it once the user's cleared the filter) and
+            // reset back to nil right away. See `AppNavigation
+            // .showInGallery(category:)`.
+            .onChange(of: navigation.galleryCategoryFilter) { _, newValue in
+                guard let newValue else { return }
+                viewModel.categoryFilter = newValue
+                navigation.galleryCategoryFilter = nil
+            }
             .toolbar { toolbarContent }
             .overlay {
                 if viewModel.filteredPlaceCards.isEmpty {
@@ -99,6 +128,22 @@ struct GalleryView: View {
             }
             .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {
                 FindDuplicatesSheet(manualGroup: selectedCards)
+            }
+            .confirmationDialog(
+                deleteCardConfirmationTitle,
+                isPresented: Binding(
+                    get: { cardPendingDelete != nil },
+                    set: { if !$0 { cardPendingDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("삭제".localized, role: .destructive) {
+                    if let card = cardPendingDelete {
+                        storageService.delete(card)
+                    }
+                    cardPendingDelete = nil
+                }
+                Button("취소".localized, role: .cancel) { cardPendingDelete = nil }
             }
             .confirmationDialog(
                 bulkDeleteConfirmationTitle,
@@ -121,12 +166,42 @@ struct GalleryView: View {
         }
     }
 
+    private var deleteCardConfirmationTitle: String {
+        "\"" + (cardPendingDelete?.name ?? "") + "\"을 삭제할까요?".localized
+    }
+
     private var bulkDeleteConfirmationTitle: String {
         "\(selectedIDs.count)" + "개 장소를 삭제할까요?".localized
     }
 
     private var bulkDeleteConfirmationButtonTitle: String {
         "\(selectedIDs.count)" + "개 삭제".localized
+    }
+
+    /// Grid or list, per `layout` — same underlying `viewModel
+    /// .filteredPlaceCards`, sort, filters, and selection either way, so
+    /// switching layout never changes *what* is showing, only how it's
+    /// arranged.
+    @ViewBuilder
+    private var cardsContent: some View {
+        switch layout {
+        case .grid:
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
+                    ForEach(viewModel.filteredPlaceCards) { card in
+                        gridCell(card)
+                    }
+                }
+                .padding()
+            }
+        case .list:
+            List {
+                ForEach(viewModel.filteredPlaceCards) { card in
+                    listRow(card)
+                }
+            }
+            .listStyle(.plain)
+        }
     }
 
     // Same reasoning as `BoardDetailView.cardRow(_:)`: no NavigationLink
@@ -161,8 +236,55 @@ struct GalleryView: View {
             }
     }
 
+    /// List-layout counterpart of `gridCell(_:)` — identical to
+    /// `BoardDetailView.cardRow(_:)` (same left checkmark button while
+    /// selecting, same tap/swipe handling), since list layout here is
+    /// meant to be that exact same list, just reachable from this tab
+    /// too.
+    @ViewBuilder
+    private func listRow(_ card: PlaceCard) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            if isSelecting {
+                Button {
+                    toggleSelection(card)
+                } label: {
+                    Image(systemName: selectedIDs.contains(card.id) ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(selectedIDs.contains(card.id) ? Color.accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
+            }
+            PlaceCardListRow(card: card, referenceCoordinate: viewModel.distanceReferenceCoordinate)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isSelecting {
+                toggleSelection(card)
+            } else {
+                selectedCard = card
+            }
+        }
+        .swipeActions(edge: .trailing) {
+            if !isSelecting {
+                Button(role: .destructive) {
+                    cardPendingDelete = card
+                } label: {
+                    Label("삭제".localized, systemImage: "trash")
+                }
+            }
+        }
+    }
+
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                layoutRaw = (layout == .grid ? GalleryLayout.list : .grid).rawValue
+            } label: {
+                Image(systemName: layout == .grid ? GalleryLayout.list.systemImage : GalleryLayout.grid.systemImage)
+            }
+        }
         if !isSelecting {
             if viewModel.scopedCards.count > 1 {
                 ToolbarItem(placement: .secondaryAction) {

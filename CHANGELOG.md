@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (85차) — Home에 "카테고리별 보기", 갤러리에 리스트/그리드 전환
+#### Added
+- `Views/HomeView.swift`: 보드 목록 위에 "카테고리별 보기" 칩 행
+  추가(`categoryBrowseSection`, 신규) — 모든 게시판을 통틀어 존재하는
+  카테고리를 보여주고, 탭하면 갤러리 탭으로 이동하면서 그 카테고리로
+  바로 필터링됨(어느 게시판 소속인지와 무관하게 전체에서).
+- `Services/AppNavigation.swift`: `galleryCategoryFilter`(신규)와
+  `showInGallery(category:)`(신규) — `mapFilterIDs`/`showOnMap(_:)`와
+  같은 구조의 1회성 신호. `GalleryView`가 `.onChange`로 소비한 뒤 곧장
+  nil로 되돌려서, 이후 갤러리 탭에 다시 들어올 때 필터가 멋대로
+  재적용되지 않게 함.
+- `Views/GalleryView.swift`: 툴바에 그리드/리스트 전환 버튼 추가
+  (`GalleryLayout`, 신규 — `@AppStorage`로 유지). 리스트 레이아웃은
+  `BoardDetailView.cardRow(_:)`와 동일한 상호작용(선택 모드 체크
+  버튼, 스와이프 삭제)의 `listRow(_:)`(신규)를 사용 — 정렬·필터·
+  선택은 레이아웃과 무관하게 그대로 유지됨. 카테고리 없이(즉 툴바
+  탭이나 검색이 아니라 그냥) 갤러리에 들어오면 지금까지처럼 전체
+  PlaceCard가 보임.
+
 ### 2026-09-11 (84차) — 버그 수정: 거리순 정렬 "현재 위치"에서 거리 안 뜨던 문제
 #### Fixed
 - `Services/LocationService.swift`: `LocationService` 클래스에

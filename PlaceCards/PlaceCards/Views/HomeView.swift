@@ -48,6 +48,18 @@ struct HomeView: View {
         }
     }
 
+    /// Every category present across every board's cards — offered as
+    /// "카테고리별 보기" chips above the board list, each jumping straight
+    /// to the Gallery tab pre-filtered to that category
+    /// (`AppNavigation.showInGallery(category:)`).
+    private var allCategories: [String] {
+        let normalized = storageService.placeCards.compactMap { card -> String? in
+            guard let category = card.category, !category.isEmpty else { return nil }
+            return PlaceCategoryIcon.normalizedLabel(for: category)
+        }
+        return Array(Set(normalized)).sorted()
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -57,6 +69,7 @@ struct HomeView: View {
                     emptyState
                 } else {
                     List {
+                        categoryBrowseSection
                         ForEach(storageService.boards) { board in
                             NavigationLink {
                                 BoardDetailView(board: board)
@@ -164,6 +177,29 @@ struct HomeView: View {
         } actions: {
             Button("첫 게시판 만들기".localized) { isPresentingAddBoard = true }
                 .buttonStyle(.borderedProminent)
+        }
+    }
+
+    /// Sits above the board list — tapping a category jumps straight to
+    /// the Gallery tab pre-filtered to it (across every board, not just
+    /// whichever one that place happens to live in). Hidden when no card
+    /// anywhere has a category yet.
+    @ViewBuilder
+    private var categoryBrowseSection: some View {
+        if !allCategories.isEmpty {
+            Section("카테고리별 보기".localized) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(allCategories, id: \.self) { category in
+                            searchCategoryChip(title: category, isSelected: false) {
+                                navigation.showInGallery(category: category)
+                            }
+                        }
+                    }
+                }
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
         }
     }
 
