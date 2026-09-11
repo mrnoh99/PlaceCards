@@ -13,6 +13,15 @@ import PhotosUI
 /// doesn't have).
 struct AddPlaceCardView: View {
     private static let maxPhotos = 10
+    /// The "출처" picker this screen used to show had no effect on
+    /// anything visible: `PlaceCardViewModel.analyzeImages` ignores its
+    /// `source` argument entirely (the AI prompt is fixed regardless of
+    /// source), and the only other thing it drove — which of
+    /// `MediaBundle`'s four photo buckets a saved photo lands in — is
+    /// never shown back to the user anywhere in the app. Asking the user
+    /// to pick a bucket nobody ever sees again wasn't worth the extra
+    /// step, so this just picks one value for every save instead.
+    private static let defaultSource: SourceType = .onsitePhoto
 
     @StateObject private var viewModel: PlaceCardViewModel
     @Environment(\.dismiss) private var dismiss
@@ -24,7 +33,6 @@ struct AddPlaceCardView: View {
     /// doesn't survive being decoded into a `UIImage`.
     @State private var pickedImageDatas: [Data] = []
     @State private var isLoadingPhotos = false
-    @State private var sourceType: SourceType = .instagramScreenshot
     @State private var didCreateCards = false
     /// The seeded row's ID when opened from a shared link, so `.task` can
     /// run its search automatically exactly once — see
@@ -82,7 +90,7 @@ struct AddPlaceCardView: View {
                     } else {
                         Button("추가 (".localized + "\(viewModel.selectedRowCount)" + ")") {
                             Task {
-                                _ = await viewModel.createCards(source: sourceType)
+                                _ = await viewModel.createCards(source: Self.defaultSource)
                                 didCreateCards = true
                             }
                         }
@@ -142,13 +150,6 @@ struct AddPlaceCardView: View {
                 .disabled(isLoadingPhotos)
             }
 
-            Picker("출처".localized, selection: $sourceType) {
-                Text("인스타그램 스크린샷".localized).tag(SourceType.instagramScreenshot)
-                Text("구글 지도 스크린샷".localized).tag(SourceType.googleMapScreenshot)
-                Text("네이버 지도 스크린샷".localized).tag(SourceType.naverMapScreenshot)
-                Text("현장 촬영".localized).tag(SourceType.onsitePhoto)
-            }
-
             if !pickedImages.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -174,7 +175,7 @@ struct AddPlaceCardView: View {
                 }
 
                 Button {
-                    Task { await viewModel.analyzeImages(pickedImages, rawImageDatas: pickedImageDatas, source: sourceType) }
+                    Task { await viewModel.analyzeImages(pickedImages, rawImageDatas: pickedImageDatas, source: Self.defaultSource) }
                 } label: {
                     if viewModel.isLoading {
                         ProgressView()

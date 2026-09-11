@@ -349,7 +349,6 @@ enum Localization {
         "추가 (": "Add (",
         "추가하기": "Add",
         "추가할 장소 (": "Places to add (",
-        "출처": "Source",
         "취소": "Cancel",
         "카드 보기": "View Card",
         "카카오맵 공유": "Kakao Map share",

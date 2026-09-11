@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (97차) — 장소 추가의 "출처" Picker 제거
+#### Removed
+- `Views/AddPlaceCardView.swift`: 사진 선택 섹션의 "출처" `Picker`(인스타그램
+  스크린샷/구글 지도 스크린샷/네이버 지도 스크린샷/현장 촬영)를 없앴다.
+  이전에 분석한 대로, 이 값은 AI 분석 프롬프트에 전혀 영향을 주지 않고
+  (`analyzeImages`는 `source` 인자를 아예 안 씀), 유일한 실제 효과인
+  `MediaBundle`의 4개 사진 버킷 분류도 앱 어디에도 노출되지 않는 죽은
+  분류였다. 사용자가 보지도 못할 버킷을 고르게 하는 대신, 저장 시
+  고정값(`SourceType.onsitePhoto`)을 그대로 씀.
+- `Services/Localization.swift`: 이제 아무 데서도 안 쓰는 "출처" 키 정리.
+
 ### 2026-09-11 (96차) — Home에서 보드 선택 시 갤러리로 바로 이동, 리스트 화면 제거
 #### Removed
 - `Views/BoardDetailView.swift`(삭제): Home에서 보드를 누르면 이 화면(리스트
