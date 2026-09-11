@@ -27,6 +27,19 @@ struct PlaceCandidateRow: Identifiable {
     /// listed at all, so this carries straight into the saved card instead
     /// of waiting on a Google Places match that may never come.
     var scannedWebsite: String? = nil
+    /// Which app this row's info originally came from, if any — set once,
+    /// the first time `search(rowID:)` resolves this row, and never
+    /// touched again after that. Needed because `search(rowID:)` also
+    /// overwrites `name` with the cleaned-up parse of whatever was there
+    /// (see its own comment), which for a Naver share means the "[네이버
+    /// 지도]" tag and URL that `SharedLinkParser` uses to *recognize* a
+    /// Naver share are gone from `name` after the first search — without
+    /// this stored separately, tapping "Google에서 검색" again (to retry
+    /// after a first search came back empty, say) would silently
+    /// re-resolve from the now-plain name text, find no source to detect,
+    /// and verify against Google instead of Naver every time after the
+    /// first.
+    var originSource: SourceType?
     var searchResults: [PlaceSearchResult] = []
     /// The specific Google Places result the user tapped, if any — takes
     /// priority over the raw name/address at save time since it carries
@@ -200,17 +213,35 @@ final class PlaceCardViewModel: ObservableObject {
         if candidateRows[filledIndex].scannedWebsite == nil, let website = resolved.website {
             candidateRows[filledIndex].scannedWebsite = website
         }
+        if candidateRows[filledIndex].originSource == nil {
+            candidateRows[filledIndex].originSource = resolved.source
+        }
+        let originSource = candidateRows[filledIndex].originSource
 
         let combinedQuery = address.isEmpty ? resolved.name : "\(resolved.name) \(address)"
 
         do {
             let outcome: SearchOutcome
-            if resolved.source == .naverMapShare, let credentials = SettingsViewModel.currentNaverSearchCredentials() {
-                let results = try await NaverPlaceSearchService.search(
+            if originSource == .naverMapShare, let credentials = SettingsViewModel.currentNaverSearchCredentials() {
+                var results = try await NaverPlaceSearchService.search(
                     query: combinedQuery,
                     clientId: credentials.clientId,
                     clientSecret: credentials.clientSecret
                 )
+                // Naver's local search matches more like a business-
+                // directory keyword lookup than Google's free-text search
+                // — a full street address (down to the unit/floor number)
+                // appended to the name can fail to match even for a place
+                // that came from Naver Map itself, where the plain name
+                // alone would. Only retried when the combined query came
+                // back empty, so this never overrides a genuine match.
+                if results.isEmpty, !address.isEmpty {
+                    results = try await NaverPlaceSearchService.search(
+                        query: resolved.name,
+                        clientId: credentials.clientId,
+                        clientSecret: credentials.clientSecret
+                    )
+                }
                 outcome = SearchOutcome(results: results, hadUnfilteredMatches: !results.isEmpty)
             } else {
                 outcome = try await searchViaGoogle(query: combinedQuery, address: address, coordinateHint: resolved.coordinates)
