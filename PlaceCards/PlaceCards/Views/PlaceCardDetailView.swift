@@ -100,16 +100,22 @@ struct PlaceCardDetailView: View {
                 .padding(.horizontal)
 
                 if let coordinates = card.coordinates {
-                    Map(
-                        coordinateRegion: .constant(
-                            MKCoordinateRegion(
-                                center: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude),
-                                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                            )
-                        ),
-                        annotationItems: [card]
-                    ) { item in
-                        MapMarker(coordinate: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude))
+                    // `Map(coordinateRegion:)` (the pre-iOS 17 API, driven by
+                    // a `.constant()` binding) is prone to a well-known
+                    // MapKit bug: inside a plain `ScrollView` (not `List`),
+                    // its tiles can fail to finish loading and are left
+                    // permanently blank — with `allowsHitTesting(false)`
+                    // below (this is a static preview, not a real
+                    // interactive map) there's no gesture to ever retrigger
+                    // a retry, so a tile stuck blank stays that way. The
+                    // newer `Map(initialPosition:)` composable API uses a
+                    // different, more reliable rendering path that doesn't
+                    // exhibit this.
+                    Map(initialPosition: .region(MKCoordinateRegion(
+                        center: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude),
+                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                    ))) {
+                        Marker(card.name, coordinate: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude))
                     }
                     .frame(height: 180)
                     .padding(.horizontal)

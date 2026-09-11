@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (94차) — 버그 수정: 상세보기 지도 미리보기가 빈 칸으로 남는 문제
+#### Fixed
+- `Views/PlaceCardDetailView.swift`: 좌표 미리보기용 `Map`이 구버전(iOS 17 이전)
+  API인 `Map(coordinateRegion: .constant(...), annotationItems:)`로 되어 있었다.
+  이 API는 `ScrollView`(리스트가 아닌) 안에서 타일이 다 로드되지 못하고 빈
+  칸으로 멈추는 문제가 알려져 있는데, 이 미리보기는 `allowsHitTesting(false)`로
+  아예 상호작용이 막혀 있어서(사용자가 지도를 만지작거릴 일이 없는 순수
+  미리보기 목적) 한 번 멈추면 재시도를 유발할 제스처 자체가 없어 그대로
+  영구히 빈 칸으로 남는다. 더 안정적인 렌더링 경로를 쓰는 최신 컴포저블 API
+  `Map(initialPosition: .region(...))` + `Marker`로 교체.
+
 ### 2026-09-11 (93차) — 인스타그램 공유 링크는 캡처로 유도
 #### Added
 - `Services/SharedLinkParser.swift`: `isInstagramLink(_:)`(신규) — 공유 텍스트에서
