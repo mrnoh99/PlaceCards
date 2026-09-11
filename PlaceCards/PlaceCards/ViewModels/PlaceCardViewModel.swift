@@ -144,19 +144,22 @@ final class PlaceCardViewModel: ObservableObject {
     /// not just a ranking hint.
     private static let maxAddressMatchDistanceMeters: CLLocationDistance = 100
 
-    /// Verifies one row's current name (and, when present, address)
-    /// against Google Places to get a verified address, rating, and
-    /// contact details worth saving. The address narrows the query text
-    /// itself and, separately, is geocoded so every candidate can be
-    /// discarded unless it's actually within
-    /// `maxAddressMatchDistanceMeters` of it — name text alone isn't
-    /// enough to trust a result is the right place, only that it's
+    /// Verifies one row's current name (and, when present, address) to get
+    /// a verified address, rating, and contact details worth saving. A
+    /// Naver Map share is checked against Naver's own local-business
+    /// database (`NaverPlaceSearchService`, when its API credentials are
+    /// configured) rather than Google's — since it named one specific
+    /// place there, that's the source worth verifying it against. Every
+    /// other row (a Google Maps share, a plain typed name, or a Naver
+    /// share with no Naver Search credentials set) goes through
+    /// `searchViaGoogle`, whose address/coordinates-based distance filter
+    /// (`maxAddressMatchDistanceMeters`) discards any candidate that isn't
+    /// actually near where the row says it should be — name text alone
+    /// isn't enough to trust a result is the right place, only that it's
     /// *a* place with that name somewhere. When the row's name is itself
     /// a shared link/text, whatever `resolveSharedPlace` recovers from it
     /// (address, exact coordinates, extra notes) fills in any of those
-    /// fields the row doesn't already have, and its coordinates — being
-    /// exact, unlike a geocoded address — take priority as the location
-    /// ground-truth for the same distance filter.
+    /// fields the row doesn't already have.
     func search(rowID: UUID) async {
         guard let index = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
         let placeName = candidateRows[index].name
@@ -171,11 +174,6 @@ final class PlaceCardViewModel: ObservableObject {
             }
         }
 
-        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else {
-            errorMessage = PlaceCardsError.apiKeyMissing.localizedDescription
-            return
-        }
-
         let resolved = await Self.resolveSharedPlace(from: placeName)
 
         guard let filledIndex = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
@@ -188,32 +186,24 @@ final class PlaceCardViewModel: ObservableObject {
         }
 
         let combinedQuery = address.isEmpty ? resolved.name : "\(resolved.name) \(address)"
-        let googleService = GooglePlacesService(apiKey: apiKey)
-        let locationHint = resolved.coordinates ?? photoLocationHint
 
         do {
-            let rawResults = try await googleService.search(query: combinedQuery, coordinates: locationHint)
-            var results = rawResults
-
-            var groundTruth: CLLocation?
-            if let coordinates = resolved.coordinates {
-                groundTruth = CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude)
-            } else if !address.isEmpty, let addressLocation = try? await googleService.geocodeAddress(address) {
-                groundTruth = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
-            }
-
-            if let groundTruth {
-                results = rawResults.filter { result in
-                    guard let coordinates = result.coordinates else { return false }
-                    return groundTruth.distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
-                        <= Self.maxAddressMatchDistanceMeters
-                }
+            let outcome: SearchOutcome
+            if resolved.source == .naverMapShare, let credentials = SettingsViewModel.currentNaverSearchCredentials() {
+                let results = try await NaverPlaceSearchService.search(
+                    query: combinedQuery,
+                    clientId: credentials.clientId,
+                    clientSecret: credentials.clientSecret
+                )
+                outcome = SearchOutcome(results: results, hadUnfilteredMatches: !results.isEmpty)
+            } else {
+                outcome = try await searchViaGoogle(query: combinedQuery, address: address, coordinateHint: resolved.coordinates)
             }
 
             guard let index = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
-            candidateRows[index].searchResults = results
-            if results.isEmpty {
-                errorMessage = (!address.isEmpty && !rawResults.isEmpty)
+            candidateRows[index].searchResults = outcome.results
+            if outcome.results.isEmpty {
+                errorMessage = (!address.isEmpty && outcome.hadUnfilteredMatches)
                     ? "\"" + address + "\" 근처 100m 이내에서 찾지 못했습니다.".localized
                     : PlaceCardsError.noResults.localizedDescription
             }
@@ -222,11 +212,57 @@ final class PlaceCardViewModel: ObservableObject {
         }
     }
 
+    private struct SearchOutcome {
+        var results: [PlaceSearchResult]
+        /// Whether the underlying search found anything at all before any
+        /// distance-from-address filtering ran — lets the caller tell
+        /// "nothing exists with that name" apart from "found it, but not
+        /// near that address" for a clearer error message.
+        var hadUnfilteredMatches: Bool
+    }
+
+    /// Verifies against Google Places, narrowing by the row's address (or,
+    /// when there is one, the exact coordinates a Google Maps share link
+    /// itself already carried) via the distance ground-truth filter — see
+    /// `maxAddressMatchDistanceMeters`. The fallback path for anything
+    /// that isn't a Naver-origin share with Naver Search credentials
+    /// configured (see `search(rowID:)`).
+    private func searchViaGoogle(query: String, address: String, coordinateHint: Coordinates?) async throws -> SearchOutcome {
+        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else {
+            throw PlaceCardsError.apiKeyMissing
+        }
+        let googleService = GooglePlacesService(apiKey: apiKey)
+        let locationHint = coordinateHint ?? photoLocationHint
+        let rawResults = try await googleService.search(query: query, coordinates: locationHint)
+
+        var groundTruth: CLLocation?
+        if let coordinateHint {
+            groundTruth = CLLocation(latitude: coordinateHint.latitude, longitude: coordinateHint.longitude)
+        } else if !address.isEmpty, let addressLocation = try? await googleService.geocodeAddress(address) {
+            groundTruth = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
+        }
+
+        guard let groundTruth else {
+            return SearchOutcome(results: rawResults, hadUnfilteredMatches: !rawResults.isEmpty)
+        }
+        let filtered = rawResults.filter { result in
+            guard let coordinates = result.coordinates else { return false }
+            return groundTruth.distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
+                <= Self.maxAddressMatchDistanceMeters
+        }
+        return SearchOutcome(results: filtered, hadUnfilteredMatches: !rawResults.isEmpty)
+    }
+
     private struct ResolvedSharedPlace {
         var name: String
         var address: String?
         var coordinates: Coordinates?
         var note: String?
+        /// Which app the share came from, if any — `.naverMapShare` routes
+        /// `search(rowID:)` to `NaverPlaceSearchService` instead of Google
+        /// (when Naver Search credentials are configured); `nil` for plain
+        /// typed text, which always goes through Google as before.
+        var source: SourceType?
     }
 
     /// Turns whatever the user pasted (or a Share Extension handed over)
@@ -243,7 +279,9 @@ final class PlaceCardViewModel: ObservableObject {
 
         if let parsed = SharedLinkParser.parse(trimmed) {
             if let name = parsed.name {
-                return ResolvedSharedPlace(name: name, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note)
+                return ResolvedSharedPlace(
+                    name: name, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note, source: parsed.source
+                )
             }
             // A URL-only share (a Google Maps short link, or a full one
             // whose path didn't match the expected place/coordinates
@@ -251,11 +289,13 @@ final class PlaceCardViewModel: ObservableObject {
             // page itself instead, keeping whatever address/coordinates
             // the URL parse still did yield.
             if let url = parsed.url, let title = await LinkMetadataFetcher.fetchTitle(for: url) {
-                return ResolvedSharedPlace(name: title, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note)
+                return ResolvedSharedPlace(
+                    name: title, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note, source: parsed.source
+                )
             }
         }
 
-        return ResolvedSharedPlace(name: trimmed, address: nil, coordinates: nil, note: nil)
+        return ResolvedSharedPlace(name: trimmed, address: nil, coordinates: nil, note: nil, source: nil)
     }
 
     /// Saves every selected, named row as its own card in one pass — each

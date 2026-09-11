@@ -42,6 +42,7 @@ struct SettingsView: View {
                 appLanguageSection
                 googlePlacesAPISection
                 naverMapSection
+                naverSearchAPISection
                 aiImageAnalysisSection
                 scanResponseLanguageSection
                 backupSection
@@ -108,6 +109,22 @@ struct SettingsView: View {
                 .autocorrectionDisabled()
             Button("저장".localized) { viewModel.saveNaverMapClientId() }
             Text("\"지도\" 탭에서 Naver 지도를 선택했을 때만 사용됩니다. NAVER Cloud Platform Maps 애플리케이션의 Client ID이며, Secret은 필요 없습니다.".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var naverSearchAPISection: some View {
+        Section("Naver 검색 API (선택)".localized) {
+            SecureField("Client ID", text: $viewModel.naverSearchClientId)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            SecureField("Client Secret", text: $viewModel.naverSearchClientSecret)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("저장".localized) { viewModel.saveNaverSearchCredentials() }
+            Text("네이버 지도에서 공유받은 장소는 Google 대신 이 API로 검증합니다. 위 \"Naver 지도 표시\"와는 별개로, Naver Developers(developers.naver.com/apps)에서 발급받는 검색 API 애플리케이션의 Client ID/Secret입니다. 설정하지 않으면 지금처럼 Google로 검증합니다.".localized)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

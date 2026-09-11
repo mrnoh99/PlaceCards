@@ -13,6 +13,14 @@ enum KeychainKey: String {
     /// option (`NaverMapWebView`), not any REST API, so no secret is
     /// needed alongside it.
     case naverMapClientId
+    /// Search API (`openapi.naver.com`) credentials — a completely
+    /// separate Naver Developers application from the NCP Maps one above,
+    /// issued as a Client ID *and* Secret. Used by `NaverPlaceSearchService`
+    /// to verify a place shared from Naver Map against Naver's own
+    /// business listings, the same way `googlePlacesAPIKey` verifies a
+    /// Google Maps share against Google's.
+    case naverSearchClientId
+    case naverSearchClientSecret
 }
 
 struct KeychainService {

@@ -6,6 +6,11 @@ final class SettingsViewModel: ObservableObject {
     @Published var googleAPIKey: String = ""
 
     @Published var naverMapClientId: String = ""
+    /// Search API (`openapi.naver.com`) credentials — see
+    /// `KeychainKey.naverSearchClientId`'s doc comment for how this
+    /// differs from `naverMapClientId` above.
+    @Published var naverSearchClientId: String = ""
+    @Published var naverSearchClientSecret: String = ""
 
     @Published var aiProviderType: AIProviderType = .claude
     @Published var aiAPIKey: String = ""
@@ -31,6 +36,8 @@ final class SettingsViewModel: ObservableObject {
     init() {
         googleAPIKey = KeychainService.load(.googlePlacesAPIKey) ?? ""
         naverMapClientId = KeychainService.load(.naverMapClientId) ?? ""
+        naverSearchClientId = KeychainService.load(.naverSearchClientId) ?? ""
+        naverSearchClientSecret = KeychainService.load(.naverSearchClientSecret) ?? ""
         aiProviderType = Self.currentAIProviderType()
         aiAPIKey = KeychainService.load(aiProviderType.keychainKey) ?? ""
         gatewayModel = Self.currentGatewayModel()
@@ -63,6 +70,18 @@ final class SettingsViewModel: ObservableObject {
         return id
     }
 
+    /// Reads the saved Search API credentials without needing an instance,
+    /// so `PlaceCardViewModel` can look them up right before verifying a
+    /// Naver-origin shared link. `nil` unless *both* the ID and secret are
+    /// actually set — `NaverPlaceSearchService` needs both or neither.
+    static func currentNaverSearchCredentials() -> (clientId: String, clientSecret: String)? {
+        guard
+            let id = KeychainService.load(.naverSearchClientId), !id.isEmpty,
+            let secret = KeychainService.load(.naverSearchClientSecret), !secret.isEmpty
+        else { return nil }
+        return (id, secret)
+    }
+
     func loadAIKey(for provider: AIProviderType) {
         aiAPIKey = KeychainService.load(provider.keychainKey) ?? ""
     }
@@ -80,6 +99,16 @@ final class SettingsViewModel: ObservableObject {
         do {
             try KeychainService.save(naverMapClientId, for: .naverMapClientId)
             statusMessage = "Naver Maps Client ID가 저장되었습니다.".localized
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+
+    func saveNaverSearchCredentials() {
+        do {
+            try KeychainService.save(naverSearchClientId, for: .naverSearchClientId)
+            try KeychainService.save(naverSearchClientSecret, for: .naverSearchClientSecret)
+            statusMessage = "Naver 검색 API 정보가 저장되었습니다.".localized
         } catch {
             statusMessage = error.localizedDescription
         }

@@ -35,6 +35,7 @@
 		399D8B1FE40645CA818BCCE6 /* PlaceCardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */; };
 		55A589DB25C70EF736B2A979 /* LinkMetadataFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */; };
 		B41E418C1D9CEC3EC98CCADB /* SharedLinkParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */; };
+		388739161D821DA70D571EC8 /* NaverPlaceSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A560B6E414978F9BC02CB4C /* NaverPlaceSearchService.swift */; };
 		65514054CAC530015A805446 /* MapOpeners.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9370D575DBD0168041A510 /* MapOpeners.swift */; };
 		85842E834E1732A0B124144B /* PlaceCardSorting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BD2FA4433F73A530867558 /* PlaceCardSorting.swift */; };
 		01528318FFDC7D00B3F951D5 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 546F4B4EF47BC64FE89F026B /* LocationService.swift */; };
@@ -98,6 +99,7 @@
 		28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardDetailView.swift; sourceTree = "<group>"; };
 		06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkMetadataFetcher.swift; sourceTree = "<group>"; };
 		F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedLinkParser.swift; sourceTree = "<group>"; };
+		3A560B6E414978F9BC02CB4C /* NaverPlaceSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NaverPlaceSearchService.swift; sourceTree = "<group>"; };
 		0B9370D575DBD0168041A510 /* MapOpeners.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapOpeners.swift; sourceTree = "<group>"; };
 		0C52B78DCED0AEF583183D0C /* PlaceStatusFilterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceStatusFilterBar.swift; sourceTree = "<group>"; };
 		94BD2FA4433F73A530867558 /* PlaceCardSorting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardSorting.swift; sourceTree = "<group>"; };
@@ -216,6 +218,7 @@
 				F4471C1134E3C0AE75A943A9 /* StorageService.swift */,
 				FB7B3336DBCBFE8321EE4F85 /* MediaStore.swift */,
 				3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */,
+				3A560B6E414978F9BC02CB4C /* NaverPlaceSearchService.swift */,
 				A292915AAE28BAB7E1F58622 /* AIProvider.swift */,
 				B4A4FAE3C761D47BC7BDCFC2 /* PlaceCardsError.swift */,
 				06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */,
@@ -432,6 +435,7 @@
 				399D8B1FE40645CA818BCCE6 /* PlaceCardDetailView.swift in Sources */,
 				55A589DB25C70EF736B2A979 /* LinkMetadataFetcher.swift in Sources */,
 				B41E418C1D9CEC3EC98CCADB /* SharedLinkParser.swift in Sources */,
+				388739161D821DA70D571EC8 /* NaverPlaceSearchService.swift in Sources */,
 				65514054CAC530015A805446 /* MapOpeners.swift in Sources */,
 				85842E834E1732A0B124144B /* PlaceCardSorting.swift in Sources */,
 				01528318FFDC7D00B3F951D5 /* LocationService.swift in Sources */,

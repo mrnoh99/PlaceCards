@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (92차) — 네이버 링크는 Naver 검색 API로, 구글 링크는 Google Places로 검증
+#### Added
+- `Services/NaverPlaceSearchService.swift`(신규): 네이버 "검색 오픈API - 지역"
+  (`openapi.naver.com/v1/search/local.json`)을 호출해 이름/주소/카테고리/전화/좌표를
+  가져온다. 평점·리뷰수·사진은 이 API가 아예 제공하지 않아 `nil`로 남김.
+  - `mapx`/`mapy`를 위경도로 바꿀 때, 네이버 공식 문서는 KATECH(TM128)라고
+    설명하지만 실제 운영 중인 엔드포인트는 WGS84 좌표에 10,000,000을 곱한
+    값을 그대로 돌려주는 것으로 확인되어(문서와 실동작이 어긋나는, 꽤 알려진
+    케이스) 그 값을 신뢰해 10,000,000으로 나눔 — 다만 결과가 한반도 위경도
+    범위(대략 위도 33~39.5, 경도 124~132) 밖이면 그 가정이 틀렸다는 뜻이므로
+    좌표를 버리고 `nil` 처리해 잘못된 좌표가 저장되는 일을 막음.
+  - `Services/KeychainService.swift`: `naverSearchClientId`/`naverSearchClientSecret`
+    (신규) — 지도 탭 표시용 `naverMapClientId`(NCP Maps)와는 완전히 별개로,
+    Naver Developers(developers.naver.com/apps)에서 발급받는 검색 API
+    애플리케이션의 Client ID/Secret.
+  - `Views/SettingsView.swift`/`ViewModels/SettingsViewModel.swift`: "Naver
+    검색 API (선택)" 섹션(신규) 추가 — 설정하지 않으면 기존처럼 Google로만
+    검증됨(하위 호환).
+#### Changed
+- `ViewModels/PlaceCardViewModel.swift`: `search(rowID:)`가 이제 공유 출처에
+  따라 검증 대상을 나눈다 — `resolveSharedPlace`가 알아낸 출처가
+  네이버 공유(`.naverMapShare`)이고 Naver 검색 API 키가 설정돼 있으면
+  `NaverPlaceSearchService`로, 그 외(구글 공유·직접 입력·Naver 키 미설정)는
+  기존처럼 `searchViaGoogle`(새로 분리한 private 메서드, 로직은 동일)로 검증.
+  - Google 경로의 주소/좌표 기반 100m 거리 필터 로직은 그대로 유지, 다만
+    "찾았지만 그 주소 근처는 아님" vs "아예 없음" 에러 메시지 분기를 위해
+    `SearchOutcome`(신규 private struct)으로 결과와 함께 반환하도록 정리.
+
 ### 2026-09-11 (91차) — 공유받은 링크에서 이름 외의 정보도 전부 추출
 #### Changed
 - `Services/SharedLinkParser.swift`: `ParsedSharedPlace`에 `address`/`coordinates`/
