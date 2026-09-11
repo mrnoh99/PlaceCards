@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (96차) — Home에서 보드 선택 시 갤러리로 바로 이동, 리스트 화면 제거
+#### Removed
+- `Views/BoardDetailView.swift`(삭제): Home에서 보드를 누르면 이 화면(리스트
+  전용, 별도 화면)으로 들어가던 흐름을 없앴다. 이미 여러 차수에 걸쳐 갤러리
+  탭에 중복 찾기·내보내기·선택 모드·그리드/리스트 전환까지 이 화면과 동일한
+  기능을 전부 옮겨뒀던 터라, "게시판 하나만 보기"는 이제 갤러리를 보드로
+  스코프하는 것만으로 완전히 대체 가능해짐.
+#### Added
+- `Services/AppNavigation.swift`: `showBoardInGallery(_:)`(신규) — 보드
+  ID로 `currentHomeBoardID`를 설정하고 갤러리 탭으로 전환. 기존에
+  `BoardDetailView`가 자기 `.onAppear`에서 설정하던 것을, 이제 Home의 보드
+  행 탭이 대신 설정.
+- `Views/GalleryView.swift`: 보드로 스코프된 상태에서만 보이는 툴바 버튼 2개
+  추가 — "전체 보기"(스코프 해제, `currentHomeBoardID = nil`)와 "장소
+  추가"(그 보드로 `AddPlaceCardView` 열기, 기존 `BoardDetailView`의 "+" 버튼
+  대체). 리스트 화면이 없어지면서 유일하게 빠지는 기능이었던 "이 보드에
+  새 장소 추가하기"를 갤러리 쪽에 이식.
+#### Changed
+- `Views/HomeView.swift`: 보드 행의 `NavigationLink { BoardDetailView(...) }`를
+  `.onTapGesture { navigation.showBoardInGallery(board.id) }`로 교체
+  (스와이프 액션은 그대로 유지). 더 이상 신뢰할 수 없어진(보드 스코프 진입이
+  더는 Home 자신의 NavigationStack push/pop이 아니라 탭 전환으로 바뀌어서,
+  Home 안에서 검색 결과를 열었다 뒤로 가기만 해도 스코프가 잘못 풀릴 수
+  있었음) `.onAppear { currentHomeBoardID = nil }` 자동 초기화를 제거 —
+  대신 갤러리의 "전체 보기" 버튼이 스코프 해제의 유일한 경로가 됨.
+- `Services/Localization.swift`: `BoardDetailView` 전용이었던 빈 상태 문구
+  4개(신규 unused 검사에서 확인됨) 정리.
+
 ### 2026-09-11 (95차) — 버그 수정: 카드를 눌러 들어가면 사진 뷰어가 저절로 열리는 문제
 #### Fixed
 - `Views/PlaceCardDetailView.swift`: 갤러리/리스트에서 카드를 눌러 상세보기로

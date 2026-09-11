@@ -28,6 +28,11 @@ struct GalleryView: View {
     @State private var selectedCard: PlaceCard?
     @State private var cardPendingDelete: PlaceCard?
     @State private var isPresentingFindDuplicates = false
+    /// Only offered while scoped to one board (`scopedBoard`) — a new
+    /// place card needs a `boardId` to be created with, and there's no
+    /// per-board screen anymore to add one from otherwise (see
+    /// `AppNavigation.currentHomeBoardID`'s own doc comment).
+    @State private var isPresentingAddCard = false
 
     /// Multi-select mode for bulk actions — mirrors `BoardDetailView`'s
     /// own `isSelecting`/`selectedIDs`/bulk action bar exactly, just
@@ -125,6 +130,11 @@ struct GalleryView: View {
             }
             .sheet(isPresented: $isPresentingFindDuplicates) {
                 FindDuplicatesSheet(cards: viewModel.scopedCards)
+            }
+            .sheet(isPresented: $isPresentingAddCard) {
+                if let scopedBoard {
+                    AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: scopedBoard.id))
+                }
             }
             .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {
                 FindDuplicatesSheet(manualGroup: selectedCards)
@@ -278,6 +288,21 @@ struct GalleryView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        // Only way to leave a board scope now that Home's board list
+        // doesn't push into (and pop back out of) a per-board screen —
+        // see `AppNavigation.currentHomeBoardID`'s own doc comment.
+        if scopedBoard != nil, !isSelecting {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("전체 보기".localized) { navigation.currentHomeBoardID = nil }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isPresentingAddCard = true
+                } label: {
+                    Label("장소 추가".localized, systemImage: "plus")
+                }
+            }
+        }
         ToolbarItem(placement: .primaryAction) {
             Button {
                 layoutRaw = (layout == .grid ? GalleryLayout.list : .grid).rawValue

@@ -50,7 +50,6 @@
 		A5311A4AEF6683C1372FBD41 /* CloudBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF4F996FB557F5646DB46C6 /* CloudBackupService.swift */; };
 		72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */; };
 		26281DCA1D52ED3C056FC699 /* EditBoardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EBF0779067DD3CE85A2443D /* EditBoardSheet.swift */; };
-		BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */; };
 		7162B58255D046D5A17D8F46 /* PlaceCardListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */; };
 		FC9DFF6409F934D40EC33563 /* DuplicatePlaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */; };
 		75C0903DDB6825E6ADBFEDDB /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D698604B0123BD5E703A0E79 /* AppNavigation.swift */; };
@@ -115,7 +114,6 @@
 		5BF4F996FB557F5646DB46C6 /* CloudBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudBackupService.swift; sourceTree = "<group>"; };
 		5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBoardSheet.swift; sourceTree = "<group>"; };
 		1EBF0779067DD3CE85A2443D /* EditBoardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditBoardSheet.swift; sourceTree = "<group>"; };
-		F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoardDetailView.swift; sourceTree = "<group>"; };
 		BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardListRow.swift; sourceTree = "<group>"; };
 		49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatePlaces.swift; sourceTree = "<group>"; };
 		D698604B0123BD5E703A0E79 /* AppNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigation.swift; sourceTree = "<group>"; };
@@ -260,7 +258,6 @@
 				98E00E0CC8D64A894A3EA6AB /* HomeView.swift */,
 				5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */,
 				1EBF0779067DD3CE85A2443D /* EditBoardSheet.swift */,
-				F3E24842AE47DC34997A4D90 /* BoardDetailView.swift */,
 				BBCFCC7B5D484ECEC60F059C /* PlaceCardListRow.swift */,
 				778A14BCCA1249F619055685 /* GalleryView.swift */,
 				0C52B78DCED0AEF583183D0C /* PlaceStatusFilterBar.swift */,
@@ -412,7 +409,6 @@
 				B45C0F564E059AC4CEA37FFD /* BackupFolderSettings.swift in Sources */,
 				72A926F4588721E36CF74AA1 /* AddBoardSheet.swift in Sources */,
 				26281DCA1D52ED3C056FC699 /* EditBoardSheet.swift in Sources */,
-				BDCD4B81E0DB9979EAE18BFF /* BoardDetailView.swift in Sources */,
 				7162B58255D046D5A17D8F46 /* PlaceCardListRow.swift in Sources */,
 				C3406DD13ECA47C58C88ADD0 /* KeychainService.swift in Sources */,
 				CCC680FA33BDBF5F6DB8BD49 /* StorageService.swift in Sources */,

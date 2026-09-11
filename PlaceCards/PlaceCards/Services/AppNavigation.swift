@@ -20,14 +20,16 @@ final class AppNavigation: ObservableObject {
     /// Place card ids the Map tab should show exclusively — nil means
     /// show everything, as usual.
     @Published var mapFilterIDs: Set<String>?
-    /// The board the Home tab is currently drilled into (`BoardDetailView`),
-    /// or nil when it's back at the board list — Gallery and Map read this
-    /// to scope themselves to the same board Home is showing, so all three
-    /// tabs stay in sync about "which places" without the user having to
-    /// pick a board again in each one. Kept up to date by `HomeView`
-    /// (clears it) and `BoardDetailView` (sets it) via their own
-    /// `.onAppear`, not by tracking a full navigation path — see those
-    /// views' own comments for why that's enough here.
+    /// The board the user last picked from Home's board list, or nil for
+    /// "every board" — Gallery and Map read this to scope themselves to
+    /// that board, so all three tabs stay in sync about "which places"
+    /// without the user having to pick a board again in each one. Set by
+    /// `HomeView.showBoardInGallery` (a board row tap, which also switches
+    /// to the Gallery tab); cleared only by Gallery's own "전체 보기"
+    /// button (`GalleryView`) — not by any Home lifecycle event, since
+    /// Home's own root view now never goes away just because a board was
+    /// picked (there's no more push into a per-board screen to pop back
+    /// out of).
     @Published var currentHomeBoardID: String?
 
     /// Set by `HomeView`'s own category chips (browsing "by category"
@@ -45,6 +47,14 @@ final class AppNavigation: ObservableObject {
 
     func showInGallery(category: String) {
         galleryCategoryFilter = category
+        selectedTab = .gallery
+    }
+
+    /// A board row tap on Home — scopes Gallery (and Map) to just that
+    /// board's places and switches to the Gallery tab, replacing the old
+    /// "push into a per-board list screen" flow.
+    func showBoardInGallery(_ boardID: String) {
+        currentHomeBoardID = boardID
         selectedTab = .gallery
     }
 }

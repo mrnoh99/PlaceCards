@@ -3,8 +3,11 @@ import UIKit
 
 /// The board list — the app's home screen. Mirrors Peragra's
 /// `TripsListView`: a board (name + subtitle + cover icon) is created
-/// first, and place cards are only ever added inside one, from
-/// `BoardDetailView`.
+/// first, and place cards are only ever added inside one. Tapping a board
+/// doesn't push a per-board screen here — it scopes the Gallery tab to
+/// that board and switches to it (`AppNavigation.showBoardInGallery`),
+/// since Gallery's own list/grid toggle already covers everything a
+/// dedicated board screen would.
 struct HomeView: View {
     @EnvironmentObject private var storageService: StorageService
     @EnvironmentObject private var navigation: AppNavigation
@@ -71,49 +74,38 @@ struct HomeView: View {
                     List {
                         categoryBrowseSection
                         ForEach(storageService.boards) { board in
-                            NavigationLink {
-                                BoardDetailView(board: board)
-                            } label: {
-                                BoardRow(board: board, cardCount: storageService.placeCards(inBoard: board.id).count)
-                            }
-                            .swipeActions(edge: .trailing) {
-                                // Mirrors Peragra: deleting is only offered
-                                // once the board has no saved place cards,
-                                // so a swipe can never silently take place
-                                // cards (and their photos) with it.
-                                if storageService.placeCards(inBoard: board.id).isEmpty {
-                                    Button(role: .destructive) {
-                                        boardPendingDelete = board
-                                    } label: {
-                                        Label("삭제".localized, systemImage: "trash")
+                            BoardRow(board: board, cardCount: storageService.placeCards(inBoard: board.id).count)
+                                .contentShape(Rectangle())
+                                .onTapGesture { navigation.showBoardInGallery(board.id) }
+                                .swipeActions(edge: .trailing) {
+                                    // Mirrors Peragra: deleting is only offered
+                                    // once the board has no saved place cards,
+                                    // so a swipe can never silently take place
+                                    // cards (and their photos) with it.
+                                    if storageService.placeCards(inBoard: board.id).isEmpty {
+                                        Button(role: .destructive) {
+                                            boardPendingDelete = board
+                                        } label: {
+                                            Label("삭제".localized, systemImage: "trash")
+                                        }
                                     }
                                 }
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button {
-                                    boardPendingEdit = board
-                                } label: {
-                                    Label("수정".localized, systemImage: "pencil")
+                                .swipeActions(edge: .leading) {
+                                    Button {
+                                        boardPendingEdit = board
+                                    } label: {
+                                        Label("수정".localized, systemImage: "pencil")
+                                    }
+                                    .tint(.blue)
+                                    ExportBoardMenu(board: board, storageService: storageService)
                                 }
-                                .tint(.blue)
-                                ExportBoardMenu(board: board, storageService: storageService)
-                            }
                         }
                     }
                 }
             }
             .navigationTitle("PlaceCards")
-            // Fires whenever this root board list becomes visible again —
-            // initial load, and every pop back to it (from BoardDetailView,
-            // whatever depth) — but not while a deeper push (e.g. a place
-            // card detail within a board) merely covers BoardDetailView,
-            // since this view itself isn't reappearing then. That's what
-            // makes clearing the scope here safe: it only clears once the
-            // user has actually left every board, not on every transient
-            // onDisappear inside one. See `AppNavigation.currentHomeBoardID`.
-            .onAppear { navigation.currentHomeBoardID = nil }
             // `.always` so search stays visible without a pull-down/
-            // scroll — matches Gallery/BoardDetailView.
+            // scroll — matches Gallery.
             .searchable(text: $searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "카드 검색".localized)
             .onChange(of: searchQuery) { _, newValue in
                 if newValue.trimmingCharacters(in: .whitespaces).isEmpty {
