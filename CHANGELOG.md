@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (90차) — 공유받은 링크를 열면 자동으로 검색·선택
+#### Changed
+- `Views/AddPlaceCardView.swift`: 구글맵/네이버맵에서 "공유"로 넘어온 링크가
+  지금까지는 raw URL/텍스트가 그대로 이름 필드에 채워진 채로, 사용자가 직접
+  "Google에서 검색"을 누르고 결과를 골라야 했다. 이미 구글/네이버 지도
+  앱에서 장소를 특정해 보낸 것이므로 이 두 단계(검색 누르기·결과 고르기)를
+  자동화했다.
+  - `initialLinkRowID`(신규 `@State`)에 공유로 seed된 행의 ID를 기록해두고,
+    화면이 뜨자마자 `.task`에서 `autoResolveInitialLinkIfNeeded()`가
+    `PlaceCardViewModel.search(rowID:)`(수동 "Google에서 검색"과 완전히
+    같은 경로 — `SharedLinkParser`/`LinkMetadataFetcher`로 이름을 알아낸
+    뒤 Google Places로 검색)를 자동 실행.
+  - 검색 결과가 정확히 1건일 때만 자동으로 그 결과를 선택
+    (`chooseResult`) — 여러 건이면 이름만으로는 특정하기 부족하다는
+    뜻이므로 기존처럼 사용자가 직접 고르게 둔다(동명이인 장소를 다른 곳으로
+    잘못 저장하는 사고를 피하기 위함).
+  - 사진 스캔이나 "+ 장소 추가"로 연 경우는 `initialLinkRowID`가 `nil`이라
+    영향 없음.
+
 ### 2026-09-11 (89차) — Gateway에서도 선택한 모델에 따라 웹 검색으로 채우기 시도
 #### Changed
 - `Services/AIProvider.swift`: `GatewayProvider.searchWebForDetails`를 추가했다.

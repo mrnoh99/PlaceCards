@@ -26,6 +26,11 @@ struct AddPlaceCardView: View {
     @State private var isLoadingPhotos = false
     @State private var sourceType: SourceType = .instagramScreenshot
     @State private var didCreateCards = false
+    /// The seeded row's ID when opened from a shared link, so `.task` can
+    /// run its search automatically exactly once — see
+    /// `autoResolveInitialLinkIfNeeded()`. `nil` for every other way this
+    /// view opens (photo scan, "+ 장소 추가", blank row).
+    @State private var initialLinkRowID: UUID?
 
     /// `initialImageData` seeds the picker with a photo handed over from
     /// outside the normal PhotosPicker flow — namely a photo shared into
@@ -35,7 +40,12 @@ struct AddPlaceCardView: View {
     /// name field exactly as if the user had pasted it there by hand, so
     /// it goes through the same `PlaceCardViewModel.search(rowID:)` →
     /// `SharedLinkParser` resolution already used for manual paste, with
-    /// no separate code path of its own.
+    /// no separate code path of its own. `initialLinkRowID` then lets
+    /// `.task` run that same search on its own right away — a shared link
+    /// already named one specific, already-confirmed place (the user
+    /// picked and confirmed it in Google/Naver Maps before sharing), so
+    /// making them also tap "Google에서 검색" here would just be re-doing
+    /// a confirmation that already happened.
     init(viewModel: PlaceCardViewModel, initialImageData: Data? = nil, initialLinkText: String? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel)
         if let initialImageData, let image = UIImage(data: initialImageData) {
@@ -43,7 +53,9 @@ struct AddPlaceCardView: View {
             _pickedImageDatas = State(initialValue: [initialImageData])
         }
         if let initialLinkText, !initialLinkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            viewModel.candidateRows = [PlaceCandidateRow(name: initialLinkText, address: "")]
+            let row = PlaceCandidateRow(name: initialLinkText, address: "")
+            viewModel.candidateRows = [row]
+            _initialLinkRowID = State(initialValue: row.id)
         }
     }
 
@@ -88,7 +100,29 @@ struct AddPlaceCardView: View {
             .onChange(of: didCreateCards) { _, created in
                 if created { dismiss() }
             }
+            .task {
+                await autoResolveInitialLinkIfNeeded()
+            }
         }
+    }
+
+    /// Runs the same lookup a manual "Google에서 검색" tap would, right
+    /// away, for the row seeded from a shared link — see `init`. Only ever
+    /// runs once (`initialLinkRowID` is cleared immediately), and only
+    /// auto-picks a result when the search comes back with exactly one:
+    /// several results means the shared page's title alone wasn't a
+    /// precise enough query to trust picking blind, so — same as a manual
+    /// search with more than one hit — it's left for the user to choose.
+    private func autoResolveInitialLinkIfNeeded() async {
+        guard let rowID = initialLinkRowID else { return }
+        initialLinkRowID = nil
+        await viewModel.search(rowID: rowID)
+        guard
+            let row = viewModel.candidateRows.first(where: { $0.id == rowID }),
+            row.searchResults.count == 1,
+            let onlyResult = row.searchResults.first
+        else { return }
+        viewModel.chooseResult(onlyResult, forRowID: rowID)
     }
 
     private var photosSection: some View {
