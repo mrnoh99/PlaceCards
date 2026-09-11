@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (89차) — Gateway에서도 선택한 모델에 따라 웹 검색으로 채우기 시도
+#### Changed
+- `Services/AIProvider.swift`: `GatewayProvider.searchWebForDetails`를 추가했다.
+  Gateway 자체가 호스팅 웹 검색을 지원하는지는 여전히 문서화되어 있지 않지만
+  (Peragra의 동일 게이트웨이 클라이언트도 `tools` 필드를 전혀 쓰지 않는 것으로
+  확인됨), `GatewayModels.all`에 나열된 모델들은 게이트웨이 고유 모델이 아니라
+  실제 벤더 모델(Claude, GPT 계열)을 하나의 chat-completions 엔드포인트로
+  프록시한 것이므로, 선택된 모델 이름을 보고 그 벤더 고유의 웹 검색 도구
+  정의를 요청에 함께 실어 보내도록 했다.
+  - 모델 이름이 `claude`로 시작하면 `ClaudeProvider.searchWebForDetails`와
+    동일한 `web_search` 도구 정의를 사용.
+  - 모델 이름이 `gpt`로 시작하면 `OpenAIProvider.searchWebForDetails`와
+    동일한 `web_search` 도구 정의를 사용.
+  - 둘 다 아닌 커스텀/알 수 없는 모델은 기준으로 삼을 벤더가 없으므로
+    기존과 같이 "지원하지 않음" 오류로 처리(기본값 유지).
+  - 게이트웨이가 이 도구 필드를 실제로 인식해서 벤더에 전달해주는지는
+    검증되지 않았다 — 반영이 안 되면 모델이 검색 없이 답을 지어낼 수
+    있다는 점은 여전한 리스크이지만, 프로토콜 기본 문서 주석과 클래스 문서
+    주석에 이 가정과 근거를 명시해두었다.
+  - 프로토콜의 `searchWebForDetails` 문서 주석과 기본 구현의 오류 메시지도
+    "Gateway는 아직 지원 안 함" 같은 단정적 문구 대신, 이제 Gateway가
+    조건부로 지원됨을 반영하도록 갱신.
+
 ### 2026-09-11 (88차) — 웹 검색으로 채우기, Claude 외 다른 AI 제공자도 지원
 #### Changed
 - `Services/AIProvider.swift`: `searchWebForDetails`(수정 화면 "웹 검색으로

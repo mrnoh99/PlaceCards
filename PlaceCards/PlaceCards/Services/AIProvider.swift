@@ -159,20 +159,22 @@ protocol AIProvider {
     /// (the newer Interactions API's `google_search` tool — likewise a
     /// different endpoint from `analyzePlaces`' `generateContent` call,
     /// which as of this writing no longer documents a grounding tool of
-    /// its own). `GatewayProvider` gets the default below and stays
-    /// unsupported: it's a third-party proxy whose actual feature
-    /// support is undocumented from here (see its own doc comment) —
-    /// bolting a guessed tool shape onto its plain chat-completions
-    /// passthrough risks the request being silently ignored rather than
-    /// erroring, which would fill a card's fields with the model's
-    /// ungrounded guesses while looking exactly like a real web search
-    /// happened. A clear "not supported" error is safer than that.
+    /// its own), and `GatewayProvider` (conditionally — see its own doc
+    /// comment: it attaches the selected model's own vendor tool to its
+    /// one shared chat-completions endpoint, keyed off the model name,
+    /// and falls through to the default below for anything it can't key
+    /// off of). Any provider that can't identify a real hosted tool to
+    /// use gets the default below and stays unsupported, rather than
+    /// bolting on a guessed tool shape that risks being silently ignored
+    /// — which would fill a card's fields with the model's ungrounded
+    /// guesses while looking exactly like a real web search happened. A
+    /// clear "not supported" error is safer than that.
     func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails
 }
 
 extension AIProvider {
     func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
-        throw PlaceCardsError.notImplemented("웹 검색 (Gateway는 아직 지원하지 않음 — 설정에서 AI 제공자를 Claude/ChatGPT/Gemini 중 하나로 바꿔주세요)")
+        throw PlaceCardsError.notImplemented("웹 검색 (이 AI 제공자는 아직 지원하지 않음 — 설정에서 AI 제공자를 Claude/ChatGPT/Gemini 중 하나로 바꾸거나, Gateway에서 Claude/GPT 계열 모델을 선택해주세요)")
     }
 }
 
@@ -576,6 +578,68 @@ final class GatewayProvider: AIProvider {
             serviceLabel: "Gateway",
             session: session
         )
+    }
+
+    /// Best-effort: this gateway has no documented hosted-search feature
+    /// of its own (see the class doc comment above and Peragra, whose own
+    /// gateway client never sends a `tools` field either). But every model
+    /// `GatewayModels.all` lists is a real, named vendor model proxied
+    /// through one shared chat-completions endpoint — not a gateway-house
+    /// model — so this attaches *that vendor's own* hosted web-search tool
+    /// definition to the request, keyed off the selected model's name:
+    /// Claude's `web_search` tool for a `claude-*` model (mirroring
+    /// `ClaudeProvider.searchWebForDetails` exactly), OpenAI's `web_search`
+    /// tool for a `gpt-*` model. The bet is that a gateway proxying a
+    /// vendor's own model recognizes and forwards that vendor's own tool
+    /// field rather than silently dropping it — unverified, but a better
+    /// bet than guessing blind. A custom/unrecognized model ID has no
+    /// vendor to key off, so it falls through to the shared "not
+    /// supported" default instead of guessing further.
+    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
+        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+        let tool: [String: Any]
+        if model.hasPrefix("claude") {
+            tool = ["type": "web_search_20260209", "name": "web_search", "max_uses": 5]
+        } else if model.hasPrefix("gpt") {
+            tool = ["type": "web_search"]
+        } else {
+            throw PlaceCardsError.notImplemented(
+                "웹 검색 (\(model)에서는 아직 지원하지 않음 — Gateway 설정에서 Claude 또는 GPT 계열 모델을 선택해주세요)"
+            )
+        }
+
+        let url = URL(string: "https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions/")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = trimmedAddress.isEmpty ? name : "\(name), \(trimmedAddress)"
+        let body: [String: Any] = [
+            "model": model,
+            "tools": [tool],
+            "messages": [
+                ["role": "user", "content": webDetailsSearchPrompt(for: query)]
+            ]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: "Gateway")
+        }
+
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let choices = json["choices"] as? [[String: Any]],
+            let message = choices.first?["message"] as? [String: Any],
+            let text = message["content"] as? String
+        else {
+            throw PlaceCardsError.decodingError("Gateway 응답을 해석할 수 없습니다.")
+        }
+        return try parseWebDetails(from: text)
     }
 }
 
