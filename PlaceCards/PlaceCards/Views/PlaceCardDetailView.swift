@@ -175,6 +175,14 @@ struct PlaceCardDetailView: View {
         .sheet(isPresented: $isPresentingEdit) {
             EditPlaceCardSheet(card: card) { updated in
                 card = updated
+                // `tagsDraft` is a separate working copy (see its own
+                // comment) that only ever changes through this screen's
+                // own add/remove/저장 — without this, editing tags via
+                // "편집" (`EditPlaceCardSheet` has its own, separate tags
+                // field) would leave the stale draft in place, and tapping
+                // "저장" here next would silently overwrite the edit
+                // sheet's change right back to the old tags.
+                tagsDraft = updated.tags
             }
         }
         .sheet(isPresented: $isPresentingPhotoViewer) {

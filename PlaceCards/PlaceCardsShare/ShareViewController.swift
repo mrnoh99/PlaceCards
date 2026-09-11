@@ -62,19 +62,14 @@ final class ShareViewController: UIViewController {
         preferredContentSize = CGSize(width: 280, height: 140)
     }
 
-    /// Picks the one attachment this share actually is — an image takes
-    /// priority when somehow both are offered, since that's the more
-    /// established flow — then hands it to the matching handler. Checked
-    /// against `UTType.url`/`.plainText` (rather than trusting the
-    /// `NSExtensionActivationRule` alone) since an item can register more
-    /// type identifiers than what actually triggered the match.
-    private func handleSharedItem() {
-        guard let item = extensionContext?.inputItems.first as? NSExtensionItem, let attachments = item.attachments, !attachments.isEmpty else {
-            SharedImportStore.recordDebugStatus("공유 항목(NSExtensionItem)을 찾지 못함")
-            finish(success: false, message: "공유된 항목을 찾지 못했습니다")
-            return
-        }
-
+    /// Picks the one attachment this share actually is, retrying once if
+    /// none turn up yet (see `handleSharedItem`), then hands it to the
+    /// matching handler. Checked against `UTType.url`/`.plainText`
+    /// (rather than trusting the `NSExtensionActivationRule` alone) since
+    /// an item can register more type identifiers than what actually
+    /// triggered the match. An image takes priority when somehow both are
+    /// offered, since that's the more established flow.
+    private func dispatch(attachments: [NSItemProvider]) {
         if let imageProvider = attachments.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }) {
             handleImageAttachment(imageProvider)
             return
@@ -91,6 +86,31 @@ final class ShareViewController: UIViewController {
         let types = attachments.flatMap(\.registeredTypeIdentifiers).joined(separator: ", ")
         SharedImportStore.recordDebugStatus("지원하는 타입의 첨부를 찾지 못함 (첨부 타입: \(types))")
         finish(success: false, message: "지원하지 않는 형식입니다")
+    }
+
+    /// Reported specifically when tapping PlaceCards in the share sheet
+    /// while its own app-icon row is still populating — plausibly a race
+    /// on the host app's side (its `NSExtensionItem`/attachments not
+    /// fully registered yet) rather than a genuine "nothing was shared".
+    /// There's no way for this extension to delay or gate *when* its own
+    /// icon becomes tappable in the system share sheet — that UI belongs
+    /// to iOS, not to us — but retrying once here, after a short wait,
+    /// costs nothing when the guard wouldn't have failed anyway and gives
+    /// a genuine race a chance to resolve before giving up.
+    private func handleSharedItem(isRetry: Bool = false) {
+        guard let item = extensionContext?.inputItems.first as? NSExtensionItem, let attachments = item.attachments, !attachments.isEmpty else {
+            guard !isRetry else {
+                SharedImportStore.recordDebugStatus("공유 항목(NSExtensionItem)을 찾지 못함 (재시도 후에도 실패)")
+                finish(success: false, message: "공유된 항목을 찾지 못했습니다")
+                return
+            }
+            SharedImportStore.recordDebugStatus("공유 항목(NSExtensionItem)을 찾지 못함 — 재시도 대기")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                self?.handleSharedItem(isRetry: true)
+            }
+            return
+        }
+        dispatch(attachments: attachments)
     }
 
     private func handleImageAttachment(_ provider: NSItemProvider) {
