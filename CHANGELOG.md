@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (104차) — Naver 검색 API 발급 안내 수정 (NAVER API HUB로 이전됨)
+#### Fixed
+- `Views/SettingsView.swift`/`Services/Localization.swift`/
+  `Services/NaverPlaceSearchService.swift`/`Services/KeychainService.swift`:
+  92차에서 "Naver 검색 API"를 Naver Developers(developers.naver.com/apps)에서
+  발급받으라고 안내했는데, 사용자가 실제로 애플리케이션 등록 화면을
+  캡처해서 확인해주신 결과 그 화면엔 로그인 관련 API(네이버 로그인/
+  인증서/전자문서/카페/캘린더/캡차 등)만 있고 "검색"은 아예 없었다.
+  찾아보니 검색 오픈API(지역 검색 포함)는 NAVER Cloud Platform의
+  "NAVER API HUB"로 옮겨간 상태였다 — 콘솔(console.ncloud.com) →
+  Menu → All Services → Application Services → NAVER API HUB →
+  Application 등록 시 "검색" API 선택 → 등록된 Application의 "인증 정보"
+  팝업에서 Client ID/Secret 확인. Settings 화면 안내 문구와 관련 코드
+  주석을 전부 이 경로로 정정.
+
 ### 2026-09-11 (103차) — 카테고리 병합 기능 추가, 필터 바 두 줄로 분리
 #### Added
 - `Views/CategoryPickerSheet.swift`: 카테고리 병합 기능(신규) — "선택"으로

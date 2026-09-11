@@ -187,8 +187,8 @@ enum Localization {
         "내보내기": "Export",
         "네이버 지도 공유": "Naver Map share",
         "네이버 지도 스크린샷": "Naver Map screenshot",
-        "네이버 지도에서 공유받은 장소는 Google 대신 이 API로 검증합니다. 위 \"Naver 지도 표시\"와는 별개로, Naver Developers(developers.naver.com/apps)에서 발급받는 검색 API 애플리케이션의 Client ID/Secret입니다. 설정하지 않으면 지금처럼 Google로 검증합니다.":
-            "A place shared from Naver Map is verified with this API instead of Google. Separate from \"Naver Map Display\" above — this is the Client ID/Secret of a Search API application issued from Naver Developers (developers.naver.com/apps). If unset, verification falls back to Google as before.",
+        "네이버 지도에서 공유받은 장소는 Google 대신 이 API로 검증합니다. 위 \"Naver 지도 표시\"와는 별개의 애플리케이션입니다 — NAVER Cloud Platform 콘솔(console.ncloud.com)에서 Menu → All Services → Application Services → NAVER API HUB로 들어가 Application을 등록할 때 \"검색\" API를 선택하고, 등록된 Application의 \"인증 정보\"에서 Client ID/Secret을 확인해 입력하세요. 설정하지 않으면 지금처럼 Google로 검증합니다.":
+            "A place shared from Naver Map is verified with this API instead of Google. Separate application from \"Naver Map Display\" above — in the NAVER Cloud Platform console (console.ncloud.com), go to Menu → All Services → Application Services → NAVER API HUB, register an Application selecting the \"Search\" API, then check the Client ID/Secret under that Application's \"Authentication Information\" and enter them here. If unset, verification falls back to Google as before.",
         "네트워크 오류: ": "Network error: ",
         "다른 앱에서 공유한 사진을 못 받아오는 상태입니다. Xcode에서 PlaceCards와 PlaceCardsShare 두 타겟 모두 Signing & Capabilities에 팀을 지정하고 \"App Groups\" 항목에 group.com.mrnoh99.PlaceCards가 켜져 있는지 확인해주세요.": "Photos shared from other apps can't be received right now. In Xcode, make sure both the PlaceCards and PlaceCardsShare targets have a team set under Signing & Capabilities, and that \"App Groups\" includes group.com.mrnoh99.PlaceCards.",
         "다음": "Next",

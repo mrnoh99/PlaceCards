@@ -8,8 +8,15 @@ import Foundation
 ///
 /// This is a *different* credential pair from `naverMapClientId` (that
 /// one only renders map tiles in `NaverMapWebView`): a Client ID **and**
-/// Secret, issued from the Search API section of the Naver Developers
-/// console (developers.naver.com/apps) rather than NAVER Cloud Platform.
+/// Secret from a separate Application. Both are actually issued from the
+/// same place these days — the old `developers.naver.com` "애플리케이션
+/// 등록" flow only lists login-related APIs (네이버 로그인, 카페,
+/// 캘린더, 캡차, etc.) now; the Search API (검색, including 지역 검색)
+/// moved to NAVER Cloud Platform's "NAVER API HUB" (console.ncloud.com →
+/// Menu → All Services → Application Services → NAVER API HUB → register
+/// an Application selecting "검색" → that Application's own "인증 정보"
+/// popup has the Client ID/Secret) — confirmed live, since this predates
+/// this file and the app's own guidance both said developers.naver.com.
 enum NaverPlaceSearchService {
     /// Naver's own docs describe `mapx`/`mapy` as KATECH (TM128)
     /// coordinates needing a separate geocoding call to convert to

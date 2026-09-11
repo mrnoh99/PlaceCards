@@ -126,7 +126,7 @@ struct SettingsView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             Button("저장".localized) { viewModel.saveNaverSearchCredentials() }
-            Text("네이버 지도에서 공유받은 장소는 Google 대신 이 API로 검증합니다. 위 \"Naver 지도 표시\"와는 별개로, Naver Developers(developers.naver.com/apps)에서 발급받는 검색 API 애플리케이션의 Client ID/Secret입니다. 설정하지 않으면 지금처럼 Google로 검증합니다.".localized)
+            Text("네이버 지도에서 공유받은 장소는 Google 대신 이 API로 검증합니다. 위 \"Naver 지도 표시\"와는 별개의 애플리케이션입니다 — NAVER Cloud Platform 콘솔(console.ncloud.com)에서 Menu → All Services → Application Services → NAVER API HUB로 들어가 Application을 등록할 때 \"검색\" API를 선택하고, 등록된 Application의 \"인증 정보\"에서 Client ID/Secret을 확인해 입력하세요. 설정하지 않으면 지금처럼 Google로 검증합니다.".localized)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
