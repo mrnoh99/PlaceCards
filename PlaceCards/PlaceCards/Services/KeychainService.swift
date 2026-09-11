@@ -13,8 +13,8 @@ enum KeychainKey: String {
     /// option (`NaverMapWebView`), not any REST API, so no secret is
     /// needed alongside it.
     case naverMapClientId
-    /// Search API (`openapi.naver.com`) credentials — a separate NAVER
-    /// API HUB Application from the NCP Maps one above (see
+    /// Search API (NAVER API HUB) credentials — a separate Application
+    /// from the NCP Maps one above (see
     /// `NaverPlaceSearchService`'s own doc comment for exactly where to
     /// register it and find these), issued as a Client ID *and* Secret.
     /// Used by `NaverPlaceSearchService` to verify a place shared from

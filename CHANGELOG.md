@@ -2,6 +2,45 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (112차) — 사용자 제보 4건 수정 (Naver API HUB 엔드포인트, 왼쪽 잘림 재발, 공유 화면 안 뜸, 첫 공유시 상세보기 안 뜸)
+#### Fixed
+- `Services/NaverPlaceSearchService.swift`: "유효하지 않은 API 키입니다" +
+  "네이버 API 관리에서 당일 사용량이 없다고 나온다" 제보로 확인 — NAVER API
+  HUB는 단순히 발급 화면만 옮겨간 게 아니라, 실제 호출 엔드포인트/인증
+  헤더 자체가 완전히 다른 걸로 바뀌었다(WebSearch로 공식 이관 가이드
+  확인: `openapi.naver.com` 구버전은 2026-07-31부로 신규 발급 중단,
+  기존 키도 2027-06-30 만료 예정). 이 앱은 여전히 옛 엔드포인트
+  (`openapi.naver.com/v1/search/local.json`)와 옛 헤더
+  (`X-Naver-Client-Id`/`X-Naver-Client-Secret`)를 쓰고 있어서, API HUB에서
+  발급받은 키로는 애초에 그 서버에 요청이 정상적으로 도달하지 못했던 것 —
+  그래서 사용량도 0으로 찍힌 것. 엔드포인트를
+  `https://naverapihub.apigw.ntruss.com/search/v1/local`로, 헤더를
+  `X-NCP-APIGW-API-KEY-ID`/`X-NCP-APIGW-API-KEY`로 교체. 응답 필드명(title/
+  address/roadAddress/mapx/mapy/category 등)은 동일하게 유지된다고 확인.
+- `Views/PlaceCardDetailView.swift`: 111차의 `.frame(maxWidth: .infinity,
+  alignment: .leading)`로도 "사진에 따라 아래가 넓어지는 것"이 계속
+  재현된다는 제보 — `maxWidth: .infinity`는 "제안받은 만큼만 채우고 그
+  이상은 요구하지 않기"일 뿐, 어떤 자식이 이미 더 넓은 크기를 요구하고
+  있다면 이를 막지 못한다는 게 진짜 이유로 보임. `GeometryReader`로 실제
+  뷰포트 폭을 측정해 `.frame(width: proxy.size.width, alignment: .leading)`
+  로 정확한 값을 강제 — 이번엔 어떤 자식도 그 이상 넓어질 수 없는 하드
+  제약이라 근본적으로 막힘.
+- `Views/MainTabView.swift`(`checkForSharedImage()`): "보내고 받을 때 처음엔
+  화면이 안 뜨다가 포커스를 바꿨다 돌아오면 뜬다"는 제보 — 포그라운드
+  전환과 같은 런루프 틱에서 시트 `isPresented`를 바로 `true`로 바꾸면
+  상태는 바뀌어도 실제 시트가 안 뜨는 경우가 있는 것으로 보임(윈도우가
+  아직 완전히 준비되지 않은 상태). 실제 프레젠테이션 트리거만
+  `presentShortly(_:)`로 한 틱 늦춰서 우회.
+#### Added
+- `Views/GalleryView.swift`: "처음 보낼 때는 placedetail이 안 뜨고
+  리스트가 뜬다"는 제보 — `navigation.pendingDetailCardID`를 `.onChange`
+  로만 소비했는데, 이 세션에서 갤러리 탭을 한 번도 연 적이 없는 상태로
+  처음 공유하면 `AddPlaceCardView`가 그 값을 세팅하는 시점에 `GalleryView`
+  가 아직 화면에 나타난 적이 없어 `.onChange`가 못 잡는 경우가 있는
+  것으로 보임(`currentHomeBoardID`가 이미 `.onAppear`+`.onChange` 둘 다
+  쓰는 이유와 동일한 종류의 경합). `consumePendingDetailCardID()`로
+  추출해 `.onAppear`에서도 동일하게 호출하도록 추가.
+
 ### 2026-09-11 (111차) — 왼쪽 글자 잘림 버그, 진짜 원인 찾아서 수정 (105/110차는 잘못된 진단이었음)
 #### Fixed
 - `Views/PlaceCardDetailView.swift`: 105차/110차는 "Google/Naver API 응답에

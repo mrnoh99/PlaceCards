@@ -115,20 +115,37 @@ struct MainTabView: View {
         if let data = SharedImportStore.takePendingImage() {
             pendingSharedImageData = data
             if let cardID = MapOpenContext.recentCardID(), let card = storageService.placeCard(id: cardID) {
-                pendingMapScreenshotCard = card
+                presentShortly { pendingMapScreenshotCard = card }
             } else {
-                isPresentingSharedImportSheet = true
+                presentShortly { isPresentingSharedImportSheet = true }
             }
             MapOpenContext.clear()
         }
 
         if let text = SharedImportStore.takePendingLink() {
             if SharedLinkParser.isInstagramLink(text) {
-                isPresentingInstagramGuidanceAlert = true
+                presentShortly { isPresentingInstagramGuidanceAlert = true }
             } else {
                 pendingLinkText = text
-                isPresentingSharedLinkSheet = true
+                presentShortly { isPresentingSharedLinkSheet = true }
             }
+        }
+    }
+
+    /// Flipping a sheet/alert's `isPresented` binding to `true` in the very
+    /// same runloop tick as the app finishing a foreground transition
+    /// (cold launch's `.task`, or `scenePhase` flipping to `.active` right
+    /// after the user switches back from wherever they shared out of) can
+    /// silently fail to actually present — the state changes, but no sheet
+    /// appears, until *something else* changes state afterward. Reported
+    /// as "처음에는 화면이 안 뜨다가 포커스를 바꿨다 돌아오면 뜬다" (doesn't
+    /// show up at first; switching away and back makes it appear) — this
+    /// pushes the actual presentation to the next runloop tick, which is
+    /// consistently enough for the window to be ready to host it.
+    private func presentShortly(_ action: @escaping () -> Void) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            action()
         }
     }
 }

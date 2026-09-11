@@ -1,32 +1,36 @@
 import Foundation
 
 /// Verifies a place against Naver's own local-business database (검색
-/// 오픈API - 지역, `openapi.naver.com/v1/search/local.json`) instead of
-/// Google's — a place found via a Naver Map share should be checked
-/// against the same source it came from, and Korean local businesses are
-/// often more completely/accurately listed on Naver than on Google.
+/// 오픈API - 지역) instead of Google's — a place found via a Naver Map
+/// share should be checked against the same source it came from, and
+/// Korean local businesses are often more completely/accurately listed on
+/// Naver than on Google.
 ///
 /// This is a *different* credential pair from `naverMapClientId` (that
 /// one only renders map tiles in `NaverMapWebView`): a Client ID **and**
-/// Secret from a separate Application. Both are actually issued from the
-/// same place these days — the old `developers.naver.com` "애플리케이션
-/// 등록" flow only lists login-related APIs (네이버 로그인, 카페,
-/// 캘린더, 캡차, etc.) now; the Search API (검색, including 지역 검색)
-/// moved to NAVER Cloud Platform's "NAVER API HUB" (console.ncloud.com →
-/// Menu → All Services → Application Services → NAVER API HUB → register
-/// an Application selecting "검색" → that Application's own "인증 정보"
-/// popup has the Client ID/Secret) — confirmed live, since this predates
-/// this file and the app's own guidance both said developers.naver.com.
+/// Secret from a separate Application, issued via NAVER Cloud Platform's
+/// "NAVER API HUB" (console.ncloud.com → Menu → All Services →
+/// Application Services → NAVER API HUB → register an Application
+/// selecting "검색" → that Application's own "인증 정보" popup has the
+/// Client ID/Secret).
+///
+/// The endpoint/headers below are API HUB's own — NOT the legacy
+/// `openapi.naver.com` + `X-Naver-Client-Id`/`X-Naver-Client-Secret` pair
+/// this file originally used: API HUB fully replaced that old open API
+/// platform (new registrations on the old host closed 2026-07-31, and its
+/// existing keys stop working 2027-06-30), moving to its own gateway
+/// domain (`naverapihub.apigw.ntruss.com`) under a completely different
+/// header scheme (`X-NCP-APIGW-API-KEY-ID`/`X-NCP-APIGW-API-KEY`) — an app
+/// still calling the old host/headers gets rejected with no usage ever
+/// recorded against the new Application at all, which is exactly what
+/// calling it with API HUB-issued credentials looked like before this fix.
 enum NaverPlaceSearchService {
-    /// Naver's own docs describe `mapx`/`mapy` as KATECH (TM128)
-    /// coordinates needing a separate geocoding call to convert to
-    /// WGS84 — but in current real-world practice the endpoint actually
-    /// returns them as plain WGS84 degrees scaled by 10,000,000 (a
-    /// well-known mismatch between Naver's documentation and its shipped
-    /// behavior). That factor is trusted here, but only after checking
-    /// the result actually falls within Korea's own lat/lng bounds — if
-    /// that assumption is ever wrong for a given result, the coordinates
-    /// are dropped instead of saved as silently-wrong data.
+    /// API HUB's own docs describe `mapx`/`mapy` as already being WGS84 —
+    /// still scaled by 10,000,000 same as the legacy endpoint, going by
+    /// the response shape unchanged. Sanity-clamped to Korea's own lat/lng
+    /// bounds regardless — if that assumption is ever wrong for a given
+    /// result, the coordinates are dropped instead of saved as
+    /// silently-wrong data.
     private static let koreaLatitudeRange = 33.0...39.5
     private static let koreaLongitudeRange = 124.0...132.0
 
@@ -38,18 +42,19 @@ enum NaverPlaceSearchService {
     ) async throws -> [PlaceSearchResult] {
         guard !clientId.isEmpty, !clientSecret.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 
-        var components = URLComponents(string: "https://openapi.naver.com/v1/search/local.json")!
+        var components = URLComponents(string: "https://naverapihub.apigw.ntruss.com/search/v1/local")!
         components.queryItems = [
             URLQueryItem(name: "query", value: query),
-            URLQueryItem(name: "display", value: "5")
+            URLQueryItem(name: "display", value: "5"),
+            URLQueryItem(name: "format", value: "json")
         ]
         guard let url = components.url else {
             throw PlaceCardsError.networkError("잘못된 검색어입니다.".localized)
         }
 
         var request = URLRequest(url: url)
-        request.setValue(clientId, forHTTPHeaderField: "X-Naver-Client-Id")
-        request.setValue(clientSecret, forHTTPHeaderField: "X-Naver-Client-Secret")
+        request.setValue(clientId, forHTTPHeaderField: "X-NCP-APIGW-API-KEY-ID")
+        request.setValue(clientSecret, forHTTPHeaderField: "X-NCP-APIGW-API-KEY")
 
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
@@ -101,6 +106,10 @@ private struct NaverLocalItem: Decodable {
 
     /// No rating/review count/photo — this API simply doesn't return
     /// them, unlike Google Places. Left `nil` rather than guessed.
+    /// `telephone` is also effectively always empty under API HUB (its own
+    /// docs say the field is "kept for compatibility" but returns no
+    /// value) — `resolvedPhone` below still checks it rather than dropping
+    /// the field outright, in case that ever changes.
     func toSearchResult() -> PlaceSearchResult {
         let name = NaverPlaceSearchService.stripHTML(title).strippingInvisibleFormatCharacters()
         let rawAddress = [roadAddress, address].compactMap { $0 }.first { !$0.isEmpty }

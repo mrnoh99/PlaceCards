@@ -102,7 +102,10 @@ struct GalleryView: View {
             // itself becomes visible — synced here rather than read once
             // at init, since the user may navigate around Home first and
             // only then switch to this tab.
-            .onAppear { viewModel.boardScopeID = navigation.currentHomeBoardID }
+            .onAppear {
+                viewModel.boardScopeID = navigation.currentHomeBoardID
+                consumePendingDetailCardID()
+            }
             .onChange(of: navigation.currentHomeBoardID) { _, newValue in
                 viewModel.boardScopeID = newValue
             }
@@ -120,13 +123,16 @@ struct GalleryView: View {
             // One-shot, same shape as `galleryCategoryFilter` above — a
             // card just created from shared-in info (`AddPlaceCardView`)
             // pushes straight to its detail view once, then clears itself
-            // so switching back to this tab later doesn't reopen it.
-            .onChange(of: navigation.pendingDetailCardID) { _, newValue in
-                guard let newValue else { return }
-                navigation.pendingDetailCardID = nil
-                if let card = storageService.placeCard(id: newValue) {
-                    selectedCard = card
-                }
+            // so switching back to this tab later doesn't reopen it. Also
+            // handled in `.onAppear` above (see `consumePendingDetailCardID`)
+            // for the *first* share of a session: `AddPlaceCardView` sets
+            // this and switches to this tab together, and if this view
+            // hasn't been visited yet this session, switching tabs is what
+            // actually mounts/reveals it — `.onChange` alone can miss a
+            // value that was already set before that happened, showing the
+            // plain card list instead of pushing straight to the detail.
+            .onChange(of: navigation.pendingDetailCardID) { _, _ in
+                consumePendingDetailCardID()
             }
             .toolbar { toolbarContent }
             .overlay {
@@ -185,6 +191,17 @@ struct GalleryView: View {
                 }
                 Button("취소".localized, role: .cancel) { customCategoryInput = "" }
             }
+        }
+    }
+
+    /// Shared by `.onAppear` and `.onChange(of: navigation.pendingDetailCardID)`
+    /// — see either call site's comment for why both are needed. Safe to
+    /// call redundantly (a no-op once the value's already been cleared).
+    private func consumePendingDetailCardID() {
+        guard let pendingID = navigation.pendingDetailCardID else { return }
+        navigation.pendingDetailCardID = nil
+        if let card = storageService.placeCard(id: pendingID) {
+            selectedCard = card
         }
     }
 

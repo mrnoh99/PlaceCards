@@ -36,135 +36,141 @@ struct PlaceCardDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            // `.frame(maxWidth: .infinity, alignment: .leading)` below is
-            // load-bearing, not decorative: a plain vertical `ScrollView`
-            // proposes its own viewport width to its content, but if any
-            // descendant ever reports back a *wider* ideal size than that
-            // (an unconstrained photo was the one actually seen doing this
-            // — deleting a card's photo made the whole screen render
-            // correctly again, title/section-header text included, not
-            // just the photo itself), SwiftUI's default behavior is to
-            // center that oversized content within the viewport instead of
-            // clipping the overflow on one side — which slices an equal
-            // sliver off *every* line's leading edge, exactly matching what
-            // was reported (name/category/address/"사진"/"태그" all missing
-            // their first character or so). Forcing this frame explicitly
-            // clamps the proposed width for every child to the real
-            // viewport width, so nothing downstream can ever push the pane
-            // wider than the screen in the first place.
-            VStack(alignment: .leading, spacing: 16) {
-                heroPhotoSection
+        // The `GeometryReader` + `.frame(width: proxy.size.width, ...)`
+        // below is load-bearing, not decorative — and had to be this
+        // literal (a *measured, exact* width) rather than the softer
+        // `.frame(maxWidth: .infinity)` tried first, which turned out not
+        // to be enough on its own: a plain vertical `ScrollView` is
+        // *supposed* to propose its own viewport width to its content, but
+        // if any descendant ever manages to report back a wider ideal size
+        // regardless (an unconstrained photo was the one actually seen
+        // doing this — deleting a card's photo made the whole screen
+        // render correctly again, title/section-header text included, not
+        // just the photo itself), SwiftUI's default behavior is to center
+        // that oversized content within the viewport instead of clipping
+        // the overflow on one side — slicing an equal sliver off *every*
+        // line's leading edge, exactly matching what was reported
+        // (name/category/address/"사진"/"태그" all missing their first
+        // character or so). `maxWidth: .infinity` only says "grow to fill,
+        // up to infinity" — it does nothing to a child that already wants
+        // more than that. An exact `width:` pinned to the real, measured
+        // viewport size is a hard ceiling nothing downstream can talk its
+        // way past.
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    heroPhotoSection
 
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .top) {
-                        Text(card.name)
-                            .font(.title.bold())
-                        Spacer()
-                        HStack(spacing: 12) {
-                            Button(action: toggleVisited) {
-                                Image(systemName: card.isVisited ? "checkmark.circle.fill" : "checkmark.circle")
-                                    .foregroundStyle(card.isVisited ? .green : .secondary)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top) {
+                            Text(card.name)
+                                .font(.title.bold())
+                            Spacer()
+                            HStack(spacing: 12) {
+                                Button(action: toggleVisited) {
+                                    Image(systemName: card.isVisited ? "checkmark.circle.fill" : "checkmark.circle")
+                                        .foregroundStyle(card.isVisited ? .green : .secondary)
+                                }
+                                Button(action: toggleFavorite) {
+                                    Image(systemName: card.isFavorite ? "star.fill" : "star")
+                                        .foregroundStyle(card.isFavorite ? .yellow : .secondary)
+                                }
                             }
-                            Button(action: toggleFavorite) {
-                                Image(systemName: card.isFavorite ? "star.fill" : "star")
-                                    .foregroundStyle(card.isFavorite ? .yellow : .secondary)
-                            }
+                            .font(.title3)
+                            .buttonStyle(.plain)
                         }
-                        .font(.title3)
-                        .buttonStyle(.plain)
-                    }
-                    if let category = card.category, !category.isEmpty {
-                        Label(PlaceCategoryIcon.normalizedLabel(for: category), systemImage: PlaceCategoryIcon.symbolName(for: category))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    if !card.address.isEmpty {
-                        Text(card.address)
-                            .font(.body)
-                    }
-
-                    HStack(spacing: 16) {
-                        if let rating = card.rating {
-                            Label(String(format: "%.1f", rating), systemImage: "star")
-                                .foregroundStyle(.orange)
-                        }
-                        if let reviewCount = card.reviewCount {
-                            Text("리뷰 ".localized + "\(reviewCount)" + "개".localized)
+                        if let category = card.category, !category.isEmpty {
+                            Label(PlaceCategoryIcon.normalizedLabel(for: category), systemImage: PlaceCategoryIcon.symbolName(for: category))
+                                .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
+                        if !card.address.isEmpty {
+                            Text(card.address)
+                                .font(.body)
+                        }
+
+                        HStack(spacing: 16) {
+                            if let rating = card.rating {
+                                Label(String(format: "%.1f", rating), systemImage: "star")
+                                    .foregroundStyle(.orange)
+                            }
+                            if let reviewCount = card.reviewCount {
+                                Text("리뷰 ".localized + "\(reviewCount)" + "개".localized)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .font(.subheadline)
                     }
-                    .font(.subheadline)
-                }
-                .padding(.horizontal)
-
-                if !card.media.allItems.isEmpty {
-                    photosSection
-                        .padding(.horizontal)
-                }
-
-                if card.hasAnyAction {
-                    actionRow
-                        .padding(.horizontal)
-                }
-
-                if hasHoursInfo {
-                    hoursSection
-                        .padding(.horizontal)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    if !card.amenities.isEmpty {
-                        Text("편의시설".localized)
-                            .font(.headline)
-                        WrapTagsView(tags: card.amenities)
-                    }
-
-                    tagsSection
-
-                    memoSection
-                }
-                .padding(.horizontal)
-
-                if let coordinates = card.coordinates {
-                    // `Map(coordinateRegion:)` (the pre-iOS 17 API, driven by
-                    // a `.constant()` binding) is prone to a well-known
-                    // MapKit bug: inside a plain `ScrollView` (not `List`),
-                    // its tiles can fail to finish loading and are left
-                    // permanently blank — with `allowsHitTesting(false)`
-                    // below (this is a static preview, not a real
-                    // interactive map) there's no gesture to ever retrigger
-                    // a retry, so a tile stuck blank stays that way. The
-                    // newer `Map(initialPosition:)` composable API uses a
-                    // different, more reliable rendering path that doesn't
-                    // exhibit this.
-                    Map(initialPosition: .region(MKCoordinateRegion(
-                        center: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude),
-                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                    ))) {
-                        Marker(card.name, coordinate: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude))
-                    }
-                    .frame(height: 180)
                     .padding(.horizontal)
-                    .allowsHitTesting(false)
 
-                    if card.hasAnyMapLink {
-                        mapMenu
+                    if !card.media.allItems.isEmpty {
+                        photosSection
                             .padding(.horizontal)
                     }
-                }
 
-                ShareLink(item: shareText) {
-                    Label("공유".localized, systemImage: "square.and.arrow.up")
-                }
-                .buttonStyle(.bordered)
-                .padding(.horizontal)
+                    if card.hasAnyAction {
+                        actionRow
+                            .padding(.horizontal)
+                    }
 
-                metaFooter
+                    if hasHoursInfo {
+                        hoursSection
+                            .padding(.horizontal)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        if !card.amenities.isEmpty {
+                            Text("편의시설".localized)
+                                .font(.headline)
+                            WrapTagsView(tags: card.amenities)
+                        }
+
+                        tagsSection
+
+                        memoSection
+                    }
                     .padding(.horizontal)
+
+                    if let coordinates = card.coordinates {
+                        // `Map(coordinateRegion:)` (the pre-iOS 17 API, driven by
+                        // a `.constant()` binding) is prone to a well-known
+                        // MapKit bug: inside a plain `ScrollView` (not `List`),
+                        // its tiles can fail to finish loading and are left
+                        // permanently blank — with `allowsHitTesting(false)`
+                        // below (this is a static preview, not a real
+                        // interactive map) there's no gesture to ever retrigger
+                        // a retry, so a tile stuck blank stays that way. The
+                        // newer `Map(initialPosition:)` composable API uses a
+                        // different, more reliable rendering path that doesn't
+                        // exhibit this.
+                        Map(initialPosition: .region(MKCoordinateRegion(
+                            center: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude),
+                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                        ))) {
+                            Marker(card.name, coordinate: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude))
+                        }
+                        .frame(height: 180)
+                        .padding(.horizontal)
+                        .allowsHitTesting(false)
+
+                        if card.hasAnyMapLink {
+                            mapMenu
+                                .padding(.horizontal)
+                        }
+                    }
+
+                    ShareLink(item: shareText) {
+                        Label("공유".localized, systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.horizontal)
+
+                    metaFooter
+                        .padding(.horizontal)
+                }
+                .padding(.vertical)
+                .frame(width: proxy.size.width, alignment: .leading)
             }
-            .padding(.vertical)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollDismissesKeyboard(.interactively)
         .keyboardDoneButton()
