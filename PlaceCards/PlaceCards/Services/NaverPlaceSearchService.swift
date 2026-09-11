@@ -121,7 +121,7 @@ private struct NaverLocalItem: Decodable {
             reviewCount: nil,
             phone: resolvedPhone,
             website: resolvedLink,
-            category: category,
+            category: category?.strippingInvisibleFormatCharacters(),
             photoName: nil
         )
     }

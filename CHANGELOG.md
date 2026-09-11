@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (110차) — 왼쪽 글자 잘림 버그, 이미 저장된 카드까지 실제로 고치기
+#### Fixed
+- `Services/PlaceSearchService.swift`(`GooglePlace.toSearchResult()`)/
+  `Services/NaverPlaceSearchService.swift`(`NaverLocalItem.toSearchResult()`):
+  105차에서 name/address만 `strippingInvisibleFormatCharacters()`를 적용하고
+  category("패밀리 레스토랑" 등)는 빠뜨렸던 걸 확인 — "빕스 아주대점" 카드
+  스크린샷에서 제목/주소뿐 아니라 카테고리("밀리 레스토랑" ← "패밀리
+  레스토랑")까지 왼쪽이 잘려 보이는 걸로 재확인됨. category도 마저 적용.
+#### Added
+- `Models/PlaceCard.swift`: `strippingInvisibleFormatCharacters() -> PlaceCard`
+  추가 — name/address/category/memo/closingTime/holidays/tags/amenities/
+  hoursDetail 전부에 적용.
+- `Services/StorageService.swift`(`loadPlaceCards()`): 디코딩 직후 모든
+  카드에 위 함수를 적용하고 바로 다시 저장하도록 변경. 105차 수정은 그
+  이후에 "새로" 들어오는 데이터만 청소했을 뿐, 이미 저장돼 있던 카드
+  (스크린샷의 "빕스 아주대점"이 그런 경우로 보임)는 계속 예전 그대로
+  잘려 보일 수밖에 없었던 근본 원인 — 이제 앱을 켤 때마다 저장된 카드
+  전체를 한 번씩 청소하므로, 언제 만들어진 카드든 결국 고쳐진다.
+
 ### 2026-09-11 (109차) — 108차에서 생긴 크래시(AppNavigation environmentObject 누락) 수정
 #### Fixed
 - `Views/SharedLinkBoardPickerSheet.swift`/`Views/SharedPhotoBoardPickerSheet.swift`/

@@ -138,6 +138,36 @@ extension PlaceCard {
         return words.contains { haystack.localizedCaseInsensitiveContains($0) }
     }
 
+    /// Strips invisible Unicode "format" characters (see
+    /// `String.strippingInvisibleFormatCharacters()`) from every
+    /// human-readable text field. Run on every card as it's loaded from
+    /// disk (`StorageService.loadPlaceCards()`) rather than only where a
+    /// field first enters the app — a card saved before that stripping
+    /// existed, or through a source path that missed it (Google/Naver's
+    /// own `category` text did, until this fix), would otherwise carry
+    /// those invisible characters — and the display glitch they cause —
+    /// forever, since nothing else ever re-touches an already-saved card's
+    /// text.
+    func strippingInvisibleFormatCharacters() -> PlaceCard {
+        var card = self
+        card.name = name.strippingInvisibleFormatCharacters()
+        card.address = address.strippingInvisibleFormatCharacters()
+        card.category = category?.strippingInvisibleFormatCharacters()
+        card.memo = memo?.strippingInvisibleFormatCharacters()
+        card.closingTime = closingTime?.strippingInvisibleFormatCharacters()
+        card.holidays = holidays?.strippingInvisibleFormatCharacters()
+        card.tags = tags.map { $0.strippingInvisibleFormatCharacters() }
+        card.amenities = amenities.map { $0.strippingInvisibleFormatCharacters() }
+        if let hoursDetail {
+            card.hoursDetail = Dictionary(
+                uniqueKeysWithValues: hoursDetail.map {
+                    ($0.key.strippingInvisibleFormatCharacters(), $0.value.strippingInvisibleFormatCharacters())
+                }
+            )
+        }
+        return card
+    }
+
     /// Fills in anything only a duplicate had, folding its media and tags
     /// in too. The caller is expected to save `self` afterward and remove
     /// `duplicates` from storage via

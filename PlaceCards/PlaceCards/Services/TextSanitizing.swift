@@ -14,9 +14,14 @@ extension String {
     /// strings for correct bidi display in a browser — harmless there,
     /// not in a plain `Text` view. Applied at the point each of those
     /// strings enters this app (`GooglePlace`/`NaverLocalItem`'s own
-    /// `toSearchResult()`, `SharedLinkParser`'s raw text splitting)
-    /// rather than everywhere a name/address is displayed, so nothing
-    /// downstream needs to know this was ever a concern.
+    /// `toSearchResult()`, `SharedLinkParser`'s raw text splitting) rather
+    /// than everywhere a name/address is displayed, so nothing downstream
+    /// needs to know this was ever a concern — and, since a card saved
+    /// before this existed (or through a source path that missed a field)
+    /// would otherwise stay broken forever, also re-applied to every
+    /// already-saved card's text fields on load
+    /// (`PlaceCard.strippingInvisibleFormatCharacters()`,
+    /// `StorageService.loadPlaceCards()`).
     func strippingInvisibleFormatCharacters() -> String {
         let scalars = unicodeScalars.filter { $0.properties.generalCategory != .format }
         guard scalars.count != unicodeScalars.count else { return self }

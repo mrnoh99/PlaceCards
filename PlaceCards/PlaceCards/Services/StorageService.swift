@@ -127,12 +127,20 @@ final class StorageService: ObservableObject {
         try? data.write(to: boardsFileURL, options: .atomic)
     }
 
+    /// Every loaded card is re-sanitized for invisible Unicode format
+    /// characters (`PlaceCard.strippingInvisibleFormatCharacters()`) and
+    /// the cleaned result written straight back — a no-op re-write for a
+    /// card that was already clean, but the only way an already-saved
+    /// card that predates that stripping (or came through a source path
+    /// that missed a field) ever actually gets fixed, since nothing else
+    /// re-touches a card's text once it's saved.
     private func loadPlaceCards() {
         guard let data = try? Data(contentsOf: placeCardsFileURL) else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         if let decoded = try? decoder.decode([PlaceCard].self, from: data) {
-            placeCards = decoded
+            placeCards = decoded.map { $0.strippingInvisibleFormatCharacters() }
+            persistPlaceCards()
         }
     }
 
