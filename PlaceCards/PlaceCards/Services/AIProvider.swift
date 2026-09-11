@@ -151,18 +151,28 @@ protocol AIProvider {
 
     /// Searches the web for further details about a named place — phone,
     /// website, category, hours, amenities, anything else worth noting —
-    /// via a hosted web-search tool, rather than reading a photo. Only
-    /// `ClaudeProvider` implements this for real right now (the only
-    /// provider this app talks to whose plain chat-completion request
-    /// shape has a documented hosted web-search tool) — every other
-    /// provider gets the default below, which throws a clear
-    /// "not supported" error instead of silently returning nothing.
+    /// via a hosted web-search tool, rather than reading a photo. Real
+    /// implementations: `ClaudeProvider` (Messages API's `web_search`
+    /// tool), `OpenAIProvider` (the Responses API's `web_search` tool —
+    /// a different endpoint from `analyzePlaces`' Chat Completions call,
+    /// since hosted web search isn't available there), `GeminiProvider`
+    /// (the newer Interactions API's `google_search` tool — likewise a
+    /// different endpoint from `analyzePlaces`' `generateContent` call,
+    /// which as of this writing no longer documents a grounding tool of
+    /// its own). `GatewayProvider` gets the default below and stays
+    /// unsupported: it's a third-party proxy whose actual feature
+    /// support is undocumented from here (see its own doc comment) —
+    /// bolting a guessed tool shape onto its plain chat-completions
+    /// passthrough risks the request being silently ignored rather than
+    /// erroring, which would fill a card's fields with the model's
+    /// ungrounded guesses while looking exactly like a real web search
+    /// happened. A clear "not supported" error is safer than that.
     func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails
 }
 
 extension AIProvider {
     func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
-        throw PlaceCardsError.notImplemented("웹 검색 (현재는 Claude만 지원 — 설정에서 AI 제공자를 Claude로 바꿔주세요)")
+        throw PlaceCardsError.notImplemented("웹 검색 (Gateway는 아직 지원하지 않음 — 설정에서 AI 제공자를 Claude/ChatGPT/Gemini 중 하나로 바꿔주세요)")
     }
 }
 
@@ -484,6 +494,50 @@ final class OpenAIProvider: AIProvider {
             session: session
         )
     }
+
+    /// The Chat Completions endpoint `analyzePlaces` uses above has no
+    /// hosted web-search tool of its own — this needs OpenAI's separate
+    /// Responses API instead (`POST /v1/responses`, `tools: [{"type":
+    /// "web_search"}]`), whose response shape is an `output` array of
+    /// typed items rather than Chat Completions' `choices`: the model's
+    /// final answer is the `content[].text` of whichever `output` item
+    /// has `"type": "message"` (the array also carries a `web_search_call`
+    /// item recording that the tool ran, which this ignores).
+    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
+        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+        let url = URL(string: "https://api.openai.com/v1/responses")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+
+        let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = trimmedAddress.isEmpty ? name : "\(name), \(trimmedAddress)"
+
+        let body: [String: Any] = [
+            "model": model,
+            "input": webDetailsSearchPrompt(for: query),
+            "tools": [["type": "web_search"]]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: "OpenAI")
+        }
+
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let output = json["output"] as? [[String: Any]],
+            let messageItem = output.last(where: { ($0["type"] as? String) == "message" }),
+            let content = messageItem["content"] as? [[String: Any]],
+            let text = content.first(where: { ($0["type"] as? String) == "output_text" })?["text"] as? String
+        else {
+            throw PlaceCardsError.decodingError("OpenAI 응답을 해석할 수 없습니다.")
+        }
+        return try parseWebDetails(from: text)
+    }
 }
 
 // MARK: - Gateway (factchat-cloud.mindlogic.ai, ported from Peragra)
@@ -580,5 +634,62 @@ final class GeminiProvider: AIProvider {
             throw PlaceCardsError.decodingError("Gemini 응답을 해석할 수 없습니다.")
         }
         return try parsePlaceAnalysisResults(from: text)
+    }
+
+    /// `analyzePlaces`' `generateContent` endpoint above no longer
+    /// documents a Google Search grounding tool of its own — that's moved
+    /// to Gemini's newer Interactions API (`POST /v1beta/interactions`,
+    /// `tools: [{"type": "google_search"}]`), a different request/response
+    /// shape entirely: `input` instead of `contents`/`parts`, and the
+    /// model's answer lands in `steps[].content[].text` of whichever step
+    /// has `"type": "model_output"` (searched from the end, same reasoning
+    /// as `ClaudeProvider.searchWebForDetails`'s "last text block" — a
+    /// tool-using interaction can carry more than one such step, and the
+    /// final one is the actual answer).
+    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
+        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+        var components = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/interactions")
+        components?.queryItems = [URLQueryItem(name: "key", value: apiKey)]
+        guard let url = components?.url else {
+            throw PlaceCardsError.networkError("Gemini 요청 URL을 만들 수 없습니다.")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = trimmedAddress.isEmpty ? name : "\(name), \(trimmedAddress)"
+
+        let body: [String: Any] = [
+            "model": model,
+            "input": webDetailsSearchPrompt(for: query),
+            "tools": [["type": "google_search"]]
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: "Gemini")
+        }
+
+        guard
+            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let steps = json["steps"] as? [[String: Any]]
+        else {
+            throw PlaceCardsError.decodingError("Gemini 응답을 해석할 수 없습니다.")
+        }
+        let text = steps
+            .filter { ($0["type"] as? String) == "model_output" }
+            .compactMap { step -> String? in
+                (step["content"] as? [[String: Any]])?.last { ($0["type"] as? String) == "text" }?["text"] as? String
+            }
+            .last
+
+        guard let text else {
+            throw PlaceCardsError.decodingError("Gemini 응답을 해석할 수 없습니다.")
+        }
+        return try parseWebDetails(from: text)
     }
 }

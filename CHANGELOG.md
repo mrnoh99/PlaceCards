@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (88차) — 웹 검색으로 채우기, Claude 외 다른 AI 제공자도 지원
+#### Changed
+- `Services/AIProvider.swift`: `searchWebForDetails`(수정 화면 "웹 검색으로
+  채우기" 버튼이 호출하는 기능)를 그동안 `ClaudeProvider`만 실제로
+  구현하고 있었는데, `OpenAIProvider`와 `GeminiProvider`에도 각각 호스팅된
+  웹 검색 도구를 사용하는 실제 구현을 추가했다.
+  - `OpenAIProvider`: Chat Completions가 아니라 Responses API
+    (`POST /v1/responses`)를 별도로 호출하고 `tools: [{"type":
+    "web_search"}]`를 지정, 응답의 `output` 배열에서 `type: "message"`인
+    항목의 `content` 중 `type: "output_text"` 텍스트를 읽어 파싱한다.
+  - `GeminiProvider`: `analyzePlaces`가 쓰는 `generateContent`가 더 이상
+    grounding 도구를 문서화하지 않아, 새 Interactions API
+    (`POST /v1beta/interactions`)를 대신 호출하고 `tools: [{"type":
+    "google_search"}]`를 지정, 응답의 `steps` 중 `type: "model_output"`인
+    항목들의 `content`에서 `type: "text"`인 마지막 텍스트를 파싱한다
+    (도구를 여러 번 호출하는 turn에서 최종 답변은 마지막 텍스트 블록이라는,
+    이미 Claude 쪽에 있던 것과 같은 규칙).
+  - `GatewayProvider`는 의도적으로 그대로 두었다(기본 구현이 "지원하지
+    않음" 오류를 던짐). 이 프록시가 실제로 어떤 기능을 지원하는지
+    문서화되어 있지 않은 상태에서 `web_search` 같은 도구 필드를 추측해서
+    보내면, 지원하지 않는 필드는 조용히 무시되고 모델이 검색 없이 지어낸
+    답을 마치 실제로 웹 검색한 것처럼 반환할 위험이 있다고 판단했다.
+    이러면 명확한 오류보다 오히려 더 나쁘다.
+  - 프로토콜의 `searchWebForDetails` 문서 주석과 기본 구현의 오류 메시지도
+    위 내용에 맞게 갱신.
+
 ### 2026-09-11 (87차) — 메모 필드를 별도 편집 모드 없이 바로 입력 가능하게
 #### Changed
 - `Views/PlaceCardDetailView.swift`: `memoSection`을 "편집" 연필
