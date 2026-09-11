@@ -34,6 +34,13 @@ struct PlaceCandidateRow: Identifiable {
     /// filling in whatever the eventual card doesn't already have from a
     /// chosen search result.
     var scannedDetails: PlaceWebDetails? = nil
+    /// Tags the user has actually accepted for this row — starts empty
+    /// even when `scannedDetails?.tags` suggests some, since tags aren't
+    /// auto-applied anywhere in this app (see `PlaceWebDetails.tags`'s own
+    /// doc comment); `AddPlaceCardView` shows those suggestions next to
+    /// this row with its own "추가" action that copies them in here via
+    /// `PlaceCardViewModel.acceptSuggestedTags(_:forRowID:)`.
+    var tags: [String] = []
     /// Which app this row's info originally came from, if any — set once,
     /// the first time `search(rowID:)` resolves this row, and never
     /// touched again after that. Needed because `search(rowID:)` also
@@ -162,6 +169,18 @@ final class PlaceCardViewModel: ObservableObject {
     func clearChosenResult(id: UUID) {
         guard let index = candidateRows.firstIndex(where: { $0.id == id }) else { return }
         candidateRows[index].chosenResult = nil
+    }
+
+    /// Copies whichever of `tags` the row doesn't already have into it —
+    /// called when the user taps "추가" on `AddPlaceCardView`'s own
+    /// suggested-tags row for this candidate (see `PlaceCandidateRow.tags`'s
+    /// own doc comment for why tags need this explicit accept step instead
+    /// of just landing on the row already).
+    func acceptSuggestedTags(_ tags: [String], forRowID id: UUID) {
+        guard let index = candidateRows.firstIndex(where: { $0.id == id }) else { return }
+        for tag in tags where !candidateRows[index].tags.contains(tag) {
+            candidateRows[index].tags.append(tag)
+        }
     }
 
     /// Within this distance of the row's own address, a same-named result
@@ -403,46 +422,19 @@ final class PlaceCardViewModel: ObservableObject {
             if let chosen = row.chosenResult {
                 if let card = try? await createPlaceCard(
                     from: chosen, images: selectedImages, source: source,
-                    note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails
+                    note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails, tags: row.tags
                 ) {
                     created.append(card)
                 }
             } else {
                 let card = createManualPlaceCard(
                     name: row.name, address: row.address, images: selectedImages, source: source,
-                    note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails
+                    note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails, tags: row.tags
                 )
                 created.append(card)
             }
         }
         return created
-    }
-
-    /// Fills only whatever's still blank on `card` from a scanned photo's
-    /// extra details (`PlaceCandidateRow.scannedDetails`, e.g. a Google
-    /// Maps info card's own "영업시간" section) — never overwrites a value
-    /// a verified search result already set, same "fill gaps only" rule
-    /// `EditPlaceCardSheet.applyWebDetails` already follows for the same
-    /// fields from a web search instead of a photo.
-    ///
-    /// `details.tags` is deliberately never touched here — unlike every
-    /// other field on `PlaceWebDetails`, AI-suggested tags aren't applied
-    /// silently anywhere in this app (see that field's own doc comment):
-    /// they're closer to the user's own personal categorization than an
-    /// objective fact worth auto-filling, so a wrong guess landing on a
-    /// brand-new card with no review step would be worse than just not
-    /// offering them here. `EditPlaceCardSheet` is where they're actually
-    /// surfaced, staged for the user to accept or dismiss as a batch.
-    private func applyScannedDetails(_ details: PlaceWebDetails?, to card: inout PlaceCard) {
-        guard let details else { return }
-        if card.phone == nil, let value = details.phone, !value.isEmpty { card.phone = value }
-        if card.website == nil, let value = details.website, !value.isEmpty { card.website = value }
-        if card.category == nil, let value = details.category, !value.isEmpty { card.category = value }
-        if card.hoursDetail?.isEmpty ?? true, let value = details.hoursDetail, !value.isEmpty { card.hoursDetail = value }
-        if card.closingTime == nil, let value = details.closingTime, !value.isEmpty { card.closingTime = value }
-        if card.holidays == nil, let value = details.holidays, !value.isEmpty { card.holidays = value }
-        if card.amenities.isEmpty, !details.amenities.isEmpty { card.amenities = details.amenities }
-        if card.reservationInfo == nil, let value = details.reservationInfo, !value.isEmpty { card.reservationInfo = value }
     }
 
     /// `note` is whatever the AI scan found worth keeping beyond name/
@@ -459,7 +451,7 @@ final class PlaceCardViewModel: ObservableObject {
     /// place-details lookup, which this app doesn't call).
     func createPlaceCard(
         from result: PlaceSearchResult, images: [UIImage], source: SourceType,
-        note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil
+        note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = []
     ) async throws -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId,
@@ -471,9 +463,10 @@ final class PlaceCardViewModel: ObservableObject {
             reviewCount: result.reviewCount,
             phone: result.phone,
             website: result.website ?? website,
+            tags: tags,
             memo: PlaceCard.combinedMemo(nil, appending: note)
         )
-        applyScannedDetails(details, to: &card)
+        card.applyScannedDetails(details)
 
         for image in images {
             let fileName = try MediaStore.saveImage(image)
@@ -531,13 +524,13 @@ final class PlaceCardViewModel: ObservableObject {
     /// `createPlaceCard(from:)`.
     func createManualPlaceCard(
         name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput,
-        note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil
+        note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = []
     ) -> PlaceCard {
         var card = PlaceCard(
-            boardId: boardId, name: name, address: address, website: website,
+            boardId: boardId, name: name, address: address, website: website, tags: tags,
             memo: PlaceCard.combinedMemo(nil, appending: note)
         )
-        applyScannedDetails(details, to: &card)
+        card.applyScannedDetails(details)
         card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
 
         for image in images {

@@ -180,6 +180,32 @@ extension PlaceCard {
         return card
     }
 
+    /// Fills only whatever's still blank on this card from a scanned
+    /// photo's or web search's extra details (`PlaceWebDetails` —
+    /// `EditPlaceCardSheet`'s "AI로 정보 읽어오기"/"웹 검색으로 채우기",
+    /// `MapScreenshotImportSheet`'s own photo import, and
+    /// `PlaceCardViewModel.createCards()` for a brand-new card all share
+    /// this) — never overwrites a value already set from elsewhere.
+    ///
+    /// `details.tags` is deliberately never touched here — unlike every
+    /// other field on `PlaceWebDetails`, AI-suggested tags aren't applied
+    /// silently anywhere in this app (see that field's own doc comment):
+    /// they're closer to the user's own personal categorization than an
+    /// objective fact worth auto-filling, so a wrong guess landing here
+    /// with no review step would be worse than just not offering them.
+    /// Every call site stages and confirms them separately instead.
+    mutating func applyScannedDetails(_ details: PlaceWebDetails?) {
+        guard let details else { return }
+        if phone == nil, let value = details.phone, !value.isEmpty { phone = value }
+        if website == nil, let value = details.website, !value.isEmpty { website = value }
+        if category == nil, let value = details.category, !value.isEmpty { category = value }
+        if hoursDetail?.isEmpty ?? true, let value = details.hoursDetail, !value.isEmpty { hoursDetail = value }
+        if closingTime == nil, let value = details.closingTime, !value.isEmpty { closingTime = value }
+        if holidays == nil, let value = details.holidays, !value.isEmpty { holidays = value }
+        if amenities.isEmpty, !details.amenities.isEmpty { amenities = details.amenities }
+        if reservationInfo == nil, let value = details.reservationInfo, !value.isEmpty { reservationInfo = value }
+    }
+
     /// Fills in anything only a duplicate had, folding its media and tags
     /// in too. The caller is expected to save `self` afterward and remove
     /// `duplicates` from storage via

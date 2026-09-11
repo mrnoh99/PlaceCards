@@ -271,6 +271,30 @@ struct AddPlaceCardView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
+                if !row.wrappedValue.tags.isEmpty {
+                    Text("태그: ".localized + row.wrappedValue.tags.joined(separator: ", "))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                // AI-suggested tags aren't added to the row on their own —
+                // see `PlaceWebDetails.tags`'s own doc comment for why —
+                // so this offers them for a deliberate "추가" tap instead,
+                // the same confirm-before-applying shape
+                // `EditPlaceCardSheet`'s own tag suggestions use.
+                if let suggested = suggestedTags(for: row.wrappedValue), !suggested.isEmpty {
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("제안된 태그: ".localized + suggested.joined(separator: ", "))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("추가".localized) {
+                            viewModel.acceptSuggestedTags(suggested, forRowID: row.wrappedValue.id)
+                        }
+                        .font(.caption2)
+                    }
+                }
+
                 if row.wrappedValue.chosenResult != nil {
                     Label(
                         row.wrappedValue.originSource == .naverMapShare
@@ -319,6 +343,15 @@ struct AddPlaceCardView: View {
                 }
             }
         }
+    }
+
+    /// AI-suggested tags for `row` not already accepted onto it — `nil`
+    /// (rather than an empty array) when there's nothing new to show, so
+    /// callers can use it directly as an `if let` guard.
+    private func suggestedTags(for row: PlaceCandidateRow) -> [String]? {
+        guard let suggested = row.scannedDetails?.tags, !suggested.isEmpty else { return nil }
+        let newTags = suggested.filter { !row.tags.contains($0) }
+        return newTags.isEmpty ? nil : newTags
     }
 
     private func loadPhotos(_ items: [PhotosPickerItem]) async {

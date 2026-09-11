@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (120차) — AI 태그 제안을 카드 신규 생성/지도 스크린샷 추가에도 확장
+#### Added
+- `Models/PlaceCard.swift`: `applyScannedDetails(_:)`를
+  `PlaceCardViewModel`의 private 메서드에서 `PlaceCard`의 mutating
+  메서드로 옮김(전화/카테고리/영업시간/마감시간/휴무일/편의시설/예약
+  방법을 빈 값일 때만 채움, 태그는 제외) — `PlaceCardViewModel`뿐 아니라
+  `MapScreenshotImportSheet`도 재사용할 수 있도록.
+- `ViewModels/PlaceCardViewModel.swift`: `PlaceCandidateRow.tags`(사용자가
+  실제로 수락한 태그) 필드와 `acceptSuggestedTags(_:forRowID:)` 추가 —
+  `createCards()`가 이제 각 행의 `tags`를 새 카드에 반영.
+- `Views/AddPlaceCardView.swift`: "119차에서는 EditPlaceCardSheet(기존
+  카드 수정)에서만 AI 태그를 제안했는데, 처음 만들 때를 비롯해서
+  정보가 추가될 때 제안해라"는 요청 — 카드를 처음 만드는 화면(사진
+  스캔으로 여러 장소를 찾아 검토하는 곳)의 각 행에도 "제안된 태그: ...
+  [추가]"를 표시하도록 추가. 여기도 확인 후에만 반영됨(자동 적용 아님).
+#### Fixed
+- `Views/MapScreenshotImportSheet.swift`("지도에서 열기"로 최근 연 카드에
+  스크린샷을 바로 추가하는 화면): AI 스캔 결과 중 이름·주소·메모만
+  반영하고 전화번호·카테고리·영업시간·편의시설·예약 방법·태그는 전부
+  조용히 버려지고 있던 걸 발견 — 이 화면도 "정보가 추가될 때"에
+  해당하는데 실제로는 거의 아무것도 반영되지 않고 있었다.
+  `PlaceCard.applyScannedDetails(_:)`로 나머지 필드를 채우고, 태그는
+  다른 화면들과 동일하게 확인 알림 후 추가하도록 수정.
+
 ### 2026-09-11 (119차) — AI 태그 자동 제안 (확인 후 적용)
 #### Added
 - `Services/AIProvider.swift`: `PlaceWebDetails`에 `tags: [String]` 필드

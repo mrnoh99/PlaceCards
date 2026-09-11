@@ -22,6 +22,11 @@ struct MapScreenshotImportSheet: View {
     @State private var statusMessage: String?
     @State private var pendingResult: AIAnalysisResult?
     @State private var isConfirmingNameChange = false
+    /// Staged, not applied outright — same "confirm before applying" rule
+    /// `EditPlaceCardSheet`'s own tag suggestions follow (see
+    /// `PlaceWebDetails.tags`'s own doc comment for why).
+    @State private var pendingSuggestedTags: [String] = []
+    @State private var isConfirmingSuggestedTags = false
 
     init(card: PlaceCard, imageData: Data, onApplied: @escaping (PlaceCard) -> Void) {
         _card = State(initialValue: card)
@@ -101,6 +106,22 @@ struct MapScreenshotImportSheet: View {
                 }
             } message: {
                 Text(nameChangeAlertMessage)
+            }
+            .alert(
+                "AI가 태그를 제안했습니다".localized,
+                isPresented: $isConfirmingSuggestedTags
+            ) {
+                Button("추가".localized) {
+                    for tag in pendingSuggestedTags where !card.tags.contains(tag) {
+                        card.tags.append(tag)
+                    }
+                    storageService.save(card)
+                    onApplied(card)
+                    pendingSuggestedTags = []
+                }
+                Button("취소".localized, role: .cancel) { pendingSuggestedTags = [] }
+            } message: {
+                Text(pendingSuggestedTags.joined(separator: ", "))
             }
         }
     }
@@ -188,9 +209,22 @@ struct MapScreenshotImportSheet: View {
             card.address = extractedAddress
         }
         card.memo = PlaceCard.combinedMemo(card.memo, appending: result.description)
+        // Phone/category/hours/closing time/holidays/amenities/reservation
+        // info, when the screenshot's own info card shows them — this used
+        // to only ever apply name/address/memo, silently discarding
+        // everything else `analyzePlaces` already extracts.
+        card.applyScannedDetails(result.details)
         storageService.save(card)
         onApplied(card)
         statusMessage = "AI가 읽은 정보를 채웠습니다.".localized
+
+        if let tags = result.details?.tags, !tags.isEmpty {
+            let newTags = tags.filter { !card.tags.contains($0) }
+            if !newTags.isEmpty {
+                pendingSuggestedTags = newTags
+                isConfirmingSuggestedTags = true
+            }
+        }
     }
 }
 
