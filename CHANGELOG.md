@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (102차) — 사진 삭제·대표사진 지정, 태그는 추가/삭제 즉시 저장
+#### Added
+- `Models/PlaceCard.swift`: `coverPhotoID`(신규, Optional) — 사용자가 명시적으로
+  고른 대표사진의 `MediaItem.id`. `coverPhoto`(신규 계산 프로퍼티)로 정리 —
+  `coverPhotoID`가 있고 그 사진이 아직 남아있으면 그걸, 아니면 기존처럼
+  공식 사진 우선(`officialPhotos.first ?? allItems.first`)으로 폴백.
+  `PlaceCardListRow`/`PlaceCardGridCell`/`PlaceCardDetailView.heroPhotoItem`
+  세 곳에 중복돼 있던 동일 로직을 이걸로 통일.
+- `Views/PlaceCardDetailView.swift`: 사진 뷰어(`PhotoViewerSheet`)에 "..."
+  메뉴(대표사진으로 설정 / 삭제)를 추가. 삭제는 확인 다이얼로그를 거치고,
+  `MediaStore`에서 파일도 같이 지우며, 지운 사진이 대표사진이었으면
+  `coverPhotoID`도 같이 비움(자동 폴백으로 복귀). 마지막 사진을 지우면
+  뷰어가 자동으로 닫히고, 선택 인덱스가 범위를 벗어나면 보정.
+  - `PhotoViewerSheet`가 이제 `MediaItem` 배열과 `selection`을 바인딩으로
+    받도록 바뀌어(기존엔 미리 디코딩한 `UIImage` 배열 + 1회성 `@State`),
+    삭제 후 부모가 선택 인덱스를 보정할 수 있게 됨.
+#### Changed
+- `Views/PlaceCardDetailView.swift`: 태그 편집을 "추가/삭제하면 바로
+  저장"으로 단순화 — 별도 "저장" 버튼과 작업 사본(`tagsDraft`)을 없애고
+  `card.tags`에 직접 반영 + 즉시 `storageService.save(card)`. 이전
+  드래프트 방식은 "편집" 시트를 거치면 재동기화가 안 돼 방금 편집한
+  내용을 조용히 덮어쓰는 버그가 있었는데, 드래프트 자체를 없애 근본적으로
+  해결.
+
 ### 2026-09-11 (101차) — 태그 저장 안 되던 문제 수정, 공유 확장 첫 시도 실패에 재시도 추가
 #### Fixed
 - `Views/PlaceCardDetailView.swift`: 새로 추가한 태그 편집기(`tagsDraft`)가

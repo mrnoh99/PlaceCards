@@ -50,6 +50,14 @@ struct PlaceCard: Identifiable, Codable {
     /// every already-saved card that predates this field.
     var memo: String?
 
+    /// The `MediaItem.id` the user explicitly picked as this card's
+    /// representative photo (detail view banner, grid/list thumbnail) —
+    /// nil (the default, for every card saved before this field existed
+    /// too) falls back to `officialPhotos.first ?? allItems.first`, same
+    /// as before this existed. Cleared automatically if that photo is
+    /// ever deleted (see `PlaceCardDetailView.deletePhoto`).
+    var coverPhotoID: String?
+
     var media: MediaBundle = MediaBundle()
     var sources: [SourceRecord] = []
     var discoverySource: DiscoverySource?
@@ -67,6 +75,21 @@ extension PlaceCard: Equatable {
 extension PlaceCard: Hashable {
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+extension PlaceCard {
+    /// The card's representative photo — shown as the detail view's hero
+    /// banner and every list/grid cell's thumbnail. The user's explicit
+    /// `coverPhotoID` pick, if set and that photo is still attached;
+    /// otherwise the first official Google photo, else just whatever
+    /// photo comes first — the same fallback every one of those screens
+    /// used before `coverPhotoID` existed.
+    var coverPhoto: MediaItem? {
+        if let coverPhotoID, let match = media.allItems.first(where: { $0.id == coverPhotoID }) {
+            return match
+        }
+        return media.officialPhotos.first ?? media.allItems.first
     }
 }
 

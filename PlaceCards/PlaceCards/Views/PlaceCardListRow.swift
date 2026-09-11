@@ -90,7 +90,7 @@ struct PlaceCardListRow: View {
         ZStack {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color.secondary.opacity(0.15))
-            if let firstItem = card.media.officialPhotos.first ?? card.media.allItems.first,
+            if let firstItem = card.coverPhoto,
                let image = MediaStore.loadImage(fileName: firstItem.localPath) {
                 Image(uiImage: image)
                     .resizable()

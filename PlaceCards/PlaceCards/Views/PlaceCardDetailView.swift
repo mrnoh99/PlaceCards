@@ -29,20 +29,10 @@ struct PlaceCardDetailView: View {
     /// open; a few hundred milliseconds is well past any transition but
     /// unnoticeable for a real, deliberate tap.
     @State private var isHeroPhotoTappable = false
-    /// A working copy of `card.tags`, edited freely (add/remove) and only
-    /// written back to `card`/disk when "저장" is tapped — unlike the memo
-    /// field's autosave-on-blur, a tag list has no single natural "done
-    /// editing" moment (adding several, then removing one you just added,
-    /// is a normal way to use it), so committing explicitly avoids writing
-    /// to disk after every single add/remove.
-    @State private var tagsDraft: [String]
     @State private var newTagInput = ""
-
-    private var isTagsDirty: Bool { tagsDraft != card.tags }
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
-        _tagsDraft = State(initialValue: card.tags)
     }
 
     var body: some View {
@@ -175,20 +165,15 @@ struct PlaceCardDetailView: View {
         .sheet(isPresented: $isPresentingEdit) {
             EditPlaceCardSheet(card: card) { updated in
                 card = updated
-                // `tagsDraft` is a separate working copy (see its own
-                // comment) that only ever changes through this screen's
-                // own add/remove/저장 — without this, editing tags via
-                // "편집" (`EditPlaceCardSheet` has its own, separate tags
-                // field) would leave the stale draft in place, and tapping
-                // "저장" here next would silently overwrite the edit
-                // sheet's change right back to the old tags.
-                tagsDraft = updated.tags
             }
         }
         .sheet(isPresented: $isPresentingPhotoViewer) {
             PhotoViewerSheet(
-                images: card.media.allItems.compactMap { MediaStore.loadImage(fileName: $0.localPath) },
-                selection: photoViewerStartIndex
+                items: card.media.allItems,
+                selection: $photoViewerStartIndex,
+                coverItemID: card.coverPhoto?.id,
+                onSetCover: setCoverPhoto,
+                onDelete: deletePhoto
             )
         }
         // Safety net alongside the memo field's own save-on-blur: in case
@@ -315,12 +300,13 @@ struct PlaceCardDetailView: View {
     }
 
     /// The same photo `PlaceCardGridCell`/`PlaceCardListRow` lead with
-    /// (an official Google photo if there is one, else whatever's first)
-    /// — its position within `photosSection`'s own `allItems` ordering,
-    /// so tapping the hero opens the photo viewer already on the right
-    /// one instead of always resetting to index 0.
+    /// (`card.coverPhoto` — the user's explicit pick if any, else an
+    /// official Google photo, else whatever's first) — its position
+    /// within `photosSection`'s own `allItems` ordering, so tapping the
+    /// hero opens the photo viewer already on the right one instead of
+    /// always resetting to index 0.
     private var heroPhotoItem: MediaItem? {
-        card.media.officialPhotos.first ?? card.media.allItems.first
+        card.coverPhoto
     }
 
     private var heroPhotoIndex: Int {
@@ -388,15 +374,17 @@ struct PlaceCardDetailView: View {
     /// above it, or every other field on this screen, which route through
     /// `EditPlaceCardSheet`). Always shown (not hidden when empty) since
     /// this is also how a tag gets *added* in the first place. Unlike the
-    /// memo field's autosave-on-blur, edits here only commit to `card`
-    /// (and disk) once "저장" is tapped — see `tagsDraft`'s own comment.
+    /// memo field, there's no separate "저장" step: adding or removing a
+    /// tag writes straight to `card`/disk immediately, same as the
+    /// favorite/visited toggles above.
     @ViewBuilder
     private var tagsSection: some View {
         Text("태그".localized)
             .font(.headline)
-        if !tagsDraft.isEmpty {
-            WrapTagsView(tags: tagsDraft) { tag in
-                tagsDraft.removeAll { $0 == tag }
+        if !card.tags.isEmpty {
+            WrapTagsView(tags: card.tags) { tag in
+                card.tags.removeAll { $0 == tag }
+                storageService.save(card)
             }
         }
         HStack {
@@ -406,20 +394,13 @@ struct PlaceCardDetailView: View {
             Button("추가".localized, action: addTag)
                 .disabled(newTagInput.trimmingCharacters(in: .whitespaces).isEmpty)
         }
-        if isTagsDirty {
-            Button("저장".localized) {
-                card.tags = tagsDraft
-                storageService.save(card)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-        }
     }
 
     private func addTag() {
         let trimmed = newTagInput.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !tagsDraft.contains(trimmed) else { return }
-        tagsDraft.append(trimmed)
+        guard !trimmed.isEmpty, !card.tags.contains(trimmed) else { return }
+        card.tags.append(trimmed)
+        storageService.save(card)
         newTagInput = ""
     }
 
@@ -475,23 +456,71 @@ struct PlaceCardDetailView: View {
         card.isVisited.toggle()
         storageService.save(card)
     }
+
+    private func setCoverPhoto(_ item: MediaItem) {
+        card.coverPhotoID = item.id
+        storageService.save(card)
+    }
+
+    /// Removes the photo from disk (`MediaStore`) and from whichever of
+    /// `MediaBundle`'s four buckets it's actually in — its own `source`
+    /// only decides which bucket a photo was filed into at save time
+    /// (see `PlaceCardViewModel.createCards`), so deleting by id across
+    /// all four is simpler than re-deriving which one it must be in.
+    /// Clears `coverPhotoID` too if this was the card's chosen cover, so
+    /// a deleted photo never lingers as a dangling reference — the
+    /// automatic fallback (`PlaceCard.coverPhoto`) takes back over.
+    private func deletePhoto(_ item: MediaItem) {
+        MediaStore.delete(fileName: item.localPath)
+        card.media.mapScreenshots.removeAll { $0.id == item.id }
+        card.media.officialPhotos.removeAll { $0.id == item.id }
+        card.media.onsitePhotos.removeAll { $0.id == item.id }
+        card.media.receivedPhotos.removeAll { $0.id == item.id }
+        if card.coverPhotoID == item.id {
+            card.coverPhotoID = nil
+        }
+        storageService.save(card)
+
+        if card.media.allItems.isEmpty {
+            isPresentingPhotoViewer = false
+        } else if photoViewerStartIndex >= card.media.allItems.count {
+            photoViewerStartIndex = card.media.allItems.count - 1
+        }
+    }
 }
 
-/// Full-screen, swipeable photo viewer — opened from `photosSection`,
-/// starting on whichever thumbnail was tapped (`selection`).
+/// Full-screen, swipeable photo viewer — opened from `photosSection`/
+/// `heroPhotoSection`, starting on whichever thumbnail was tapped
+/// (`selection`, a `@Binding` rather than a plain `@State` so
+/// `PlaceCardDetailView.deletePhoto` can correct it if the deleted photo
+/// was at or past the end of the now-shorter list). Also where a photo
+/// gets deleted or picked as the card's cover — both act on the whole
+/// card, so they're handled by the parent via `onDelete`/`onSetCover`
+/// rather than this sheet touching `PlaceCard` itself.
 private struct PhotoViewerSheet: View {
-    let images: [UIImage]
-    @State var selection: Int
+    let items: [MediaItem]
+    @Binding var selection: Int
+    let coverItemID: String?
+    let onSetCover: (MediaItem) -> Void
+    let onDelete: (MediaItem) -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var itemPendingDelete: MediaItem?
+
+    private var currentItem: MediaItem? {
+        guard items.indices.contains(selection) else { return nil }
+        return items[selection]
+    }
 
     var body: some View {
         NavigationStack {
             TabView(selection: $selection) {
-                ForEach(Array(images.enumerated()), id: \.offset) { index, image in
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .tag(index)
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    if let image = MediaStore.loadImage(fileName: item.localPath) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .tag(index)
+                    }
                 }
             }
             .tabViewStyle(.page)
@@ -500,8 +529,47 @@ private struct PhotoViewerSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("닫기".localized) { dismiss() }
                 }
+                if let currentItem {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            let isCover = currentItem.id == coverItemID
+                            Button {
+                                onSetCover(currentItem)
+                            } label: {
+                                Label(
+                                    isCover ? "대표사진".localized : "대표사진으로 설정".localized,
+                                    systemImage: isCover ? "checkmark.seal.fill" : "star"
+                                )
+                            }
+                            .disabled(isCover)
+                            Button(role: .destructive) {
+                                itemPendingDelete = currentItem
+                            } label: {
+                                Label("삭제".localized, systemImage: "trash")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                    }
+                }
             }
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .confirmationDialog(
+                "이 사진을 삭제할까요?".localized,
+                isPresented: Binding(
+                    get: { itemPendingDelete != nil },
+                    set: { if !$0 { itemPendingDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("삭제".localized, role: .destructive) {
+                    if let itemPendingDelete {
+                        onDelete(itemPendingDelete)
+                    }
+                    itemPendingDelete = nil
+                }
+                Button("취소".localized, role: .cancel) { itemPendingDelete = nil }
+            }
         }
     }
 }
