@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (82차) — 갤러리에 게시판 상세와 동일한 중복찾기·내보내기·선택 추가
+#### Added
+- `Views/GalleryView.swift`: `BoardDetailView`의 툴바/선택 기능을
+  그대로 이식 — "중복 찾기"(카드가 2개 이상일 때), "내보내기"
+  (텍스트로 복사/파일로 공유), "선택"(다중 선택 모드 토글)을 툴바에
+  추가. 선택 모드에서는 하단에 `bulkActionBar`가 뜨고 전체선택/해제·
+  삭제·카테고리 변경·게시판 이동·지도에서 보기·병합을 지원 —
+  `BoardDetailView.bulkActionBarControls`와 동일한 구성. 다만 갤러리는
+  한 게시판에 묶여 있지 않으므로 "게시판 이동"은 (현재 보드 제외한
+  "다른 게시판"이 아니라) 전체 게시판 목록을 보여줌. 그리드 셀도
+  `BoardDetailView.cardRow(_:)`와 같은 이유로 `NavigationLink` 대신
+  `.onTapGesture` + `.navigationDestination(item:)`로 전환(선택 모드가
+  생기면서 탭의 의미가 두 가지가 됐고, 셀 자체의 즐겨찾기/방문 버튼도
+  계속 독립적으로 눌려야 하기 때문).
+- `ViewModels/GalleryViewModel.swift`: `scopedCards`를 `private`에서
+  풀어 `GalleryView`가 "중복 찾기"에 쓸 수 있게 함(검색/상태/카테고리
+  필터와 무관하게 현재 범위의 카드 전체를 봐야 하므로 — `filteredPlaceCards`가 아니라 이걸 사용).
+
+#### Removed
+- `Views/GalleryView.swift`: 80차에서 추가했던 툴바 "카테고리" 버튼
+  제거 — 화면 상단의 `PlaceStatusFilterBar` 자체 카테고리 필터만
+  남김.
+
 ### 2026-09-10 (81차) — 모든 검색을 카드 전체 필드·단어 단위 매칭으로 통일
 #### Added
 - `Models/PlaceCard.swift`: `matchesSearch(_:)`(신규) — 이름·주소뿐

@@ -24,8 +24,11 @@ final class GalleryViewModel: ObservableObject {
     }
 
     /// Every card in scope — every board, or just `boardScopeID` — before
-    /// any of the filters below narrow it further.
-    private var scopedCards: [PlaceCard] {
+    /// any of the filters below narrow it further. Not `private` — also
+    /// used by `GalleryView` for "중복 찾기" (finding duplicates should
+    /// scan everything in scope, regardless of the active search/status/
+    /// category filters, same as `BoardDetailView`'s own `allCards`).
+    var scopedCards: [PlaceCard] {
         guard let boardScopeID else { return storageService.placeCards }
         return storageService.placeCards(inBoard: boardScopeID)
     }

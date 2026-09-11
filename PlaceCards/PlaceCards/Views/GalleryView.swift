@@ -4,7 +4,25 @@ struct GalleryView: View {
     @StateObject private var viewModel: GalleryViewModel
     @EnvironmentObject private var navigation: AppNavigation
     @EnvironmentObject private var storageService: StorageService
-    @State private var isPresentingCategoryPicker = false
+
+    @State private var selectedCard: PlaceCard?
+    @State private var isPresentingFindDuplicates = false
+
+    /// Multi-select mode for bulk actions — mirrors `BoardDetailView`'s
+    /// own `isSelecting`/`selectedIDs`/bulk action bar exactly, just
+    /// scoped to whatever the grid is currently showing instead of one
+    /// board's own list.
+    @State private var isSelecting = false
+    @State private var selectedIDs: Set<String> = []
+    @State private var isConfirmingBulkDelete = false
+    @State private var isPresentingMergeSelection = false
+    @State private var isPresentingCustomCategoryInput = false
+    @State private var customCategoryInput = ""
+
+    /// The file `ShareLink`'s "파일로 공유" shares — a privacy-scrubbed
+    /// export of whatever the grid currently shows, refreshed whenever
+    /// that set changes. See `SharePlaces`.
+    @State private var exportPlacesFileURL: URL?
 
     init(viewModel: GalleryViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -16,6 +34,10 @@ struct GalleryView: View {
     private var scopedBoard: Board? {
         guard let boardScopeID = viewModel.boardScopeID else { return nil }
         return storageService.boards.first { $0.id == boardScopeID }
+    }
+
+    private var selectedCards: [PlaceCard] {
+        viewModel.filteredPlaceCards.filter { selectedIDs.contains($0.id) }
     }
 
     var body: some View {
@@ -36,15 +58,15 @@ struct GalleryView: View {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
                         ForEach(viewModel.filteredPlaceCards) { card in
-                            NavigationLink {
-                                PlaceCardDetailView(card: card)
-                            } label: {
-                                PlaceCardGridCell(card: card, referenceCoordinate: viewModel.distanceReferenceCoordinate)
-                            }
-                            .buttonStyle(.plain)
+                            gridCell(card)
                         }
                     }
                     .padding()
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if isSelecting {
+                    bulkActionBar
                 }
             }
             .navigationTitle(scopedBoard.map { "갤러리 · ".localized + $0.name } ?? "갤러리".localized)
@@ -57,49 +79,299 @@ struct GalleryView: View {
             .onChange(of: navigation.currentHomeBoardID) { _, newValue in
                 viewModel.boardScopeID = newValue
             }
-            .toolbar {
-                if !viewModel.allCategories.isEmpty {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            isPresentingCategoryPicker = true
-                        } label: {
-                            Label("카테고리".localized, systemImage: "square.grid.2x2")
-                        }
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button("전체".localized) { viewModel.selectedTag = nil }
-                        ForEach(viewModel.allTags, id: \.self) { tag in
-                            Button(tag) { viewModel.selectedTag = tag }
-                        }
-                    } label: {
-                        Label("태그".localized, systemImage: "tag")
-                    }
-                }
-            }
+            .toolbar { toolbarContent }
             .overlay {
                 if viewModel.filteredPlaceCards.isEmpty {
                     ContentUnavailableView.search
                 }
             }
-            .sheet(isPresented: $isPresentingCategoryPicker) {
-                CategoryPickerSheet(categories: viewModel.allCategories, selection: $viewModel.categoryFilter)
+            .task { refreshExportPlacesFile() }
+            .onChange(of: viewModel.filteredPlaceCards.count) { _, _ in refreshExportPlacesFile() }
+            .navigationDestination(item: $selectedCard) { card in
+                PlaceCardDetailView(card: card)
+            }
+            .sheet(isPresented: $isPresentingFindDuplicates) {
+                FindDuplicatesSheet(cards: viewModel.scopedCards)
+            }
+            .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {
+                FindDuplicatesSheet(manualGroup: selectedCards)
+            }
+            .confirmationDialog(
+                bulkDeleteConfirmationTitle,
+                isPresented: $isConfirmingBulkDelete,
+                titleVisibility: .visible
+            ) {
+                Button(bulkDeleteConfirmationButtonTitle, role: .destructive) {
+                    deleteSelected()
+                }
+                Button("취소".localized, role: .cancel) {}
+            }
+            .alert("카테고리 입력".localized, isPresented: $isPresentingCustomCategoryInput) {
+                TextField("카테고리".localized, text: $customCategoryInput)
+                Button("변경".localized) {
+                    applyCategory(customCategoryInput)
+                    customCategoryInput = ""
+                }
+                Button("취소".localized, role: .cancel) { customCategoryInput = "" }
             }
         }
+    }
+
+    private var bulkDeleteConfirmationTitle: String {
+        "\(selectedIDs.count)" + "개 장소를 삭제할까요?".localized
+    }
+
+    private var bulkDeleteConfirmationButtonTitle: String {
+        "\(selectedIDs.count)" + "개 삭제".localized
+    }
+
+    // Same reasoning as `BoardDetailView.cardRow(_:)`: no NavigationLink
+    // wraps the cell — it would claim the whole cell as its tap target
+    // and swallow taps on `PlaceCardGridCell`'s own favorite/visited/
+    // call/map/website buttons. A plain `.onTapGesture` instead only
+    // fires for points the cell's own buttons don't already claim.
+    @ViewBuilder
+    private func gridCell(_ card: PlaceCard) -> some View {
+        PlaceCardGridCell(card: card, referenceCoordinate: viewModel.distanceReferenceCoordinate)
+            .overlay(alignment: .topLeading) {
+                if isSelecting {
+                    Button {
+                        toggleSelection(card)
+                    } label: {
+                        Image(systemName: selectedIDs.contains(card.id) ? "checkmark.circle.fill" : "circle")
+                            .font(.title2)
+                            .foregroundStyle(selectedIDs.contains(card.id) ? Color.accentColor : .white)
+                            .shadow(radius: 2)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(6)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if isSelecting {
+                    toggleSelection(card)
+                } else {
+                    selectedCard = card
+                }
+            }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if !isSelecting {
+            if viewModel.scopedCards.count > 1 {
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        isPresentingFindDuplicates = true
+                    } label: {
+                        Label("중복 찾기".localized, systemImage: "arrow.triangle.merge")
+                    }
+                }
+            }
+            if !viewModel.filteredPlaceCards.isEmpty {
+                ToolbarItem(placement: .secondaryAction) {
+                    exportPlacesMenu
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button("전체".localized) { viewModel.selectedTag = nil }
+                    ForEach(viewModel.allTags, id: \.self) { tag in
+                        Button(tag) { viewModel.selectedTag = tag }
+                    }
+                } label: {
+                    Label("태그".localized, systemImage: "tag")
+                }
+            }
+        }
+        if !viewModel.scopedCards.isEmpty {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isSelecting.toggle()
+                    if !isSelecting { selectedIDs.removeAll() }
+                } label: {
+                    Text(isSelecting ? "취소".localized : "선택".localized)
+                }
+            }
+        }
+    }
+
+    /// "내보내기" — a privacy-scrubbed share of whatever the grid
+    /// currently shows (see `SharePlaces`), matching `BoardDetailView`'s
+    /// own toolbar Export menu exactly.
+    @ViewBuilder
+    private var exportPlacesMenu: some View {
+        Menu {
+            Button {
+                copyPlacesAsText()
+            } label: {
+                Label("텍스트로 복사".localized, systemImage: "doc.on.doc")
+            }
+            if let exportPlacesFileURL {
+                ShareLink(item: exportPlacesFileURL) {
+                    Label("파일로 공유".localized, systemImage: "square.and.arrow.up")
+                }
+            }
+        } label: {
+            Label("내보내기".localized, systemImage: "square.and.arrow.up")
+        }
+    }
+
+    private func refreshExportPlacesFile() {
+        exportPlacesFileURL = SharePlaces.writeTempFile(SharePlaces.buildPayload(from: viewModel.filteredPlaceCards))
+    }
+
+    private func copyPlacesAsText() {
+        guard let text = try? SharePlaces.toText(SharePlaces.buildPayload(from: viewModel.filteredPlaceCards)) else { return }
+        UIPasteboard.general.string = text
+    }
+
+    /// The bulk action bar shown above the tab bar while `isSelecting` —
+    /// identical set of actions to `BoardDetailView.bulkActionBarControls`,
+    /// just against whatever the grid is currently showing rather than
+    /// one board's own list ("게시판 이동" offers every board, since
+    /// selected cards here aren't necessarily all from the same one).
+    private var bulkActionBar: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(selectedIDs.isEmpty ? "수정할 장소를 선택하세요".localized : "\(selectedIDs.count)" + "개 선택됨".localized)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    bulkActionBarControls
+                }
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(.bar)
+    }
+
+    @ViewBuilder
+    private var bulkActionBarControls: some View {
+        Button {
+            toggleSelectAll()
+        } label: {
+            Text(selectedIDs.count == viewModel.filteredPlaceCards.count ? "전체 해제".localized : "전체 선택".localized)
+                .font(.subheadline.weight(.medium))
+        }
+        .disabled(viewModel.filteredPlaceCards.isEmpty)
+
+        Button(role: .destructive) {
+            isConfirmingBulkDelete = true
+        } label: {
+            Label("삭제".localized, systemImage: "trash")
+                .font(.subheadline.weight(.medium))
+        }
+        .disabled(selectedIDs.isEmpty)
+
+        Menu {
+            ForEach(viewModel.allCategories, id: \.self) { category in
+                Button(category) { applyCategory(category) }
+            }
+            Button("직접 입력…".localized) { isPresentingCustomCategoryInput = true }
+        } label: {
+            Label("카테고리 변경".localized, systemImage: "tag")
+                .font(.subheadline.weight(.medium))
+        }
+        .disabled(selectedIDs.isEmpty)
+
+        if !storageService.boards.isEmpty {
+            Menu {
+                ForEach(storageService.boards) { board in
+                    Button {
+                        moveSelected(to: board)
+                    } label: {
+                        Label(board.name, systemImage: board.coverIcon)
+                    }
+                }
+            } label: {
+                Label("게시판 이동".localized, systemImage: "arrow.right.square")
+                    .font(.subheadline.weight(.medium))
+            }
+            .disabled(selectedIDs.isEmpty)
+        }
+
+        Button {
+            navigation.showOnMap(selectedIDs)
+            exitSelection()
+        } label: {
+            Label("지도에서 보기".localized, systemImage: "map")
+                .font(.subheadline.weight(.medium))
+        }
+        .disabled(selectedIDs.isEmpty)
+
+        Button {
+            isPresentingMergeSelection = true
+        } label: {
+            Label("병합".localized, systemImage: "arrow.triangle.merge")
+                .font(.subheadline.weight(.medium))
+        }
+        .disabled(selectedIDs.count < 2)
+    }
+
+    private func toggleSelection(_ card: PlaceCard) {
+        if selectedIDs.contains(card.id) {
+            selectedIDs.remove(card.id)
+        } else {
+            selectedIDs.insert(card.id)
+        }
+    }
+
+    /// Selects (or deselects) every card the current filters/search show
+    /// — respects whatever's already narrowing `filteredPlaceCards`.
+    private func toggleSelectAll() {
+        if selectedIDs.count == viewModel.filteredPlaceCards.count {
+            selectedIDs.removeAll()
+        } else {
+            selectedIDs = Set(viewModel.filteredPlaceCards.map(\.id))
+        }
+    }
+
+    private func exitSelection() {
+        selectedIDs.removeAll()
+        isSelecting = false
+    }
+
+    private func applyCategory(_ category: String) {
+        let trimmed = category.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        for id in selectedIDs {
+            guard var card = storageService.placeCard(id: id) else { continue }
+            card.category = trimmed
+            storageService.save(card)
+        }
+        exitSelection()
+    }
+
+    private func moveSelected(to newBoard: Board) {
+        for id in selectedIDs {
+            guard var card = storageService.placeCard(id: id) else { continue }
+            card.boardId = newBoard.id
+            storageService.save(card)
+        }
+        exitSelection()
+    }
+
+    private func deleteSelected() {
+        for id in selectedIDs {
+            guard let card = storageService.placeCard(id: id) else { continue }
+            storageService.delete(card)
+        }
+        exitSelection()
     }
 }
 
 /// Used only by the "갤러리" tab now — a board's own place list is a plain
 /// `List` of `PlaceCardListRow`, not this grid (see `BoardDetailView`).
-/// Kept as a plain (non-Button) label inside a `NavigationLink` so a tap
-/// anywhere on the cell still opens `PlaceCardDetailView`; the star/
-/// visited/call/map/website/Instagram controls below are their own
-/// `.plain`-styled buttons, which SwiftUI already routes taps to ahead of
-/// the surrounding NavigationLink here — unlike inside a `List`, where
-/// that same setup doesn't work (see `BoardDetailView`'s own row-tap
-/// handling for why). Favorite/visited mirror Peragra's `PlaceRowView`,
-/// including being toggleable right from here.
+/// `GalleryView.gridCell(_:)` wraps this in a plain `.onTapGesture` rather
+/// than a `NavigationLink`/`Button` (needed once selection mode added a
+/// second tap meaning) — the star/visited/call/map/website/Instagram
+/// controls below stay their own `.plain`-styled buttons, which still
+/// claim their own taps ahead of that surrounding gesture. Favorite/
+/// visited mirror Peragra's `PlaceRowView`, including being toggleable
+/// right from here.
 struct PlaceCardGridCell: View {
     let card: PlaceCard
     /// Set only while the grid is sorted by distance from a chosen
