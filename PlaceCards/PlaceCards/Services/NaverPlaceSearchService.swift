@@ -102,9 +102,9 @@ private struct NaverLocalItem: Decodable {
     /// No rating/review count/photo — this API simply doesn't return
     /// them, unlike Google Places. Left `nil` rather than guessed.
     func toSearchResult() -> PlaceSearchResult {
-        let name = NaverPlaceSearchService.stripHTML(title)
+        let name = NaverPlaceSearchService.stripHTML(title).strippingInvisibleFormatCharacters()
         let rawAddress = [roadAddress, address].compactMap { $0 }.first { !$0.isEmpty }
-        let resolvedAddress = rawAddress.map(NaverPlaceSearchService.stripHTML) ?? ""
+        let resolvedAddress = (rawAddress.map(NaverPlaceSearchService.stripHTML) ?? "").strippingInvisibleFormatCharacters()
         let coordinates: Coordinates? = {
             guard let mapx, let mapy else { return nil }
             return NaverPlaceSearchService.coordinates(mapx: mapx, mapy: mapy)

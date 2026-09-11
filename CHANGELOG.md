@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (105차) — 상세보기에서 왼쪽 글자가 잘리던 문제 (추정) 수정
+#### Added
+- `Services/TextSanitizing.swift`(신규) — `String.strippingInvisibleFormatCharacters()`.
+  유니코드 "format"(Cf) 카테고리 문자(제로폭 공백/조인터, BOM, 양방향
+  방향 제어 문자 LRM/RLM/임베딩/오버라이드/아이솔레이트 등)를 전부
+  제거한다. 이 문자들은 원래 안 보이는 게 정상이라 제거해도 텍스트
+  내용은 절대 안 바뀌지만, 문자열 맨 앞에 하나 끼어 있으면 SwiftUI
+  `Text`가 그 부분을 화면 왼쪽 밖으로 밀어낸 것처럼 이상하게 그리는
+  경우가 있다.
+#### Fixed
+- `Services/PlaceSearchService.swift`(`GooglePlace.toSearchResult()`)/
+  `Services/NaverPlaceSearchService.swift`(`NaverLocalItem.toSearchResult()`)/
+  `Services/SharedLinkParser.swift`(`parseNaverText`): 사용자가 "네이버에서
+  받아서 구글로 읽어온 카드만 상세보기에서 왼쪽 글자가 잘린다"고 제보한
+  것을 근거로 추정한 원인 — Google Places API는 한글+영문/숫자가 섞인
+  주소·이름 텍스트에 브라우저용 양방향 표시 제어 문자(LRM 등)를 끼워
+  넣는 것으로 알려져 있는데, 브라우저에선 안 보이지만 SwiftUI `Text`에선
+  그 지점에서 이상하게 그려질 수 있다. Google Places/Naver 지역 검색
+  결과의 name/address, 그리고 네이버 공유 텍스트를 줄 단위로 쪼개는
+  지점에 `strippingInvisibleFormatCharacters()`를 적용. 기기에서 직접
+  재현하지 못한 상태로 제보 내용을 근거로 추정한 수정이라, 실제로
+  해결됐는지 확인 필요.
+
 ### 2026-09-11 (104차) — Naver 검색 API 발급 안내 수정 (NAVER API HUB로 이전됨)
 #### Fixed
 - `Views/SettingsView.swift`/`Services/Localization.swift`/

@@ -186,11 +186,16 @@ private struct GooglePlace: Decodable {
     let primaryTypeDisplayName: DisplayName?
     let photos: [Photo]?
 
+    // Google Places' response text for a mixed-script (Korean + Latin/
+    // numeric) name/address routinely embeds bidi direction-control
+    // marks for correct display in a browser — invisible there, but
+    // capable of visibly mis-rendering a plain SwiftUI `Text` (see
+    // `String.strippingInvisibleFormatCharacters()`'s own comment).
     func toSearchResult() -> PlaceSearchResult {
         PlaceSearchResult(
             id: id,
-            name: displayName?.text ?? "",
-            address: formattedAddress ?? "",
+            name: (displayName?.text ?? "").strippingInvisibleFormatCharacters(),
+            address: (formattedAddress ?? "").strippingInvisibleFormatCharacters(),
             coordinates: location.map { Coordinates(latitude: $0.latitude, longitude: $0.longitude) },
             rating: rating,
             reviewCount: userRatingCount,

@@ -104,7 +104,7 @@ enum SharedLinkParser {
         let urlString = url?.absoluteString
         let lines = text
             .split(separator: "\n", omittingEmptySubsequences: true)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .map { $0.trimmingCharacters(in: .whitespaces).strippingInvisibleFormatCharacters() }
             .filter { line in
                 guard !line.isEmpty, !line.hasPrefix("[") else { return false }
                 if let urlString, line == urlString { return false }
