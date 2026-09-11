@@ -17,13 +17,22 @@ enum LinkMetadataFetcher {
         + "(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
 
     static func fetchTitle(for url: URL, session: URLSession = .shared) async -> String? {
-        if let title = await fetchTitle(for: url, userAgent: crawlerUserAgent, session: session) {
-            return title
-        }
-        return await fetchTitle(for: url, userAgent: mobileSafariUserAgent, session: session)
+        guard let html = await fetchHTML(for: url, session: session) else { return nil }
+        return extractOGTitle(from: html) ?? extractTitleTag(from: html)
     }
 
-    private static func fetchTitle(for url: URL, userAgent: String, session: URLSession) async -> String? {
+    /// Fetches a page's raw HTML with the same crawler-UA-then-mobile-
+    /// Safari-UA fallback described above. Shared with
+    /// `WebsiteBusinessInfoFetcher`, which needs the whole page (to find its
+    /// JSON-LD structured data) rather than just a parsed title.
+    static func fetchHTML(for url: URL, session: URLSession = .shared) async -> String? {
+        if let html = await fetchHTML(for: url, userAgent: crawlerUserAgent, session: session) {
+            return html
+        }
+        return await fetchHTML(for: url, userAgent: mobileSafariUserAgent, session: session)
+    }
+
+    private static func fetchHTML(for url: URL, userAgent: String, session: URLSession) async -> String? {
         var request = URLRequest(url: url)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
 
@@ -34,7 +43,7 @@ enum LinkMetadataFetcher {
             return nil
         }
 
-        return extractOGTitle(from: html) ?? extractTitleTag(from: html)
+        return html
     }
 
     private static func extractOGTitle(from html: String) -> String? {

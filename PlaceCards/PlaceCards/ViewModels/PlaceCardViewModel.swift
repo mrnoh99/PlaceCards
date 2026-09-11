@@ -21,6 +21,12 @@ struct PlaceCandidateRow: Identifiable {
     /// whole point of scanning a photo is gathering everything usable
     /// about the place, not just enough to identify it.
     var scannedNote: String? = nil
+    /// The homepage URL itself, when the row's name/address came from a
+    /// plain business-homepage link (see `WebsiteBusinessInfoFetcher`) — a
+    /// place worth adding this way is usually one Google Maps doesn't have
+    /// listed at all, so this carries straight into the saved card instead
+    /// of waiting on a Google Places match that may never come.
+    var scannedWebsite: String? = nil
     var searchResults: [PlaceSearchResult] = []
     /// The specific Google Places result the user tapped, if any — takes
     /// priority over the raw name/address at save time since it carries
@@ -184,6 +190,9 @@ final class PlaceCardViewModel: ObservableObject {
         if candidateRows[filledIndex].scannedNote == nil, let note = resolved.note {
             candidateRows[filledIndex].scannedNote = note
         }
+        if candidateRows[filledIndex].scannedWebsite == nil, let website = resolved.website {
+            candidateRows[filledIndex].scannedWebsite = website
+        }
 
         let combinedQuery = address.isEmpty ? resolved.name : "\(resolved.name) \(address)"
 
@@ -258,6 +267,11 @@ final class PlaceCardViewModel: ObservableObject {
         var address: String?
         var coordinates: Coordinates?
         var note: String?
+        /// Recovered only from a plain business-homepage link (see
+        /// `WebsiteBusinessInfoFetcher`) — `nil` for every other source,
+        /// since a Naver/Google Maps share's own verified search result
+        /// already carries a website by the time a card is saved.
+        var website: String?
         /// Which app the share came from, if any — `.naverMapShare` routes
         /// `search(rowID:)` to `NaverPlaceSearchService` instead of Google
         /// (when Naver Search credentials are configured); `nil` for plain
@@ -280,7 +294,8 @@ final class PlaceCardViewModel: ObservableObject {
         if let parsed = SharedLinkParser.parse(trimmed) {
             if let name = parsed.name {
                 return ResolvedSharedPlace(
-                    name: name, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note, source: parsed.source
+                    name: name, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note,
+                    website: nil, source: parsed.source
                 )
             }
             // A URL-only share (a Google Maps short link, or a full one
@@ -290,12 +305,39 @@ final class PlaceCardViewModel: ObservableObject {
             // the URL parse still did yield.
             if let url = parsed.url, let title = await LinkMetadataFetcher.fetchTitle(for: url) {
                 return ResolvedSharedPlace(
-                    name: title, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note, source: parsed.source
+                    name: title, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note,
+                    website: nil, source: parsed.source
+                )
+            }
+            return ResolvedSharedPlace(
+                name: trimmed, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note,
+                website: nil, source: parsed.source
+            )
+        }
+
+        // Not a recognized Naver/Google Maps share at all — the common
+        // remaining case is a plain business homepage link, for a place
+        // Google Maps itself doesn't have listed. Its own schema.org JSON-LD
+        // (when present) recovers name/address/phone/hours far more
+        // reliably than just the page's <title>; Instagram is excluded
+        // since a post/reel page never carries a business listing, only a
+        // generic Instagram `Organization` block that would be a false match.
+        if let url = SharedLinkParser.extractURL(from: trimmed), !SharedLinkParser.isInstagramLink(trimmed) {
+            if let info = await WebsiteBusinessInfoFetcher.fetch(for: url) {
+                return ResolvedSharedPlace(
+                    name: info.name, address: info.address, coordinates: nil, note: info.note,
+                    website: url.absoluteString, source: nil
+                )
+            }
+            if let title = await LinkMetadataFetcher.fetchTitle(for: url) {
+                return ResolvedSharedPlace(
+                    name: title, address: nil, coordinates: nil, note: nil,
+                    website: url.absoluteString, source: nil
                 )
             }
         }
 
-        return ResolvedSharedPlace(name: trimmed, address: nil, coordinates: nil, note: nil, source: nil)
+        return ResolvedSharedPlace(name: trimmed, address: nil, coordinates: nil, note: nil, website: nil, source: nil)
     }
 
     /// Saves every selected, named row as its own card in one pass — each
@@ -313,13 +355,14 @@ final class PlaceCardViewModel: ObservableObject {
         for row in candidateRows where row.selected && !row.name.trimmingCharacters(in: .whitespaces).isEmpty {
             if let chosen = row.chosenResult {
                 if let card = try? await createPlaceCard(
-                    from: chosen, images: selectedImages, source: source, note: row.scannedNote
+                    from: chosen, images: selectedImages, source: source, note: row.scannedNote, website: row.scannedWebsite
                 ) {
                     created.append(card)
                 }
             } else {
                 let card = createManualPlaceCard(
-                    name: row.name, address: row.address, images: selectedImages, source: source, note: row.scannedNote
+                    name: row.name, address: row.address, images: selectedImages, source: source,
+                    note: row.scannedNote, website: row.scannedWebsite
                 )
                 created.append(card)
             }
@@ -332,8 +375,12 @@ final class PlaceCardViewModel: ObservableObject {
     /// here while every other field comes from `result` (the verified
     /// Google Places match), so the two sources combine instead of the
     /// scan's extra context getting lost the moment a result is chosen.
+    /// `website` only ever fills in when `result` itself has none — a row
+    /// resolved from a business-homepage link (`scannedWebsite`) still
+    /// picking up a verified Google Places match shouldn't lose the one
+    /// link it started from.
     func createPlaceCard(
-        from result: PlaceSearchResult, images: [UIImage], source: SourceType, note: String? = nil
+        from result: PlaceSearchResult, images: [UIImage], source: SourceType, note: String? = nil, website: String? = nil
     ) async throws -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId,
@@ -344,7 +391,7 @@ final class PlaceCardViewModel: ObservableObject {
             rating: result.rating,
             reviewCount: result.reviewCount,
             phone: result.phone,
-            website: result.website,
+            website: result.website ?? website,
             memo: PlaceCard.combinedMemo(nil, appending: note)
         )
 
@@ -397,10 +444,16 @@ final class PlaceCardViewModel: ObservableObject {
     /// geocoding fallback here; picking "Google에서 검색" is how a manual
     /// entry gets coordinates. `note` is the AI scan's leftover context
     /// (`PlaceCandidateRow.scannedNote`), same as `createPlaceCard(from:)`.
+    /// `website` is only ever set this way for a row resolved from a plain
+    /// business-homepage link (`PlaceCandidateRow.scannedWebsite`).
     func createManualPlaceCard(
-        name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput, note: String? = nil
+        name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput,
+        note: String? = nil, website: String? = nil
     ) -> PlaceCard {
-        var card = PlaceCard(boardId: boardId, name: name, address: address, memo: PlaceCard.combinedMemo(nil, appending: note))
+        var card = PlaceCard(
+            boardId: boardId, name: name, address: address, website: website,
+            memo: PlaceCard.combinedMemo(nil, appending: note)
+        )
         card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
 
         for image in images {

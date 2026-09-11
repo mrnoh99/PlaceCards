@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (106차) — 홈페이지 링크에서 업체 정보(이름/주소/전화/영업시간) 추출
+#### Added
+- `Services/WebsiteBusinessInfoFetcher.swift`(신규) — 일반 업체 홈페이지 링크의
+  schema.org JSON-LD 구조화 데이터(`<script type="application/ld+json">`)를
+  파싱해 이름/주소/전화/영업시간을 추출한다. `LocalBusiness` 등 고정된
+  `@type` 목록으로 제한하지 않고, `name`과 (`address` 또는 `telephone`)이
+  둘 다 있는 객체를 실제 업체 정보로 인정 — schema.org의 LocalBusiness
+  하위 타입이 계속 늘어나는 상황에 안전하도록. 전화/영업시간은 별도
+  필드가 아니라 카드 메모(`note`)에 합쳐 넣는다 — 홈페이지 자체가 적어둔
+  값이라 Google/Naver 검색 결과처럼 검증된 값이 아니기 때문.
+- `Services/LinkMetadataFetcher.swift`: 기존 `fetchTitle(for:userAgent:session:)`의
+  "크롤러 UA로 먼저 시도, 실패하면 모바일 Safari UA로 재시도" 로직을
+  `fetchHTML(for:session:)`(내부용 `fetchHTML(for:userAgent:session:)` 분리)로
+  뽑아내 제목 파싱과 분리 — `WebsiteBusinessInfoFetcher`가 페이지 전체
+  HTML이 필요해서 같은 fallback 로직을 중복 없이 재사용하도록.
+- `Services/Localization.swift`: `"전화번호: "`/`"영업시간(홈페이지): "` 추가.
+#### Changed
+- `ViewModels/PlaceCardViewModel.swift`(`resolveSharedPlace(from:)`): 네이버/구글
+  지도 공유가 아닌 일반 URL(예: 구글맵에 없는 업체의 홈페이지 링크)을
+  붙여넣거나 공유받으면, 기존처럼 원본 URL 텍스트를 그대로 이름으로 쓰던
+  것 대신 `WebsiteBusinessInfoFetcher`로 먼저 시도하고, 실패하면
+  `LinkMetadataFetcher.fetchTitle`(제목만)로 폴백한다. 인스타그램 링크는
+  제외(게시물 페이지엔 업체 정보가 없고 Instagram 자체의 Organization
+  블록만 있어 오탐 소지). `ResolvedSharedPlace`/`PlaceCandidateRow`에
+  `website` 필드 추가, `createManualPlaceCard`/`createPlaceCard(from:)`가
+  이를 받아 카드의 `website` 필드로 저장한다(검색으로 찾은 결과 자체에
+  website가 있으면 그쪽이 우선).
+
 ### 2026-09-11 (105차) — 상세보기에서 왼쪽 글자가 잘리던 문제 (추정) 수정
 #### Added
 - `Services/TextSanitizing.swift`(신규) — `String.strippingInvisibleFormatCharacters()`.
