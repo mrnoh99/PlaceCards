@@ -10,6 +10,10 @@ struct PlaceSearchResult: Identifiable {
     let phone: String?
     let website: String?
     let category: String?
+    /// `nil` for a Naver-verified result (`NaverLocalItem.toSearchResult()`
+    /// — Naver's local search API has no equivalent field) or any Google
+    /// result Google itself didn't return a price level for.
+    let priceLevel: PriceLevel?
     /// The resource name of this place's first Google Places photo, if it
     /// has one (e.g. `"places/ChIJ.../photos/AUy1..."`) — pass to
     /// `GooglePlacesService.photoData(photoName:)` to fetch the actual
@@ -66,7 +70,7 @@ final class GooglePlacesService: PlaceSearchService {
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.setValue(
-            "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.internationalPhoneNumber,places.websiteUri,places.primaryTypeDisplayName,places.photos",
+            "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.internationalPhoneNumber,places.websiteUri,places.primaryTypeDisplayName,places.photos,places.priceLevel",
             forHTTPHeaderField: "X-Goog-FieldMask"
         )
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -185,6 +189,13 @@ private struct GooglePlace: Decodable {
     let websiteUri: String?
     let primaryTypeDisplayName: DisplayName?
     let photos: [Photo]?
+    /// Raw JSON string, e.g. `"PRICE_LEVEL_MODERATE"` — decoded via
+    /// `PriceLevel(rawValue:)` below rather than typed as `PriceLevel?`
+    /// directly, so an unrecognized/unspecified value (Google's own
+    /// `PRICE_LEVEL_UNSPECIFIED`, or any future case this app doesn't
+    /// know about yet) fails that lookup and becomes `nil` instead of
+    /// failing the whole decode.
+    let priceLevel: String?
 
     // Google Places' response text for a mixed-script (Korean + Latin/
     // numeric) name/address routinely embeds bidi direction-control
@@ -202,6 +213,7 @@ private struct GooglePlace: Decodable {
             phone: internationalPhoneNumber,
             website: websiteUri,
             category: primaryTypeDisplayName?.text.strippingInvisibleFormatCharacters(),
+            priceLevel: priceLevel.flatMap(PriceLevel.init(rawValue:)),
             photoName: photos?.first?.name
         )
     }

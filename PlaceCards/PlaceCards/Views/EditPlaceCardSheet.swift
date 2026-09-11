@@ -11,6 +11,16 @@ private struct HoursEntry: Identifiable {
     var hours: String
 }
 
+/// One editable row of `PlaceCard.externalLinks` (a platform name and its
+/// URL, e.g. "Google Maps" → a share link, "Trip Advisor" → a listing
+/// page) — same free add/removable-list treatment as `HoursEntry`, since
+/// there's no fixed set of platforms worth a dedicated field each.
+private struct ExternalLinkEntry: Identifiable {
+    let id = UUID()
+    var platform: String
+    var url: String
+}
+
 /// Edits a place card's own fields directly, mirroring the "Edit" action
 /// in Peragra's `PlaceRowView` (which opens `EditPlaceSheet`) — scoped to
 /// this app's plain fields only, since the photo/AI-fill flows Peragra's
@@ -43,12 +53,18 @@ struct EditPlaceCardSheet: View {
     @State private var instagramURL: String
     @State private var ratingText: String
     @State private var reviewCountText: String
+    @State private var myRatingText: String
+    @State private var priceLevel: PriceLevel?
     @State private var isFavorite: Bool
     @State private var isVisited: Bool
+    @State private var wouldRevisit: Bool?
+    @State private var visitDates: [Date]
     @State private var closingTime: String
     @State private var holidays: String
     @State private var reservationInfo: String
+    @State private var recommendedMenu: String
     @State private var hoursEntries: [HoursEntry]
+    @State private var externalLinkEntries: [ExternalLinkEntry]
     @State private var tagsText: String
     @State private var amenitiesText: String
     @State private var memoText: String
@@ -85,12 +101,18 @@ struct EditPlaceCardSheet: View {
         _instagramURL = State(initialValue: card.instagramURL ?? "")
         _ratingText = State(initialValue: card.rating.map { String($0) } ?? "")
         _reviewCountText = State(initialValue: card.reviewCount.map { String($0) } ?? "")
+        _myRatingText = State(initialValue: card.myRating.map { String($0) } ?? "")
+        _priceLevel = State(initialValue: card.priceLevel)
         _isFavorite = State(initialValue: card.isFavorite)
         _isVisited = State(initialValue: card.isVisited)
+        _wouldRevisit = State(initialValue: card.wouldRevisit)
+        _visitDates = State(initialValue: card.visitDates)
         _closingTime = State(initialValue: card.closingTime ?? "")
         _holidays = State(initialValue: card.holidays ?? "")
         _reservationInfo = State(initialValue: card.reservationInfo ?? "")
+        _recommendedMenu = State(initialValue: card.recommendedMenu ?? "")
         _hoursEntries = State(initialValue: (card.hoursDetail ?? [:]).sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) })
+        _externalLinkEntries = State(initialValue: card.externalLinks.sorted { $0.key < $1.key }.map { ExternalLinkEntry(platform: $0.key, url: $0.value) })
         _tagsText = State(initialValue: card.tags.joined(separator: ", "))
         _amenitiesText = State(initialValue: card.amenities.joined(separator: ", "))
         _memoText = State(initialValue: card.memo ?? "")
@@ -113,17 +135,24 @@ struct EditPlaceCardSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                photoImportSection
-                basicInfoSection
-                webSearchSection
-                coordinatesSection
-                contactSection
-                ratingSection
-                statusSection
-                businessHoursSection
-                tagsSection
-                amenitiesSection
-                memoSection
+                Group {
+                    photoImportSection
+                    basicInfoSection
+                    webSearchSection
+                    coordinatesSection
+                    contactSection
+                    externalLinksSection
+                    ratingSection
+                }
+                Group {
+                    statusSection
+                    visitDatesSection
+                    businessHoursSection
+                    recommendedMenuSection
+                    tagsSection
+                    amenitiesSection
+                    memoSection
+                }
             }
             .scrollDismissesKeyboard(.interactively)
             .keyboardDoneButton()
@@ -243,12 +272,45 @@ struct EditPlaceCardSheet: View {
     }
 
     @ViewBuilder
+    private var externalLinksSection: some View {
+        Section {
+            ForEach($externalLinkEntries) { $entry in
+                HStack {
+                    TextField("플랫폼 (예: Trip Advisor)".localized, text: $entry.platform)
+                        .frame(width: 110)
+                    Divider()
+                    TextField("URL", text: $entry.url)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                }
+            }
+            .onDelete { externalLinkEntries.remove(atOffsets: $0) }
+            Button("+ 링크 추가".localized) {
+                externalLinkEntries.append(ExternalLinkEntry(platform: "", url: ""))
+            }
+        } header: {
+            Text("외부 링크".localized)
+        } footer: {
+            Text("Google 지도, Naver 지도, Trip Advisor 등 이 장소의 페이지 링크를 추가해두면 상세보기에서 바로 열 수 있습니다.".localized)
+        }
+    }
+
+    @ViewBuilder
     private var ratingSection: some View {
         Section("평가".localized) {
             TextField("평점 (0~5)".localized, text: $ratingText)
                 .keyboardType(.decimalPad)
             TextField("리뷰 수".localized, text: $reviewCountText)
                 .keyboardType(.numberPad)
+            TextField("내 평점 (0~5)".localized, text: $myRatingText)
+                .keyboardType(.decimalPad)
+            Picker("가격대".localized, selection: $priceLevel) {
+                Text("설정 안 함".localized).tag(PriceLevel?.none)
+                ForEach(PriceLevel.allCases, id: \.self) { level in
+                    Text(level.symbol).tag(PriceLevel?.some(level))
+                }
+            }
         }
     }
 
@@ -257,6 +319,30 @@ struct EditPlaceCardSheet: View {
         Section("상태".localized) {
             Toggle("즐겨찾기".localized, isOn: $isFavorite)
             Toggle("방문함".localized, isOn: $isVisited)
+            Picker("다시 방문 의향".localized, selection: $wouldRevisit) {
+                Text("모름".localized).tag(Bool?.none)
+                Text("다시 갈래요".localized).tag(Bool?.some(true))
+                Text("다시 안 갈래요".localized).tag(Bool?.some(false))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var visitDatesSection: some View {
+        Section {
+            ForEach(Array(visitDates.enumerated()), id: \.offset) { index, _ in
+                DatePicker(
+                    "방문 날짜".localized, selection: $visitDates[index], displayedComponents: .date
+                )
+            }
+            .onDelete { visitDates.remove(atOffsets: $0) }
+            Button("+ 방문 날짜 추가".localized) {
+                visitDates.append(Date())
+            }
+        } header: {
+            Text("방문 날짜".localized)
+        } footer: {
+            Text("위 \"방문함\"과 별개로, 실제로 방문한 날짜들을 기록해둡니다.".localized)
         }
     }
 
@@ -282,6 +368,15 @@ struct EditPlaceCardSheet: View {
             Text("영업 정보".localized)
         } footer: {
             Text("특정 예약 플랫폼으로 바로 연결되는 링크는 지원하지 않아, 상세보기의 \"예약\" 버튼은 여기 적은 내용으로 웹 검색을 열어줍니다.".localized)
+        }
+    }
+
+    @ViewBuilder
+    private var recommendedMenuSection: some View {
+        Section {
+            TextField("추천 메뉴".localized, text: $recommendedMenu, axis: .vertical)
+        } header: {
+            Text("추천 메뉴".localized)
         }
     }
 
@@ -565,6 +660,10 @@ struct EditPlaceCardSheet: View {
             reservationInfo = value
             filledFields.append("예약 방법".localized)
         }
+        if recommendedMenu.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.recommendedMenu, !value.isEmpty {
+            recommendedMenu = value
+            filledFields.append("추천 메뉴".localized)
+        }
         if !details.amenities.isEmpty {
             let existing = Set(amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
             let newOnes = details.amenities.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !existing.contains($0) }
@@ -642,9 +741,14 @@ struct EditPlaceCardSheet: View {
         updated.rating = trimmedRating.isEmpty ? nil : Double(trimmedRating)
         let trimmedReviewCount = reviewCountText.trimmingCharacters(in: .whitespaces)
         updated.reviewCount = trimmedReviewCount.isEmpty ? nil : Int(trimmedReviewCount)
+        let trimmedMyRating = myRatingText.trimmingCharacters(in: .whitespaces)
+        updated.myRating = trimmedMyRating.isEmpty ? nil : Double(trimmedMyRating)
+        updated.priceLevel = priceLevel
 
         updated.isFavorite = isFavorite
         updated.isVisited = isVisited
+        updated.wouldRevisit = wouldRevisit
+        updated.visitDates = visitDates
 
         let trimmedClosingTime = closingTime.trimmingCharacters(in: .whitespaces)
         updated.closingTime = trimmedClosingTime.isEmpty ? nil : trimmedClosingTime
@@ -652,6 +756,8 @@ struct EditPlaceCardSheet: View {
         updated.holidays = trimmedHolidays.isEmpty ? nil : trimmedHolidays
         let trimmedReservationInfo = reservationInfo.trimmingCharacters(in: .whitespaces)
         updated.reservationInfo = trimmedReservationInfo.isEmpty ? nil : trimmedReservationInfo
+        let trimmedRecommendedMenu = recommendedMenu.trimmingCharacters(in: .whitespaces)
+        updated.recommendedMenu = trimmedRecommendedMenu.isEmpty ? nil : trimmedRecommendedMenu
 
         var hoursDetail: [String: String] = [:]
         for entry in hoursEntries {
@@ -661,6 +767,15 @@ struct EditPlaceCardSheet: View {
             hoursDetail[day] = hours
         }
         updated.hoursDetail = hoursDetail.isEmpty ? nil : hoursDetail
+
+        var externalLinks: [String: String] = [:]
+        for entry in externalLinkEntries {
+            let platform = entry.platform.trimmingCharacters(in: .whitespaces)
+            let url = entry.url.trimmingCharacters(in: .whitespaces)
+            guard !platform.isEmpty, !url.isEmpty else { continue }
+            externalLinks[platform] = url
+        }
+        updated.externalLinks = externalLinks
 
         updated.tags = tagsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         updated.amenities = amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }

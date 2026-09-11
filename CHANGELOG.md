@@ -2,6 +2,39 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (121차) — 개인 평가/가격대/방문 기록/추천 메뉴/외부 링크 필드 추가
+#### Added
+- `Models/PlaceCard.swift`: 새 필드 6개 추가 — `myRating: Double?`(내
+  평점, Google/Naver의 공개 평점 `rating`과 별개), `priceLevel:
+  PriceLevel?`(Google Places API (New)의 `priceLevel`을 그대로 옮긴
+  enum — `PRICE_LEVEL_FREE`~`PRICE_LEVEL_VERY_EXPENSIVE`, 공식 REST
+  레퍼런스로 필드명·값을 직접 확인 후 작성), `externalLinks: [String:
+  String]`(플랫폼 이름 → URL, 정해진 목록이 아니라 자유롭게
+  추가/삭제하는 딕셔너리), `visitDates: [Date]`(기존 `isVisited` 토글과
+  독립적으로 실제 방문 날짜들을 기록), `wouldRevisit: Bool?`(다시 방문
+  의향 — `nil`은 "아직 모름"), `recommendedMenu: String?`(추천 메뉴,
+  AI 스캔/웹 검색으로도 채워짐). `matchesSearch(_:)`·
+  `strippingInvisibleFormatCharacters()`·`applyScannedDetails(_:)` 모두
+  갱신.
+- `Services/AIProvider.swift`: `PlaceWebDetails`에 `recommendedMenu:
+  String?` 추가 — 사진 스캔·웹 검색 프롬프트/파서 양쪽 다 반영.
+- `Services/PlaceSearchService.swift`,
+  `Services/NaverPlaceSearchService.swift`: Google Places 검색 결과에
+  `priceLevel` 필드 마스크·디코딩 추가(Naver는 해당 필드가 없어 항상
+  `nil`).
+- `ViewModels/PlaceCardViewModel.swift`: Naver Map/Google Maps 공유로
+  카드를 만들 때 공유 자체의 URL(`SharedLinkParser.ParsedSharedPlace
+  .url`)을 `PlaceCandidateRow.scannedMapURL`에 저장해두었다가, 저장 시
+  `externalLinks["Naver Map"]`/`externalLinks["Google Maps"]`로
+  반영 — 이름·좌표로 재구성한 링크(`MapOpeners.swift`)보다 정확하게
+  사용자가 실제로 공유한 페이지 그대로 연결됨.
+- `Views/EditPlaceCardSheet.swift`, `Views/PlaceCardDetailView.swift`:
+  위 6개 필드 모두 편집/표시 UI 추가 — 내 평점·가격대는 평가 섹션에,
+  다시 방문 의향은 상태 섹션에, 방문 날짜는 추가/삭제 가능한 날짜
+  목록으로, 추천 메뉴는 영업 정보 섹션에, 외부 링크는 플랫폼 이름+URL
+  쌍을 자유롭게 추가/삭제하는 목록과 상세보기에서 바로 여는 버튼으로
+  추가.
+
 ### 2026-09-11 (120차) — AI 태그 제안을 카드 신규 생성/지도 스크린샷 추가에도 확장
 #### Added
 - `Models/PlaceCard.swift`: `applyScannedDetails(_:)`를

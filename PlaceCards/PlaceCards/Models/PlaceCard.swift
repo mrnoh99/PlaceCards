@@ -5,6 +5,34 @@ struct Coordinates: Codable, Equatable, Hashable {
     var longitude: Double
 }
 
+/// Mirrors Google Places API (New)'s own `priceLevel` enum exactly (raw
+/// values are its actual JSON string values, confirmed against the live
+/// REST reference — https://developers.google.com/maps/documentation/places/web-service/reference/rest/v1/places#pricelevel)
+/// so a search result's `priceLevel` decodes straight into this with no
+/// translation layer. `PRICE_LEVEL_UNSPECIFIED` has no case here — an
+/// unspecified/unknown price level and a place Google never returned a
+/// price level for both mean the same "don't know" to this app, so both
+/// just decode to `nil` rather than a distinct "unspecified" case.
+enum PriceLevel: String, Codable, CaseIterable {
+    case free = "PRICE_LEVEL_FREE"
+    case inexpensive = "PRICE_LEVEL_INEXPENSIVE"
+    case moderate = "PRICE_LEVEL_MODERATE"
+    case expensive = "PRICE_LEVEL_EXPENSIVE"
+    case veryExpensive = "PRICE_LEVEL_VERY_EXPENSIVE"
+
+    /// A short "₩"-style symbol — mirrors how Google/Naver Maps' own UI
+    /// shows price level, familiar at a glance without reading a label.
+    var symbol: String {
+        switch self {
+        case .free: return "무료".localized
+        case .inexpensive: return "₩"
+        case .moderate: return "₩₩"
+        case .expensive: return "₩₩₩"
+        case .veryExpensive: return "₩₩₩₩"
+        }
+    }
+}
+
 /// A single discovered place, unifying information gathered from map
 /// screenshots, shared links, direct API lookups, and photos taken on site.
 struct PlaceCard: Identifiable, Codable {
@@ -20,6 +48,15 @@ struct PlaceCard: Identifiable, Codable {
 
     var rating: Double?
     var reviewCount: Int?
+    /// The user's own rating, separate from `rating` (Google/Naver's
+    /// public aggregate) — this app has no review-writing feature, just a
+    /// personal 1–5 note of how the user themself felt about the place.
+    var myRating: Double?
+    /// From Google Places' own `priceLevel` — `nil` for a card that either
+    /// has no verified Google match at all, or one Google itself never
+    /// returned a price level for (a Naver-verified card never gets this,
+    /// since Naver's local search API has no equivalent field).
+    var priceLevel: PriceLevel?
 
     var phone: String?
     var website: String?
@@ -28,11 +65,37 @@ struct PlaceCard: Identifiable, Codable {
     /// so the cell can show a dedicated Instagram action alongside a plain
     /// website link.
     var instagramURL: String?
+    /// Other pages worth a quick link out to — the exact Google/Naver Map
+    /// listing this card was verified against (captured from a share's own
+    /// URL rather than reconstructed from name/coordinates, so it's exact
+    /// rather than a best-effort search link), or a review/booking
+    /// platform's own page (TripAdvisor, Yelp, OpenTable, ...) added by
+    /// hand. Keyed by a short platform label (e.g. "Google Maps", "Naver
+    /// Map", "TripAdvisor") rather than one named field per platform,
+    /// since there's no fixed, closed set of these worth hardcoding —
+    /// `website`/`instagramURL` stay their own dedicated fields since
+    /// every card routinely has those specific two and the UI treats them
+    /// distinctly (a dedicated icon/action each).
+    var externalLinks: [String: String] = [:]
 
     /// Mirrors Peragra's `Place.favorite`/`Place.visited` — toggled
     /// directly from the card cell.
     var isFavorite: Bool = false
     var isVisited: Bool = false
+    /// Every date the user actually logged a visit on, most useful for
+    /// "언제 갔었지?"/"몇 번 갔지?" beyond the plain visited/not-visited
+    /// flag `isVisited` already gives — independent of that flag by
+    /// design (toggling `isVisited` doesn't touch this, and this doesn't
+    /// imply `isVisited`), so a card can track detailed visit history
+    /// without forcing every user through it just to mark "visited".
+    var visitDates: [Date] = []
+    /// Whether the user would go back — a separate question from
+    /// `isFavorite` (liking a place) and `isVisited` (having been), and
+    /// genuinely three-valued: `nil` for "haven't decided/doesn't apply"
+    /// (every card before this existed, and most new ones until the user
+    /// actively answers it), as opposed to `false` meaning they actively
+    /// decided not to.
+    var wouldRevisit: Bool?
 
     var hoursDetail: [String: String]?
     var closingTime: String?
@@ -48,6 +111,10 @@ struct PlaceCard: Identifiable, Codable {
     /// search that reliably lands the user on results for it regardless of
     /// which platform it names.
     var reservationInfo: String?
+    /// Free text for what to actually order here, e.g. "시그니처 라떼,
+    /// 크로플" — filled by hand, or by an AI photo scan/web search the
+    /// same way phone/hours are.
+    var recommendedMenu: String?
 
     var amenities: [String] = []
     var tags: [String] = []
@@ -142,7 +209,7 @@ extension PlaceCard {
             .map(String.init)
         guard !words.isEmpty else { return true }
         let searchableFields: [String?] = [
-            name, address, category, memo, phone,
+            name, address, category, memo, phone, recommendedMenu,
             tags.joined(separator: " "), amenities.joined(separator: " ")
         ]
         let haystack = searchableFields.compactMap { $0 }.joined(separator: " ")
@@ -168,8 +235,14 @@ extension PlaceCard {
         card.closingTime = closingTime?.strippingInvisibleFormatCharacters()
         card.holidays = holidays?.strippingInvisibleFormatCharacters()
         card.reservationInfo = reservationInfo?.strippingInvisibleFormatCharacters()
+        card.recommendedMenu = recommendedMenu?.strippingInvisibleFormatCharacters()
         card.tags = tags.map { $0.strippingInvisibleFormatCharacters() }
         card.amenities = amenities.map { $0.strippingInvisibleFormatCharacters() }
+        card.externalLinks = Dictionary(
+            uniqueKeysWithValues: externalLinks.map {
+                ($0.key.strippingInvisibleFormatCharacters(), $0.value.strippingInvisibleFormatCharacters())
+            }
+        )
         if let hoursDetail {
             card.hoursDetail = Dictionary(
                 uniqueKeysWithValues: hoursDetail.map {
@@ -204,6 +277,7 @@ extension PlaceCard {
         if holidays == nil, let value = details.holidays, !value.isEmpty { holidays = value }
         if amenities.isEmpty, !details.amenities.isEmpty { amenities = details.amenities }
         if reservationInfo == nil, let value = details.reservationInfo, !value.isEmpty { reservationInfo = value }
+        if recommendedMenu == nil, let value = details.recommendedMenu, !value.isEmpty { recommendedMenu = value }
     }
 
     /// Fills in anything only a duplicate had, folding its media and tags

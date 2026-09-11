@@ -88,6 +88,14 @@ struct PlaceCardDetailView: View {
                             Text(card.address)
                                 .font(.body)
                         }
+                        if let wouldRevisit = card.wouldRevisit {
+                            Label(
+                                wouldRevisit ? "다시 갈래요".localized : "다시 안 갈래요".localized,
+                                systemImage: wouldRevisit ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle"
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(wouldRevisit ? .green : .secondary)
+                        }
 
                         HStack(spacing: 16) {
                             if let rating = card.rating {
@@ -96,6 +104,14 @@ struct PlaceCardDetailView: View {
                             }
                             if let reviewCount = card.reviewCount {
                                 Text("리뷰 ".localized + "\(reviewCount)" + "개".localized)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let myRating = card.myRating {
+                                Label(String(format: "%.1f", myRating), systemImage: "person.fill")
+                                    .foregroundStyle(.blue)
+                            }
+                            if let priceLevel = card.priceLevel {
+                                Text(priceLevel.symbol)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -123,6 +139,14 @@ struct PlaceCardDetailView: View {
                             Text("편의시설".localized)
                                 .font(.headline)
                             WrapTagsView(tags: card.amenities)
+                        }
+
+                        if !card.visitDates.isEmpty {
+                            visitDatesDisplaySection
+                        }
+
+                        if !card.externalLinks.isEmpty {
+                            externalLinksDisplaySection
                         }
 
                         tagsSection
@@ -299,7 +323,7 @@ struct PlaceCardDetailView: View {
 
     private var hasHoursInfo: Bool {
         card.hoursDetail?.isEmpty == false || card.closingTime?.isEmpty == false || card.holidays?.isEmpty == false
-            || card.reservationInfo?.isEmpty == false
+            || card.reservationInfo?.isEmpty == false || card.recommendedMenu?.isEmpty == false
     }
 
     @ViewBuilder
@@ -331,6 +355,49 @@ struct PlaceCardDetailView: View {
                 Label("예약 ".localized + reservationInfo, systemImage: "checkmark.seal")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+            if let recommendedMenu = card.recommendedMenu, !recommendedMenu.isEmpty {
+                Label("추천 메뉴 ".localized + recommendedMenu, systemImage: "fork.knife")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var visitDatesDisplaySection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("방문 날짜".localized)
+                .font(.headline)
+            Text(card.visitDates.sorted(by: >).map { $0.formatted(date: .abbreviated, time: .omitted) }.joined(separator: ", "))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Opens the exact page each link points to — a Naver/Google Maps
+    /// share captured this way (`PlaceCardViewModel.externalLinks(source:
+    /// mapURL:)`) is the precise page the user shared, distinct from
+    /// `mapMenu`'s own name/coordinate-reconstructed deep link.
+    @ViewBuilder
+    private var externalLinksDisplaySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("외부 링크".localized)
+                .font(.headline)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(card.externalLinks.sorted(by: { $0.key < $1.key }), id: \.key) { platform, urlString in
+                        if let url = URL(string: urlString) {
+                            Button {
+                                openURL(url)
+                            } label: {
+                                Label(platform, systemImage: "link")
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .font(.caption)
             }
         }
     }

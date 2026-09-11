@@ -131,6 +131,7 @@ private struct NaverLocalItem: Decodable {
             phone: resolvedPhone,
             website: resolvedLink,
             category: category?.strippingInvisibleFormatCharacters(),
+            priceLevel: nil,
             photoName: nil
         )
     }
