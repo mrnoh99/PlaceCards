@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (95차) — 버그 수정: 카드를 눌러 들어가면 사진 뷰어가 저절로 열리는 문제
+#### Fixed
+- `Views/PlaceCardDetailView.swift`: 갤러리/리스트에서 카드를 눌러 상세보기로
+  들어가면, 가끔 "..."가 잠깐 뜨고 사라진 뒤 사진 뷰어가 저절로 열리는
+  현상. 카드 목록 쪽은 (`NavigationLink`가 행 안의 즐겨찾기 등 버튼을
+  가로채는 문제 때문에) `NavigationLink` 대신
+  `.contentShape(Rectangle()).onTapGesture { selectedCard = card }` +
+  `.navigationDestination(item:)`로 내비게이션한다. 이 방식은 `Button`/
+  `NavigationLink`만큼 터치를 확실히 소비하지 않아서, 카드를 연 그 터치가
+  화면 전환 도중 새로 밀려 들어온 상세보기 화면의 같은 위치에 있던 요소로
+  새어 들어갈 수 있다 — 이번에 화면 맨 위·가장 큰 영역을 차지하는
+  `heroPhotoSection`(사진 배너)이 그 대상이 된 것.
+  - 화면이 뜬 뒤 400ms 동안 `heroPhotoSection`의 탭을 막는
+    `isHeroPhotoTappable` 플래그(신규)를 추가 — 전환에서 새어 들어온
+    터치는 걸러내고, 실제 사용자가 의도적으로 누르는 탭은 이 정도
+    지연으로는 전혀 체감되지 않음.
+
 ### 2026-09-11 (94차) — 버그 수정: 상세보기 지도 미리보기가 빈 칸으로 남는 문제
 #### Fixed
 - `Views/PlaceCardDetailView.swift`: 좌표 미리보기용 `Map`이 구버전(iOS 17 이전)

@@ -15,6 +15,20 @@ struct PlaceCardDetailView: View {
     @State private var isPresentingPhotoViewer = false
     @State private var photoViewerStartIndex = 0
     @FocusState private var isMemoFieldFocused: Bool
+    /// Guards `heroPhotoSection`'s tap for a moment after this screen
+    /// appears. Every card list/grid navigates here via
+    /// `.contentShape(Rectangle()).onTapGesture { selectedCard = card }`
+    /// (not `NavigationLink`, which swallows a row's own inner buttons —
+    /// see those views' own comments) — a plain `onTapGesture` doesn't
+    /// participate in the same touch-cancellation UIKit gives a real
+    /// control, so the same touch-up that opened this screen can, during
+    /// the push transition, also land on whatever's sitting at that same
+    /// screen position once this view appears — here, the hero photo
+    /// banner, being the first and largest thing in the layout. Without
+    /// this guard that stray touch fires the photo viewer immediately on
+    /// open; a few hundred milliseconds is well past any transition but
+    /// unnoticeable for a real, deliberate tap.
+    @State private var isHeroPhotoTappable = false
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
@@ -166,6 +180,11 @@ struct PlaceCardDetailView: View {
         // typed rather than silently discarding it.
         .onDisappear {
             if isMemoFieldFocused { storageService.save(card) }
+            isHeroPhotoTappable = false
+        }
+        .task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            isHeroPhotoTappable = true
         }
     }
 
@@ -301,6 +320,7 @@ struct PlaceCardDetailView: View {
     private var heroPhotoSection: some View {
         if let heroPhotoItem, let image = MediaStore.loadImage(fileName: heroPhotoItem.localPath) {
             Button {
+                guard isHeroPhotoTappable else { return }
                 photoViewerStartIndex = heroPhotoIndex
                 isPresentingPhotoViewer = true
             } label: {
