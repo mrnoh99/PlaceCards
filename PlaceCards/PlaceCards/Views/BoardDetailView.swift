@@ -120,7 +120,12 @@ struct BoardDetailView: View {
             .onAppear { navigation.currentHomeBoardID = board.id }
             .navigationTitle(board.name)
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchQuery, prompt: "이름, 주소로 검색".localized)
+            // `.always` — not the default `.automatic`, which collapses
+            // the field into the nav bar until the user pulls down or
+            // scrolls — so search stays visible the same way it does on
+            // Home/Gallery, matching those screens exactly apart from
+            // this one being a list instead of a grid.
+            .searchable(text: $searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "카드 검색".localized)
             .toolbar { toolbarContent }
             .task { refreshExportPlacesFile() }
             .onChange(of: cards.count) { _, _ in refreshExportPlacesFile() }

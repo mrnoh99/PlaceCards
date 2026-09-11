@@ -70,7 +70,11 @@ struct GalleryView: View {
                 }
             }
             .navigationTitle(scopedBoard.map { "갤러리 · ".localized + $0.name } ?? "갤러리".localized)
-            .searchable(text: $viewModel.searchQuery, prompt: "이름, 주소로 검색".localized)
+            // `.always` so search stays visible without a pull-down/
+            // scroll — same as Home/BoardDetailView, since the only
+            // intended difference between this screen and BoardDetailView
+            // is grid vs. list.
+            .searchable(text: $viewModel.searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "카드 검색".localized)
             // Home tab's board (if any) is only known once this tab
             // itself becomes visible — synced here rather than read once
             // at init, since the user may navigate around Home first and

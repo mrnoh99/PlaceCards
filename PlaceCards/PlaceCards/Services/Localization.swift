@@ -288,7 +288,6 @@ enum Localization {
         "이 폴더에 대한 접근 권한이 끊어졌습니다. 아래에서 폴더를 다시 선택해주세요.": "Access to this folder was lost. Please choose the folder again below.",
         "이름": "Name",
         "이름 (예: 도쿄 봄 여행)": "Name (e.g. Tokyo Spring Trip)",
-        "이름, 주소로 검색": "Search by name or address",
         "이름·주소로 AI가 웹을 검색해 전화번호·웹사이트·영업시간 등 비어 있는 항목만 채웁니다. 이미 값이 있는 항목은 바뀌지 않습니다.": "AI searches the web using the name and address to fill in only the blank fields — phone, website, hours, and so on. Fields that already have a value are left unchanged.",
         "이름은 유지": "Keep the Name",
         "이름이 같고 위치나 주소가 가까워야 중복으로 표시됩니다.": "Shown as a duplicate only when the name matches and the location or address is close.",

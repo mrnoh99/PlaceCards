@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (83차) — 검색창을 항상 표시, "이름/주소로 검색" 문구 정리
+#### Changed
+- `Views/HomeView.swift`/`GalleryView.swift`/`BoardDetailView.swift`/
+  `PlacesMapView.swift`: `.searchable`에 `placement:
+  .navigationBarDrawer(displayMode: .always)`를 명시 — 기본값
+  (`.automatic`)은 스크롤하거나 아래로 당겨야 검색창이 나타나는데,
+  이제 네 화면 모두 검색창이 항상 보임.
+- `Views/BoardDetailView.swift`/`GalleryView.swift`의 검색창
+  placeholder를 "이름, 주소로 검색"에서 "카드 검색"(Home과 동일한
+  문구)으로 변경 — 검색 로직은 이미 81차에서 이름·주소만이 아니라
+  카드 전체 필드를 단어 단위로 보도록 바뀌었는데 문구만 옛날 그대로
+  남아있었음. 결과적으로 갤러리(그리드)와 게시판 상세(리스트)는
+  이제 레이아웃 말고는 검색·툴바·선택 기능이 동일함.
+- `Services/Localization.swift`: 이제 안 쓰는 "이름, 주소로 검색"
+  항목 제거.
+
 ### 2026-09-11 (82차) — 갤러리에 게시판 상세와 동일한 중복찾기·내보내기·선택 추가
 #### Added
 - `Views/GalleryView.swift`: `BoardDetailView`의 툴바/선택 기능을

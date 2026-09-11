@@ -115,7 +115,9 @@ struct PlacesMapView: View {
                         }
                 }
             }
-            .searchable(text: $searchQuery, prompt: "장소 검색".localized)
+            // `.always` so search stays visible without a pull-down/
+            // scroll — matches Home/Gallery/BoardDetailView.
+            .searchable(text: $searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "장소 검색".localized)
             // Only the Apple map has a SwiftUI-owned camera
             // (`viewModel.region`) this can recenter directly — the
             // Google/Naver maps are WKWebViews with no such hook from

@@ -99,7 +99,9 @@ struct HomeView: View {
             // user has actually left every board, not on every transient
             // onDisappear inside one. See `AppNavigation.currentHomeBoardID`.
             .onAppear { navigation.currentHomeBoardID = nil }
-            .searchable(text: $searchQuery, prompt: "카드 검색".localized)
+            // `.always` so search stays visible without a pull-down/
+            // scroll — matches Gallery/BoardDetailView.
+            .searchable(text: $searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "카드 검색".localized)
             .onChange(of: searchQuery) { _, newValue in
                 if newValue.trimmingCharacters(in: .whitespaces).isEmpty {
                     searchCategoryFilter = nil
