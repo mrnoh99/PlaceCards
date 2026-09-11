@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (84차) — 버그 수정: 거리순 정렬 "현재 위치"에서 거리 안 뜨던 문제
+#### Fixed
+- `Services/LocationService.swift`: `LocationService` 클래스에
+  `@MainActor` 추가 — `currentLocation()`/`fetch()`가 그 자체로는
+  격리돼 있지 않아서, 이미 메인 액터에서 실행 중인 호출부
+  (`PlaceStatusFilterBar`의 `Task { hereCoordinate = await
+  LocationService.currentLocation() }`)에서 `await`하는 순간 Swift
+  Concurrency 협력 스레드 풀의 임의 백그라운드 스레드로 넘어가
+  `CLLocationManager`가 생성·구동됐음. `CLLocationManager`는 애플이
+  메인 스레드에서 계속 다루도록 안내하는 API라, 그 스레드를 벗어나면
+  delegate 콜백(권한 변경, 위치 업데이트)이 아예 안 불릴 수 있음 —
+  이게 "거리순 정렬 → 현재 위치 선택"에서 거리가 끝내 안 나타나던
+  실제 원인. 위치를 못 구하면 그냥 8초 타임아웃으로 조용히 nil
+  처리되니 에러도 없이 증상만 있었음.
+
 ### 2026-09-11 (83차) — 검색창을 항상 표시, "이름/주소로 검색" 문구 정리
 #### Changed
 - `Views/HomeView.swift`/`GalleryView.swift`/`BoardDetailView.swift`/

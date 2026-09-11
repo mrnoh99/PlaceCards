@@ -4,6 +4,20 @@ import CoreLocation
 /// (Here) option at the top of the distance-sort reference menu. Ported
 /// from Peragra's `LocationService` (there used for tagging a photo with
 /// where it was taken).
+///
+/// `@MainActor` deliberately — every caller (`PlaceStatusFilterBar`'s
+/// `Task { hereCoordinate = await LocationService.currentLocation() }`)
+/// already runs on the main actor, but `currentLocation()`/`fetch()`
+/// weren't themselves isolated to it, so `await`ing them from a
+/// MainActor context hopped this class's `CLLocationManager` onto
+/// whatever background thread Swift Concurrency's cooperative pool
+/// happened to run the call on. `CLLocationManager` is only reliable
+/// when created and driven from the same thread throughout (Apple's own
+/// guidance is main-thread) — off that thread its delegate callbacks can
+/// simply never fire, which silently produced exactly this bug: "현재
+/// 위치" never resolves a coordinate, distance never shows, and the
+/// 8-second timeout is all that ever ends the wait.
+@MainActor
 final class LocationService: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var continuation: CheckedContinuation<Coordinates?, Never>?
