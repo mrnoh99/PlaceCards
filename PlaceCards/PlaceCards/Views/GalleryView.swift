@@ -145,6 +145,7 @@ struct GalleryView: View {
             .sheet(isPresented: $isPresentingAddCard) {
                 if let scopedBoard {
                     AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: scopedBoard.id))
+                        .environmentObject(navigation)
                 }
             }
             .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {

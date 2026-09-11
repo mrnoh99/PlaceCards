@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (109차) — 108차에서 생긴 크래시(AppNavigation environmentObject 누락) 수정
+#### Fixed
+- `Views/SharedLinkBoardPickerSheet.swift`/`Views/SharedPhotoBoardPickerSheet.swift`/
+  `Views/GalleryView.swift`/`Views/MainTabView.swift`: 108차에서 `AddPlaceCardView`에
+  `@EnvironmentObject private var navigation: AppNavigation`를 추가했는데,
+  실제 기기에서 공유 링크로 장소를 추가하자 "Fatal error: No ObservableObject
+  of type AppNavigation found"로 크래시(사용자 제보 로그로 확인). `AppNavigation`은
+  `StorageService`와 달리 앱 루트가 아니라 `MainTabView` 자신의 body에서만
+  주입되는데(`TabView(...).environmentObject(navigation)`), `MainTabView` →
+  `SharedLinkBoardPickerSheet`(시트) → `AddPlaceCardView`(그 안의 또 다른 시트)처럼
+  시트 안에 시트가 중첩되면 `@EnvironmentObject`가 두 번째 시트까지 안정적으로
+  전달되지 않는 SwiftUI의 잘 알려진 함정이었다. `SharedLinkBoardPickerSheet`/
+  `SharedPhotoBoardPickerSheet`가 `navigation`을 직접 받아 자신의
+  `AddPlaceCardView` 시트에 `.environmentObject(navigation)`으로 다시 주입하도록
+  수정. `MainTabView`의 1단계 시트, `GalleryView`의 자체 "장소 추가" 시트에도
+  같은 문제를 예방하기 위해 동일하게 명시적으로 재주입.
+
 ### 2026-09-11 (108차) — 공유로 들어온 정보로 카드를 만들면 그 카드로 바로 이동
 #### Added
 - `Services/AppNavigation.swift`: `pendingDetailCardID`/`showCardDetail(_:)`

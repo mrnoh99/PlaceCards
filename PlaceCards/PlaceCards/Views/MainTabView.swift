@@ -74,6 +74,7 @@ struct MainTabView: View {
         .sheet(isPresented: $isPresentingSharedImportSheet) {
             if let pendingSharedImageData {
                 SharedPhotoBoardPickerSheet(imageData: pendingSharedImageData)
+                    .environmentObject(navigation)
             }
         }
         .sheet(item: $pendingMapScreenshotCard) { card in
@@ -84,6 +85,7 @@ struct MainTabView: View {
         .sheet(isPresented: $isPresentingSharedLinkSheet) {
             if let pendingLinkText {
                 SharedLinkBoardPickerSheet(linkText: pendingLinkText)
+                    .environmentObject(navigation)
             }
         }
         .alert("iCloud에서 복원됨".localized, isPresented: $showingCloudRestoreAlert) {

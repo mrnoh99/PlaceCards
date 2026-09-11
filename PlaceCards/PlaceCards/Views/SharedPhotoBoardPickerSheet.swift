@@ -9,6 +9,11 @@ struct SharedPhotoBoardPickerSheet: View {
     let imageData: Data
 
     @EnvironmentObject private var storageService: StorageService
+    /// Re-declared and re-injected below purely so `AddPlaceCardView`'s own
+    /// sheet actually gets it — see `SharedLinkBoardPickerSheet`'s identical
+    /// comment on this same property for why a second level of `.sheet`
+    /// needs it re-attached explicitly.
+    @EnvironmentObject private var navigation: AppNavigation
     @Environment(\.dismiss) private var dismiss
     @State private var selectedBoard: Board?
 
@@ -45,6 +50,7 @@ struct SharedPhotoBoardPickerSheet: View {
                 viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id),
                 initialImageData: imageData
             )
+            .environmentObject(navigation)
         }
     }
 }
@@ -52,4 +58,5 @@ struct SharedPhotoBoardPickerSheet: View {
 #Preview {
     SharedPhotoBoardPickerSheet(imageData: Data())
         .environmentObject(StorageService())
+        .environmentObject(AppNavigation())
 }

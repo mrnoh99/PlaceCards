@@ -11,6 +11,15 @@ struct SharedLinkBoardPickerSheet: View {
     let linkText: String
 
     @EnvironmentObject private var storageService: StorageService
+    /// Re-declared and re-injected below purely so `AddPlaceCardView`'s own
+    /// sheet actually gets it — `AppNavigation` lives in `MainTabView`'s own
+    /// body (`.environmentObject(navigation)` on its `TabView`), not at the
+    /// app root the way `StorageService` does, and an `@EnvironmentObject`
+    /// like that doesn't reliably survive a *second* level of `.sheet`
+    /// presentation (this view is already one sheet deep off `MainTabView`;
+    /// its own `AddPlaceCardView` sheet below is a second) without being
+    /// explicitly re-attached at each boundary.
+    @EnvironmentObject private var navigation: AppNavigation
     @Environment(\.dismiss) private var dismiss
     @State private var selectedBoard: Board?
 
@@ -47,6 +56,7 @@ struct SharedLinkBoardPickerSheet: View {
                 viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id),
                 initialLinkText: linkText
             )
+            .environmentObject(navigation)
         }
     }
 }
@@ -54,4 +64,5 @@ struct SharedLinkBoardPickerSheet: View {
 #Preview {
     SharedLinkBoardPickerSheet(linkText: "https://maps.google.com/example")
         .environmentObject(StorageService())
+        .environmentObject(AppNavigation())
 }
