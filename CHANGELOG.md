@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (87차) — 메모 필드를 별도 편집 모드 없이 바로 입력 가능하게
+#### Changed
+- `Views/PlaceCardDetailView.swift`: `memoSection`을 "편집" 연필
+  버튼 + `MemoEditSheet`(신규 시트를 열어야 고칠 수 있던 방식)에서,
+  화면에 있는 `TextField`(`axis: .vertical`)에 바로 타이핑할 수
+  있는 방식으로 변경 — 이 화면의 다른 필드들과 달리 편집 모드 진입
+  없이 그 자리에서 바로 입력됨. 매 글자마다 저장하면
+  `storageService.save(card)`가 전체 JSON을 다시 쓰게 돼 낭비이므로,
+  `@FocusState`로 필드가 포커스를 잃는 순간(다른 곳을 탭)에만 저장.
+  포커스를 잃지 않은 채 화면을 벗어나는 경우(뒤로가기 등)를 대비해
+  `.onDisappear`에도 안전장치로 저장을 한 번 더 걸어둠.
+- `Views/PlaceCardDetailView.swift`: 이제 안 쓰는 `MemoEditSheet`
+  구조체 삭제.
+- `Services/Localization.swift`: 이제 안 쓰는 "메모 편집" 항목 제거.
+
 ### 2026-09-11 (86차) — 장소 상세 화면 맨 위에 대표 사진 추가
 #### Added
 - `Views/PlaceCardDetailView.swift`: `heroPhotoSection`(신규) — 이름/

@@ -14,7 +14,7 @@ struct PlaceCardDetailView: View {
     @State private var isPresentingEdit = false
     @State private var isPresentingPhotoViewer = false
     @State private var photoViewerStartIndex = 0
-    @State private var isPresentingMemoEdit = false
+    @FocusState private var isMemoFieldFocused: Bool
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
@@ -154,12 +154,12 @@ struct PlaceCardDetailView: View {
                 selection: photoViewerStartIndex
             )
         }
-        .sheet(isPresented: $isPresentingMemoEdit) {
-            MemoEditSheet(memo: card.memo ?? "") { updatedMemo in
-                let trimmed = updatedMemo.trimmingCharacters(in: .whitespacesAndNewlines)
-                card.memo = trimmed.isEmpty ? nil : trimmed
-                storageService.save(card)
-            }
+        // Safety net alongside the memo field's own save-on-blur: in case
+        // this screen goes away (back navigation, tab switch) without the
+        // field ever losing focus first, this still persists whatever was
+        // typed rather than silently discarding it.
+        .onDisappear {
+            if isMemoFieldFocused { storageService.save(card) }
         }
     }
 
@@ -340,34 +340,33 @@ struct PlaceCardDetailView: View {
         }
     }
 
-    /// Always shown (unlike amenities/tags above it, which hide entirely
-    /// when empty) since the edit button is how a memo gets *added* in
-    /// the first place, not just changed — hiding the whole section
-    /// until there's already a memo would leave no way to start one from
-    /// here at all.
+    /// Directly typable right here — no separate edit mode/sheet to step
+    /// into first, unlike every other field on this screen (which route
+    /// through `EditPlaceCardSheet`). Always shown (unlike amenities/tags
+    /// above it, which hide entirely when empty) since this field itself
+    /// is how a memo gets *added* in the first place, not just changed.
+    /// Saved once the field loses focus rather than on every keystroke —
+    /// `storageService.save(card)` writes the whole JSON store back to
+    /// disk, so doing that per-character while typing would be wasteful.
     @ViewBuilder
     private var memoSection: some View {
-        HStack {
-            Text("메모".localized)
-                .font(.headline)
-            Spacer()
-            Button {
-                isPresentingMemoEdit = true
-            } label: {
-                Label("편집".localized, systemImage: "pencil")
-                    .labelStyle(.iconOnly)
+        Text("메모".localized)
+            .font(.headline)
+        TextField("메모 없음".localized, text: memoBinding, axis: .vertical)
+            .font(.body)
+            .focused($isMemoFieldFocused)
+            .onChange(of: isMemoFieldFocused) { wasFocused, isFocused in
+                if wasFocused, !isFocused { storageService.save(card) }
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-        }
-        if let memo = card.memo, !memo.isEmpty {
-            Text(memo)
-                .font(.body)
-        } else {
-            Text("메모 없음".localized)
-                .font(.body)
-                .foregroundStyle(.secondary)
-        }
+    }
+
+    private var memoBinding: Binding<String> {
+        Binding(
+            get: { card.memo ?? "" },
+            set: { newValue in
+                card.memo = newValue.isEmpty ? nil : newValue
+            }
+        )
     }
 
     private var metaFooter: some View {
@@ -420,43 +419,6 @@ private struct PhotoViewerSheet: View {
                 }
             }
             .toolbarColorScheme(.dark, for: .navigationBar)
-        }
-    }
-}
-
-/// Opened from `memoSection`'s edit button — a small, dedicated sheet
-/// for just the memo field, rather than routing through the full
-/// `EditPlaceCardSheet` for a one-line change. `onSave` receives the
-/// draft text as-is (untrimmed); the caller decides how to store it.
-private struct MemoEditSheet: View {
-    @State private var draft: String
-    let onSave: (String) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    init(memo: String, onSave: @escaping (String) -> Void) {
-        _draft = State(initialValue: memo)
-        self.onSave = onSave
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                TextEditor(text: $draft)
-                    .frame(minHeight: 160)
-            }
-            .navigationTitle("메모 편집".localized)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("취소".localized) { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("저장".localized) {
-                        onSave(draft)
-                        dismiss()
-                    }
-                }
-            }
         }
     }
 }
