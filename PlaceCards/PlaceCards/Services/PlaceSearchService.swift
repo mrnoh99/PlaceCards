@@ -201,7 +201,7 @@ private struct GooglePlace: Decodable {
             reviewCount: userRatingCount,
             phone: internationalPhoneNumber,
             website: websiteUri,
-            category: primaryTypeDisplayName?.text?.strippingInvisibleFormatCharacters(),
+            category: primaryTypeDisplayName?.text.strippingInvisibleFormatCharacters(),
             photoName: photos?.first?.name
         )
     }
