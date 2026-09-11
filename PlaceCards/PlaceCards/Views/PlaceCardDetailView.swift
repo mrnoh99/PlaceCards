@@ -23,6 +23,8 @@ struct PlaceCardDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                heroPhotoSection
+
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .top) {
                         Text(card.name)
@@ -267,6 +269,43 @@ struct PlaceCardDetailView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    /// The same photo `PlaceCardGridCell`/`PlaceCardListRow` lead with
+    /// (an official Google photo if there is one, else whatever's first)
+    /// — its position within `photosSection`'s own `allItems` ordering,
+    /// so tapping the hero opens the photo viewer already on the right
+    /// one instead of always resetting to index 0.
+    private var heroPhotoItem: MediaItem? {
+        card.media.officialPhotos.first ?? card.media.allItems.first
+    }
+
+    private var heroPhotoIndex: Int {
+        guard let heroPhotoItem else { return 0 }
+        return card.media.allItems.firstIndex(of: heroPhotoItem) ?? 0
+    }
+
+    /// A full-width banner at the very top of the screen — separate from
+    /// `photosSection`'s own horizontal thumbnail strip further down
+    /// (which still lists every photo), this just gives the card an
+    /// immediate visual identity the moment the screen opens, the way
+    /// the grid/list cells already do.
+    @ViewBuilder
+    private var heroPhotoSection: some View {
+        if let heroPhotoItem, let image = MediaStore.loadImage(fileName: heroPhotoItem.localPath) {
+            Button {
+                photoViewerStartIndex = heroPhotoIndex
+                isPresentingPhotoViewer = true
+            } label: {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(height: 240)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+            }
+            .buttonStyle(.plain)
         }
     }
 

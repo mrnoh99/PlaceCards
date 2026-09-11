@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (86차) — 장소 상세 화면 맨 위에 대표 사진 추가
+#### Added
+- `Views/PlaceCardDetailView.swift`: `heroPhotoSection`(신규) — 이름/
+  카테고리/주소가 나오기도 전, 화면 맨 위에 가로 전체 폭 배너로 대표
+  사진 하나를 보여줌. `PlaceCardGridCell`/`PlaceCardListRow`가 이미
+  쓰는 것과 같은 규칙(`officialPhotos.first ?? allItems.first`)으로
+  고름. 탭하면 기존 `photosSection` 썸네일과 같은 전체화면
+  스와이프 뷰어가, 그 사진이 실제 있는 위치(`heroPhotoIndex`)부터
+  열림. 아래쪽 "사진" 가로 스크롤 목록(`photosSection`)은 그대로 두어
+  전체 사진을 계속 훑어볼 수 있음 — 사진이 하나도 없으면 배너 자체가
+  안 보임.
+
 ### 2026-09-11 (85차) — Home에 "카테고리별 보기", 갤러리에 리스트/그리드 전환
 #### Added
 - `Views/HomeView.swift`: 보드 목록 위에 "카테고리별 보기" 칩 행
