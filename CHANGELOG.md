@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (118차) — 앱 시작 시 인트로 화면 추가
+#### Added
+- `Views/MainTabView.swift`: "앱을 열 때 백업으로 시간이 걸린다면 화면에
+  intro를 보여주는 게 좋겠다"는 요청 — `startupIntroView`(앱 이름 +
+  아이콘 + 스피너, 불투명 배경) 추가. 다만 인트로가 실제로 기다리는
+  대상은 재설계했다: 시작 시 한 번에 도는 네 가지 작업 중 화면에 뭐가
+  보일지 실제로 좌우하는 건 `restoreFromCloudIfNeeded()`(기기가 비어있을
+  때 iCloud에서 게시판·장소를 복원하는 것) 하나뿐이고, 나머지 셋
+  (`checkForSharedImage`/`AutoBackupService.runIfDue`/
+  `CloudBackupService.backup`)은 현재 데이터를 어딘가에 내보내거나
+  써두기만 할 뿐 화면에 아무 영향이 없다. 그래서 인트로는
+  `restoreFromCloudIfNeeded()`가 끝나면 바로 사라지고(로컬에 이미
+  데이터가 있는 평소 경우엔 이 함수가 가드 하나로 거의 즉시 반환되어
+  인트로가 사실상 안 보임), 사진 바이트까지 포함되어 이제 더 오래
+  걸릴 수 있는 백업 쓰기 작업(`AutoBackupService`/`CloudBackupService
+  .backup`)은 별도 `Task`로 분리해 인트로를 내린 뒤에도 백그라운드에서
+  계속 진행되도록 했다 — 느려진 부분 때문에 앱이 매번 인트로에 더
+  오래 머무는 게 아니라, 정말 최초 실행/재설치로 실제 복원할 게 있을
+  때만 잠깐 보이게 된다.
+
 ### 2026-09-11 (117차) — 백업에 사진 실제 포함
 #### Changed
 - `Services/BackupService.swift`: Peragra(사진/미디어 모델이 아예 없는
