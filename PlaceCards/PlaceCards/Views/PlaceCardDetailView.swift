@@ -37,6 +37,22 @@ struct PlaceCardDetailView: View {
 
     var body: some View {
         ScrollView {
+            // `.frame(maxWidth: .infinity, alignment: .leading)` below is
+            // load-bearing, not decorative: a plain vertical `ScrollView`
+            // proposes its own viewport width to its content, but if any
+            // descendant ever reports back a *wider* ideal size than that
+            // (an unconstrained photo was the one actually seen doing this
+            // — deleting a card's photo made the whole screen render
+            // correctly again, title/section-header text included, not
+            // just the photo itself), SwiftUI's default behavior is to
+            // center that oversized content within the viewport instead of
+            // clipping the overflow on one side — which slices an equal
+            // sliver off *every* line's leading edge, exactly matching what
+            // was reported (name/category/address/"사진"/"태그" all missing
+            // their first character or so). Forcing this frame explicitly
+            // clamps the proposed width for every child to the real
+            // viewport width, so nothing downstream can ever push the pane
+            // wider than the screen in the first place.
             VStack(alignment: .leading, spacing: 16) {
                 heroPhotoSection
 
@@ -148,6 +164,7 @@ struct PlaceCardDetailView: View {
                     .padding(.horizontal)
             }
             .padding(.vertical)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollDismissesKeyboard(.interactively)
         .keyboardDoneButton()
