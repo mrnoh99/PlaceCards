@@ -40,6 +40,14 @@ final class AppNavigation: ObservableObject {
     /// `mapFilterIDs`/`showOnMap(_:)` below.
     @Published var galleryCategoryFilter: String?
 
+    /// A card just created from info handed to the app from outside it (a
+    /// shared link, a shared photo) — `GalleryView` consumes this once, the
+    /// same one-shot `.onChange`-then-clear shape as `galleryCategoryFilter`,
+    /// pushing straight to that card's `PlaceCardDetailView` so the user
+    /// lands on the very place they just shared in, instead of back on
+    /// whatever screen they started from with no visible confirmation.
+    @Published var pendingDetailCardID: String?
+
     func showOnMap(_ ids: Set<String>) {
         mapFilterIDs = ids
         selectedTab = .map
@@ -55,6 +63,14 @@ final class AppNavigation: ObservableObject {
     /// "push into a per-board list screen" flow.
     func showBoardInGallery(_ boardID: String) {
         currentHomeBoardID = boardID
+        selectedTab = .gallery
+    }
+
+    /// A single card was just created from shared-in info (see
+    /// `AddPlaceCardView`'s "추가" action) — jump to Gallery and have it
+    /// push straight to that card.
+    func showCardDetail(_ cardID: String) {
+        pendingDetailCardID = cardID
         selectedTab = .gallery
     }
 }

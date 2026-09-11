@@ -24,6 +24,7 @@ struct AddPlaceCardView: View {
     private static let defaultSource: SourceType = .onsitePhoto
 
     @StateObject private var viewModel: PlaceCardViewModel
+    @EnvironmentObject private var navigation: AppNavigation
     @Environment(\.dismiss) private var dismiss
 
     @State private var photoPickerItems: [PhotosPickerItem] = []
@@ -39,6 +40,15 @@ struct AddPlaceCardView: View {
     /// `autoResolveInitialLinkIfNeeded()`. `nil` for every other way this
     /// view opens (photo scan, "+ 장소 추가", blank row).
     @State private var initialLinkRowID: UUID?
+    /// Whether this screen was opened with something already handed over
+    /// from outside the app (a Share Extension link or photo) rather than
+    /// started blank from inside — set once in `init`, from the same two
+    /// parameters that seed `initialLinkRowID`/`pickedImages`. Drives
+    /// whether saving jumps straight to the resulting card afterward (see
+    /// the "추가" button action) — makes sense for a place the user just
+    /// shared in from outside, not for an ordinary in-app add where they're
+    /// already looking at wherever they'll expect the new card to show up.
+    private let cameFromSharedInfo: Bool
 
     /// `initialImageData` seeds the picker with a photo handed over from
     /// outside the normal PhotosPicker flow — namely a photo shared into
@@ -56,6 +66,8 @@ struct AddPlaceCardView: View {
     /// a confirmation that already happened.
     init(viewModel: PlaceCardViewModel, initialImageData: Data? = nil, initialLinkText: String? = nil) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        cameFromSharedInfo = initialImageData != nil
+            || (initialLinkText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
         if let initialImageData, let image = UIImage(data: initialImageData) {
             _pickedImages = State(initialValue: [image])
             _pickedImageDatas = State(initialValue: [initialImageData])
@@ -92,7 +104,13 @@ struct AddPlaceCardView: View {
                     } else {
                         Button("추가 (".localized + "\(viewModel.selectedRowCount)" + ")") {
                             Task {
-                                _ = await viewModel.createCards(source: Self.defaultSource)
+                                let created = await viewModel.createCards(source: Self.defaultSource)
+                                // Only when it resolves to exactly one card —
+                                // several rows (a screenshot naming multiple
+                                // places) has no single "the" card to jump to.
+                                if cameFromSharedInfo, created.count == 1 {
+                                    navigation.showCardDetail(created[0].id)
+                                }
                                 didCreateCards = true
                             }
                         }
@@ -302,4 +320,5 @@ struct AddPlaceCardView: View {
 
 #Preview {
     AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: StorageService(), boardId: "preview"))
+        .environmentObject(AppNavigation())
 }

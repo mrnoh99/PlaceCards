@@ -117,6 +117,17 @@ struct GalleryView: View {
                 viewModel.categoryFilter = newValue
                 navigation.galleryCategoryFilter = nil
             }
+            // One-shot, same shape as `galleryCategoryFilter` above — a
+            // card just created from shared-in info (`AddPlaceCardView`)
+            // pushes straight to its detail view once, then clears itself
+            // so switching back to this tab later doesn't reopen it.
+            .onChange(of: navigation.pendingDetailCardID) { _, newValue in
+                guard let newValue else { return }
+                navigation.pendingDetailCardID = nil
+                if let card = storageService.placeCard(id: newValue) {
+                    selectedCard = card
+                }
+            }
             .toolbar { toolbarContent }
             .overlay {
                 if viewModel.filteredPlaceCards.isEmpty {

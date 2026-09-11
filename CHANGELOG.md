@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (108차) — 공유로 들어온 정보로 카드를 만들면 그 카드로 바로 이동
+#### Added
+- `Services/AppNavigation.swift`: `pendingDetailCardID`/`showCardDetail(_:)`
+  추가 — Gallery 탭으로 전환하면서 특정 카드의 상세보기를 한 번 push하도록
+  요청한다(`galleryCategoryFilter`와 같은 1회성 소비 패턴).
+- `Views/GalleryView.swift`: `navigation.pendingDetailCardID`를
+  `.onChange`로 소비해 해당 id의 카드를 찾아 `selectedCard`로 세팅(=
+  `navigationDestination`으로 상세보기 push), 곧바로 `nil`로 되돌린다.
+#### Changed
+- `Views/AddPlaceCardView.swift`: 공유 확장(Share Extension)으로 들어온
+  링크/사진으로 열린 화면인지(`cameFromSharedInfo`, `initialLinkText`/
+  `initialImageData`로 열렸는지로 판별)를 기억해뒀다가, "추가" 버튼으로
+  카드를 저장했을 때 정확히 1개 카드만 만들어졌으면
+  `navigation.showCardDetail(_:)`을 호출 — 시트가 전부 닫히고 나면 방금
+  공유해서 만든 그 장소 카드가 바로 뜬다. 여러 장소가 한 번에 만들어진
+  경우(스크린샷 하나에 여러 장소가 잡힌 경우)엔 어느 하나를 열 근거가
+  없으므로 기존처럼 그냥 닫히기만 한다.
+
 ### 2026-09-11 (107차) — 공유 링크로 추가한 장소의 이름 필드가 원문 그대로 남던 문제 수정
 #### Fixed
 - `ViewModels/PlaceCardViewModel.swift`(`search(rowID:)`): 네이버 지도 공유
