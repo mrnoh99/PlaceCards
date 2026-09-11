@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (107차) — 공유 링크로 추가한 장소의 이름 필드가 원문 그대로 남던 문제 수정
+#### Fixed
+- `ViewModels/PlaceCardViewModel.swift`(`search(rowID:)`): 네이버 지도 공유
+  텍스트나 링크를 붙여넣으면 `resolveSharedPlace`가 태그/이름/주소/URL을
+  잘 분리해내는데도, 분리된 깨끗한 이름(`resolved.name`)을 행의 `name`
+  필드에 다시 써주지 않아서 "이름" 칸엔 "[네이버지도] 백상어수산 수원
+  경기 수원시 영통구 매여울로 26 1층 https://n..." 같은 원문 전체가 계속
+  남아 있었다(주소 칸은 정상적으로 채워졌었음 — 캡처로 확인). 검색이
+  끝나면 행의 이름을 `resolved.name`으로 갱신하도록 한 줄 추가.
+
 ### 2026-09-11 (106차) — 홈페이지 링크에서 업체 정보(이름/주소/전화/영업시간) 추출
 #### Added
 - `Services/WebsiteBusinessInfoFetcher.swift`(신규) — 일반 업체 홈페이지 링크의

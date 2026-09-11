@@ -183,6 +183,13 @@ final class PlaceCardViewModel: ObservableObject {
         let resolved = await Self.resolveSharedPlace(from: placeName)
 
         guard let filledIndex = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
+        // `placeName` itself is whatever raw text seeded the row — for a
+        // share/link that's the whole multi-line blob (app tag, name,
+        // address, URL all together), not something worth showing the user
+        // forever. `resolved.name` is what `resolveSharedPlace` actually
+        // parsed out of it, so it replaces the field now that resolution
+        // has run — a no-op for plain typed text, which resolves to itself.
+        candidateRows[filledIndex].name = resolved.name
         if address.isEmpty, let parsedAddress = resolved.address {
             candidateRows[filledIndex].address = parsedAddress
             address = parsedAddress
