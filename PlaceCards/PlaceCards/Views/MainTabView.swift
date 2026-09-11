@@ -28,6 +28,9 @@ struct MainTabView: View {
     /// receive it in.
     @State private var pendingLinkText: String?
     @State private var isPresentingSharedLinkSheet = false
+    /// Shown instead of the board picker when the shared link is an
+    /// Instagram post/reel — see `SharedLinkParser.isInstagramLink`.
+    @State private var isPresentingInstagramGuidanceAlert = false
 
     /// Shown once, right after a cold-launch auto-restore from
     /// `CloudBackupService` actually found and applied something — see
@@ -88,6 +91,11 @@ struct MainTabView: View {
         } message: {
             Text("iCloud에서 이전 백업을 찾아 게시판과 장소를 자동으로 복원했습니다.".localized)
         }
+        .alert("인스타그램 링크는 자동으로 인식할 수 없어요".localized, isPresented: $isPresentingInstagramGuidanceAlert) {
+            Button("확인".localized, role: .cancel) {}
+        } message: {
+            Text("게시물을 캡처(스크린샷)해서 \"장소 추가\"의 사진 선택으로 다시 추가해주세요.".localized)
+        }
     }
 
     /// Only ever restores when local storage is still empty — a
@@ -113,8 +121,12 @@ struct MainTabView: View {
         }
 
         if let text = SharedImportStore.takePendingLink() {
-            pendingLinkText = text
-            isPresentingSharedLinkSheet = true
+            if SharedLinkParser.isInstagramLink(text) {
+                isPresentingInstagramGuidanceAlert = true
+            } else {
+                pendingLinkText = text
+                isPresentingSharedLinkSheet = true
+            }
         }
     }
 }

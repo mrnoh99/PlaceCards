@@ -55,6 +55,21 @@ enum SharedLinkParser {
         return nil
     }
 
+    /// Instagram only ever shares a bare post/reel URL with no place data
+    /// in it at all — unlike Google Maps' full share links (a real place
+    /// name and coordinates sitting right in the path) or Naver's share
+    /// text (name/address as plain text), there's nothing here worth
+    /// resolving automatically; whatever a caption/location tag might say
+    /// would need a page fetch whose result is a caption string at best,
+    /// not a verifiable name+address. The caller (`MainTabView`) uses
+    /// this to skip straight to asking the user to screenshot the post
+    /// and add it through the existing photo-scan flow instead, rather
+    /// than seeding a row with a raw link that's certain to fail search.
+    static func isInstagramLink(_ text: String) -> Bool {
+        guard let url = extractURL(from: text), let host = url.host else { return false }
+        return host.contains("instagram.com")
+    }
+
     static func extractURL(from text: String) -> URL? {
         guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
             return nil

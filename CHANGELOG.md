@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (93차) — 인스타그램 공유 링크는 캡처로 유도
+#### Added
+- `Services/SharedLinkParser.swift`: `isInstagramLink(_:)`(신규) — 공유 텍스트에서
+  뽑아낸 URL의 호스트가 `instagram.com`인지만 확인. 인스타그램은 게시물/릴스
+  URL 하나만 공유하고 그 안에 장소 정보가 전혀 없어서(구글 공유 링크의
+  경로처럼 이름·좌표가 들어있지도 않고, 네이버 공유 텍스트처럼 이름·주소가
+  텍스트로 오지도 않음), 자동으로 풀어낼 방법이 없다고 판단해 자동 파싱을
+  시도하지 않기로 함.
+- `Views/MainTabView.swift`: `checkForSharedImage()`가 대기 중인 공유 링크가
+  인스타그램이면 기존의 게시판 선택 시트(`SharedLinkBoardPickerSheet`) 대신
+  "인스타그램 링크는 자동으로 인식할 수 없어요 — 게시물을 캡처해서 '장소
+  추가'의 사진 선택으로 다시 추가해주세요" 안내 알림(신규
+  `isPresentingInstagramGuidanceAlert`)을 띄움. 실패할 게 뻔한 raw URL을
+  후보 행에 넣고 검색을 시도하는 대신, 이미 안정적으로 동작하는 스크린샷 +
+  AI 스캔 경로로 곧장 안내.
+
 ### 2026-09-11 (92차) — 네이버 링크는 Naver 검색 API로, 구글 링크는 Google Places로 검증
 #### Added
 - `Services/NaverPlaceSearchService.swift`(신규): 네이버 "검색 오픈API - 지역"
