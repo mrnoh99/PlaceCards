@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (122차) — 외부 링크 여러 개 지원 + 웹 검색 시 우선 확인
+#### Changed
+- `Models/PlaceCard.swift`: `externalLinks`를 `[String: String]`
+  딕셔너리에서 `[ExternalLink]`(새 struct, `platform`/`url`) 배열로
+  변경 — 같은 플랫폼 이름으로 링크를 두 개 이상 추가하면 딕셔너리
+  키 충돌로 두 번째가 첫 번째를 조용히 덮어쓰던 문제를 해결하고,
+  사용자가 추가한 순서도 그대로 유지되게 함(딕셔너리는 순서가
+  정의되지 않음). `strippingInvisibleFormatCharacters()`도 배열
+  형태에 맞게 수정.
+- `ViewModels/PlaceCardViewModel.swift`,
+  `Views/EditPlaceCardSheet.swift`, `Views/PlaceCardDetailView.swift`:
+  위 변경에 맞춰 `externalLinks` 관련 코드 전부 갱신 — 편집 화면의
+  "+ 링크 추가"는 원래도 개수 제한 없이 추가 가능했지만, 저장 시
+  플랫폼 이름이 겹치면 하나로 합쳐지던 걸 이번에 고침.
+#### Added
+- `Services/AIProvider.swift`: `AIProvider.searchWebForDetails`에
+  `knownLinks: [String]` 매개변수 추가 — 카드에 이미 저장된
+  `externalLinks`를 "웹 검색으로 채우기" 실행 시 함께 전달해서, AI가
+  일반 검색보다 먼저 이 카드용으로 이미 확인된 링크(정확한 Google
+  Maps/Naver Map 페이지 등)부터 확인하도록 함. 저장된 링크가 없어도
+  Google Maps·Naver Map·TripAdvisor·Yelp·OpenTable·Resy·TheFork·
+  Tabelog·Zomato 같은 지도/리뷰/예약 플랫폼을 업체 홈페이지보다
+  우선 확인하도록 프롬프트에 명시(`webDetailsSearchPrompt(for:
+  knownLinks:)`) — 이런 플랫폼 정보가 대체로 더 최신이고 정확하다는
+  판단(사용자 요청). `EditPlaceCardSheet`가 현재 편집 중인
+  `externalLinkEntries`를 `"<플랫폼>: <URL>"` 형식으로 모아 전달.
+
 ### 2026-09-11 (121차) — 개인 평가/가격대/방문 기록/추천 메뉴/외부 링크 필드 추가
 #### Added
 - `Models/PlaceCard.swift`: 새 필드 6개 추가 — `myRating: Double?`(내

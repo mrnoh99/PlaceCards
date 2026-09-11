@@ -194,11 +194,18 @@ protocol AIProvider {
     /// — which would fill a card's fields with the model's ungrounded
     /// guesses while looking exactly like a real web search happened. A
     /// clear "not supported" error is safer than that.
-    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails
+    ///
+    /// `knownLinks` is the card's own `externalLinks` (a Google/Naver Map
+    /// listing already verified for this card, a TripAdvisor/Yelp page
+    /// added by hand, ...), each formatted as `"<platform>: <url>"` —
+    /// passed through into `webDetailsSearchPrompt(for:knownLinks:)` so
+    /// the model checks these specific, already-trusted pages before
+    /// falling back to a generic search. Empty when the card has none yet.
+    func searchWebForDetails(name: String, address: String, knownLinks: [String]) async throws -> PlaceWebDetails
 }
 
 extension AIProvider {
-    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
+    func searchWebForDetails(name: String, address: String, knownLinks: [String]) async throws -> PlaceWebDetails {
         throw PlaceCardsError.notImplemented("웹 검색 (이 AI 제공자는 아직 지원하지 않음 — 설정에서 AI 제공자를 Claude/ChatGPT/Gemini 중 하나로 바꾸거나, Gateway에서 Claude/GPT 계열 모델을 선택해주세요)")
     }
 }
@@ -312,9 +319,23 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
     }
 }
 
-private func webDetailsSearchPrompt(for query: String) -> String {
-    let base = """
-    "\(query)"에 대한 정보를 웹에서 검색해서 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
+/// `knownLinks` (each `"<platform>: <url>"`, e.g. `"Google Maps:
+/// https://..."`) are pages already verified for this specific card —
+/// checked first, ahead of a generic web search, since they're more
+/// trustworthy than whatever a plain name/address search happens to turn
+/// up. Even with none, the model is still steered toward checking the
+/// same handful of map/review/booking platforms this app's own
+/// `externalLinks` field is meant for, before a fully generic search —
+/// those tend to carry more accurate, current info (hours, menus) than a
+/// business's own often-stale homepage.
+private func webDetailsSearchPrompt(for query: String, knownLinks: [String]) -> String {
+    var base = "\"\(query)\"에 대한 정보를 웹에서 검색해서 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.\n"
+    if !knownLinks.isEmpty {
+        base += "다음은 이 장소에 대해 이미 확인된 링크입니다 — 정보를 찾을 때 이 페이지들을 가장 먼저 확인하세요:\n"
+        base += knownLinks.map { "- \($0)" }.joined(separator: "\n") + "\n"
+    }
+    base += """
+    검색할 때는 Google Maps, Naver Map, TripAdvisor, Yelp, OpenTable, Resy, TheFork, Tabelog, Zomato 같은 지도·리뷰·예약 플랫폼에 등록된 정보를 먼저 확인하고, 그래도 부족하면 그 외 웹 페이지도 검색하세요 — 이런 플랫폼의 정보가 업체 홈페이지보다 최신이고 정확한 경우가 많습니다.
     확실하지 않은 값은 추측해서 만들어내지 말고 null로 답하세요.
     이 장소를 짧게 분류할 만한 태그도 몇 개(0~5개) 제안해주세요(예: "혼밥가능", "데이트코스", "가성비", "야외석") — 검색으로 실제 확인되는 내용에 근거해서만, 근거 없이 지어내지 마세요.
     {"phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼(예: 캐치테이블 예약, 전화 예약만 가능) 또는 null", "recommendedMenu": "추천 메뉴/시그니처 메뉴 또는 null", "tags": ["태그", ...] 또는 빈 배열, "note": "그 외 참고할 만한 정보(메모로 남길 만한 것) 또는 null"}
@@ -483,7 +504,7 @@ final class ClaudeProvider: AIProvider {
     /// `ClaudeMessageResponse.ContentBlock` already decodes those other
     /// block types fine since it only reads `type`/`text` and ignores
     /// unrecognized keys.
-    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
+    func searchWebForDetails(name: String, address: String, knownLinks: [String]) async throws -> PlaceWebDetails {
         guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 
         let url = URL(string: "https://api.anthropic.com/v1/messages")!
@@ -503,7 +524,7 @@ final class ClaudeProvider: AIProvider {
                 ["type": "web_search_20260209", "name": "web_search", "max_uses": 5]
             ],
             "messages": [
-                ["role": "user", "content": webDetailsSearchPrompt(for: query)]
+                ["role": "user", "content": webDetailsSearchPrompt(for: query, knownLinks: knownLinks)]
             ]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -562,7 +583,7 @@ final class OpenAIProvider: AIProvider {
     /// final answer is the `content[].text` of whichever `output` item
     /// has `"type": "message"` (the array also carries a `web_search_call`
     /// item recording that the tool ran, which this ignores).
-    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
+    func searchWebForDetails(name: String, address: String, knownLinks: [String]) async throws -> PlaceWebDetails {
         guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 
         let url = URL(string: "https://api.openai.com/v1/responses")!
@@ -576,7 +597,7 @@ final class OpenAIProvider: AIProvider {
 
         let body: [String: Any] = [
             "model": model,
-            "input": webDetailsSearchPrompt(for: query),
+            "input": webDetailsSearchPrompt(for: query, knownLinks: knownLinks),
             "tools": [["type": "web_search"]]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -722,7 +743,7 @@ final class GeminiProvider: AIProvider {
     /// as `ClaudeProvider.searchWebForDetails`'s "last text block" — a
     /// tool-using interaction can carry more than one such step, and the
     /// final one is the actual answer).
-    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
+    func searchWebForDetails(name: String, address: String, knownLinks: [String]) async throws -> PlaceWebDetails {
         guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 
         var components = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/interactions")
@@ -740,7 +761,7 @@ final class GeminiProvider: AIProvider {
 
         let body: [String: Any] = [
             "model": model,
-            "input": webDetailsSearchPrompt(for: query),
+            "input": webDetailsSearchPrompt(for: query, knownLinks: knownLinks),
             "tools": [["type": "google_search"]]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

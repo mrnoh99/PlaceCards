@@ -11,16 +11,6 @@ private struct HoursEntry: Identifiable {
     var hours: String
 }
 
-/// One editable row of `PlaceCard.externalLinks` (a platform name and its
-/// URL, e.g. "Google Maps" → a share link, "Trip Advisor" → a listing
-/// page) — same free add/removable-list treatment as `HoursEntry`, since
-/// there's no fixed set of platforms worth a dedicated field each.
-private struct ExternalLinkEntry: Identifiable {
-    let id = UUID()
-    var platform: String
-    var url: String
-}
-
 /// Edits a place card's own fields directly, mirroring the "Edit" action
 /// in Peragra's `PlaceRowView` (which opens `EditPlaceSheet`) — scoped to
 /// this app's plain fields only, since the photo/AI-fill flows Peragra's
@@ -64,7 +54,7 @@ struct EditPlaceCardSheet: View {
     @State private var reservationInfo: String
     @State private var recommendedMenu: String
     @State private var hoursEntries: [HoursEntry]
-    @State private var externalLinkEntries: [ExternalLinkEntry]
+    @State private var externalLinkEntries: [ExternalLink]
     @State private var tagsText: String
     @State private var amenitiesText: String
     @State private var memoText: String
@@ -112,7 +102,7 @@ struct EditPlaceCardSheet: View {
         _reservationInfo = State(initialValue: card.reservationInfo ?? "")
         _recommendedMenu = State(initialValue: card.recommendedMenu ?? "")
         _hoursEntries = State(initialValue: (card.hoursDetail ?? [:]).sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) })
-        _externalLinkEntries = State(initialValue: card.externalLinks.sorted { $0.key < $1.key }.map { ExternalLinkEntry(platform: $0.key, url: $0.value) })
+        _externalLinkEntries = State(initialValue: card.externalLinks)
         _tagsText = State(initialValue: card.tags.joined(separator: ", "))
         _amenitiesText = State(initialValue: card.amenities.joined(separator: ", "))
         _memoText = State(initialValue: card.memo ?? "")
@@ -287,7 +277,7 @@ struct EditPlaceCardSheet: View {
             }
             .onDelete { externalLinkEntries.remove(atOffsets: $0) }
             Button("+ 링크 추가".localized) {
-                externalLinkEntries.append(ExternalLinkEntry(platform: "", url: ""))
+                externalLinkEntries.append(ExternalLink(platform: "", url: ""))
             }
         } header: {
             Text("외부 링크".localized)
@@ -615,10 +605,23 @@ struct EditPlaceCardSheet: View {
 
         let provider = await AIProviderFactory.create(type: providerType, apiKey: apiKey)
         do {
-            let details = try await provider.searchWebForDetails(name: name, address: address)
+            let details = try await provider.searchWebForDetails(name: name, address: address, knownLinks: knownLinks)
             applyWebDetails(details)
         } catch {
             webSearchMessage = error.localizedDescription
+        }
+    }
+
+    /// This card's own `externalLinks`, formatted as `"<platform>:
+    /// <url>"` for `AIProvider.searchWebForDetails` to check first —
+    /// blank rows (still being typed in, or never filled in) are dropped
+    /// rather than sent as noise.
+    private var knownLinks: [String] {
+        externalLinkEntries.compactMap { entry in
+            let platform = entry.platform.trimmingCharacters(in: .whitespaces)
+            let url = entry.url.trimmingCharacters(in: .whitespaces)
+            guard !platform.isEmpty, !url.isEmpty else { return nil }
+            return "\(platform): \(url)"
         }
     }
 
@@ -768,14 +771,12 @@ struct EditPlaceCardSheet: View {
         }
         updated.hoursDetail = hoursDetail.isEmpty ? nil : hoursDetail
 
-        var externalLinks: [String: String] = [:]
-        for entry in externalLinkEntries {
+        updated.externalLinks = externalLinkEntries.compactMap { entry in
             let platform = entry.platform.trimmingCharacters(in: .whitespaces)
             let url = entry.url.trimmingCharacters(in: .whitespaces)
-            guard !platform.isEmpty, !url.isEmpty else { continue }
-            externalLinks[platform] = url
+            guard !platform.isEmpty, !url.isEmpty else { return nil }
+            return ExternalLink(id: entry.id, platform: platform, url: url)
         }
-        updated.externalLinks = externalLinks
 
         updated.tags = tagsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         updated.amenities = amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }

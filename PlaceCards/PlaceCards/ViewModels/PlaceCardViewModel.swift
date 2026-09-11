@@ -431,12 +431,12 @@ final class PlaceCardViewModel: ObservableObject {
     /// "지도에서 열기" than `MapOpeners.swift`'s own name/coordinate
     /// reconstruction. Empty for anything else (plain typed text, a
     /// business-homepage link — the latter already becomes `website`).
-    private static func externalLinks(source: SourceType?, mapURL: URL?) -> [String: String] {
-        guard let mapURL else { return [:] }
+    private static func externalLinks(source: SourceType?, mapURL: URL?) -> [ExternalLink] {
+        guard let mapURL else { return [] }
         switch source {
-        case .naverMapShare: return ["Naver Map": mapURL.absoluteString]
-        case .googleMapShare: return ["Google Maps": mapURL.absoluteString]
-        default: return [:]
+        case .naverMapShare: return [ExternalLink(platform: "Naver Map", url: mapURL.absoluteString)]
+        case .googleMapShare: return [ExternalLink(platform: "Google Maps", url: mapURL.absoluteString)]
+        default: return []
         }
     }
 
@@ -489,7 +489,7 @@ final class PlaceCardViewModel: ObservableObject {
     func createPlaceCard(
         from result: PlaceSearchResult, images: [UIImage], source: SourceType,
         note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = [],
-        externalLinks: [String: String] = [:]
+        externalLinks: [ExternalLink] = []
     ) async throws -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId,
@@ -565,7 +565,7 @@ final class PlaceCardViewModel: ObservableObject {
     func createManualPlaceCard(
         name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput,
         note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = [],
-        externalLinks: [String: String] = [:]
+        externalLinks: [ExternalLink] = []
     ) -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId, name: name, address: address, website: website, externalLinks: externalLinks,

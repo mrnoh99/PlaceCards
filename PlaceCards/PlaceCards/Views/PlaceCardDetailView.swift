@@ -386,12 +386,12 @@ struct PlaceCardDetailView: View {
                 .font(.headline)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(card.externalLinks.sorted(by: { $0.key < $1.key }), id: \.key) { platform, urlString in
-                        if let url = URL(string: urlString) {
+                    ForEach(card.externalLinks) { link in
+                        if let url = URL(string: link.url) {
                             Button {
                                 openURL(url)
                             } label: {
-                                Label(platform, systemImage: "link")
+                                Label(link.platform, systemImage: "link")
                             }
                         }
                     }

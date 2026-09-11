@@ -33,6 +33,19 @@ enum PriceLevel: String, Codable, CaseIterable {
     }
 }
 
+/// One entry in `PlaceCard.externalLinks` — a platform name and its URL
+/// (e.g. "Google Maps" → the exact share link, "Trip Advisor" → a listing
+/// page). An array rather than a `[String: String]` dictionary so more
+/// than one link can be kept for the same platform (two branches both
+/// worth linking as "Instagram", say) without the second silently
+/// overwriting the first, and so the order the user added them in is
+/// preserved instead of a dictionary's undefined iteration order.
+struct ExternalLink: Codable, Identifiable, Equatable {
+    var id: String = UUID().uuidString
+    var platform: String
+    var url: String
+}
+
 /// A single discovered place, unifying information gathered from map
 /// screenshots, shared links, direct API lookups, and photos taken on site.
 struct PlaceCard: Identifiable, Codable {
@@ -70,13 +83,16 @@ struct PlaceCard: Identifiable, Codable {
     /// URL rather than reconstructed from name/coordinates, so it's exact
     /// rather than a best-effort search link), or a review/booking
     /// platform's own page (TripAdvisor, Yelp, OpenTable, ...) added by
-    /// hand. Keyed by a short platform label (e.g. "Google Maps", "Naver
-    /// Map", "TripAdvisor") rather than one named field per platform,
-    /// since there's no fixed, closed set of these worth hardcoding —
-    /// `website`/`instagramURL` stay their own dedicated fields since
-    /// every card routinely has those specific two and the UI treats them
-    /// distinctly (a dedicated icon/action each).
-    var externalLinks: [String: String] = [:]
+    /// hand — any number of these, including more than one for the same
+    /// platform. Labeled by a short platform name (e.g. "Google Maps",
+    /// "Naver Map", "TripAdvisor") per entry rather than one named field
+    /// per platform, since there's no fixed, closed set of these worth
+    /// hardcoding — `website`/`instagramURL` stay their own dedicated
+    /// fields since every card routinely has those specific two and the UI
+    /// treats them distinctly (a dedicated icon/action each). Also fed to
+    /// `AIProvider.searchWebForDetails` as sources to check first, ahead
+    /// of a generic web search.
+    var externalLinks: [ExternalLink] = []
 
     /// Mirrors Peragra's `Place.favorite`/`Place.visited` — toggled
     /// directly from the card cell.
@@ -238,11 +254,13 @@ extension PlaceCard {
         card.recommendedMenu = recommendedMenu?.strippingInvisibleFormatCharacters()
         card.tags = tags.map { $0.strippingInvisibleFormatCharacters() }
         card.amenities = amenities.map { $0.strippingInvisibleFormatCharacters() }
-        card.externalLinks = Dictionary(
-            uniqueKeysWithValues: externalLinks.map {
-                ($0.key.strippingInvisibleFormatCharacters(), $0.value.strippingInvisibleFormatCharacters())
-            }
-        )
+        card.externalLinks = externalLinks.map {
+            ExternalLink(
+                id: $0.id,
+                platform: $0.platform.strippingInvisibleFormatCharacters(),
+                url: $0.url.strippingInvisibleFormatCharacters()
+            )
+        }
         if let hoursDetail {
             card.hoursDetail = Dictionary(
                 uniqueKeysWithValues: hoursDetail.map {
