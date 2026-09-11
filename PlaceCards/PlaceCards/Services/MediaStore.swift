@@ -34,11 +34,36 @@ struct MediaStore {
         return directory
     }
 
+    /// A modern iPhone's own camera photo can be 8000px+ on its long side —
+    /// nothing in this app ever displays a photo anywhere near that large
+    /// (the full-screen swipeable viewer, `PhotoViewerSheet`, is the
+    /// biggest consumer, and it fits within a phone/tablet screen). Saving
+    /// the original size anyway means every future load of that file pays
+    /// for it: more disk space, slower reads, and a bigger source for
+    /// `loadThumbnail` to downsample from — so this caps what actually
+    /// gets written to disk, not just what gets displayed.
+    private static let maxSavedDimension: CGFloat = 2048
+
     static func saveImage(_ image: UIImage, compressionQuality: CGFloat = 0.8) throws -> String {
-        guard let data = image.jpegData(compressionQuality: compressionQuality) else {
+        guard let data = downscaledIfNeeded(image, maxDimension: maxSavedDimension).jpegData(compressionQuality: compressionQuality) else {
             throw PlaceCardsError.invalidImage
         }
         return try saveImage(data: data)
+    }
+
+    /// Never upscales — a photo already smaller than `maxDimension` on its
+    /// long side is returned untouched.
+    private static func downscaledIfNeeded(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
+        let size = image.size
+        let longestSide = max(size.width, size.height)
+        guard longestSide > maxDimension else { return image }
+
+        let scale = maxDimension / longestSide
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
     }
 
     /// Writes already-encoded image bytes directly, with no `UIImage`
