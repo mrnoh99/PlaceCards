@@ -146,6 +146,16 @@ struct PlaceWebDetails {
     /// method/platform, not a link (see `PlaceCard.reservationSearchURL`'s
     /// own comment for why this app doesn't attempt a direct deep link).
     let reservationInfo: String?
+    /// Short folksonomy-style tags the AI thinks fit this place (e.g.
+    /// "혼밥가능", "데이트코스", "가성비") — unlike every other field on
+    /// this struct, `EditPlaceCardSheet` deliberately does NOT auto-apply
+    /// these the same way it fills a blank phone/category/hours: tags are
+    /// closer to the user's own personal categorization than an objective
+    /// fact a photo/search either does or doesn't confirm, so a wrong
+    /// guess landing here silently would be more annoying than a wrong
+    /// guess in most other fields. Instead these are staged and shown for
+    /// the user to accept or dismiss as a batch.
+    let tags: [String]
     /// Anything else worth keeping that doesn't fit a specific field —
     /// folded into the card's `memo` the same way a photo scan's
     /// `AIAnalysisResult.description` is.
@@ -220,7 +230,8 @@ func defaultPlaceAnalysisPrompt() -> String {
     확실하지 않은 장소명은 추측해서 만들어내지 말고 제외하세요.
     스캔의 목적은 이 장소에 대한 정보를 최대한 모으는 것입니다 — 이름·주소 외에도 이미지에 함께 적힌, 나중에 참고할 만한 내용(해시태그, 한줄평·추천 이유·특이사항 등, 예: "#한끼식사됨")이 있으면 description에 그대로 담아주세요. 그런 내용이 없으면 null로 답하세요.
     지도 앱 스크린샷의 정보 카드에 전화번호·웹사이트·업종/카테고리·영업시간·라스트오더(마감 시간)·정기 휴무일·편의시설(예: 주차, 반려동물 동반, 포장 등)·예약 방법(예: 캐치테이블 예약, 테이블링 예약, 전화 예약만 가능) 중 실제로 보이는 값이 있으면 아래 해당 필드에 채워주세요. 이미지에 없는 값은 추측하지 말고 null(또는 빈 배열)로 답하세요.
-    {"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "이름/주소로 담기지 않는, 메모로 남길 만한 내용 또는 null", "confidence": 0.0에서 1.0 사이 숫자, "phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼 또는 null"}]}
+    이 장소를 짧게 분류할 만한 태그도 몇 개(0~5개) 제안해주세요(예: "혼밥가능", "데이트코스", "가성비", "야외석") — 이미지 내용에 근거해서만, 근거 없이 지어내지 마세요.
+    {"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "이름/주소로 담기지 않는, 메모로 남길 만한 내용 또는 null", "confidence": 0.0에서 1.0 사이 숫자, "phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼 또는 null", "tags": ["태그", ...] 또는 빈 배열}]}
     장소를 하나도 찾지 못했으면 {"places": []}로 답하세요.
     """
     guard let instruction = ScanResultLanguage.current().promptInstruction else { return base }
@@ -266,6 +277,7 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
         let holidays: String?
         let amenities: [String]?
         let reservationInfo: String?
+        let tags: [String]?
     }
     struct ExtractedPlacesResponse: Decodable {
         let places: [ExtractedPlace]
@@ -289,6 +301,7 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
                 holidays: place.holidays,
                 amenities: place.amenities ?? [],
                 reservationInfo: place.reservationInfo,
+                tags: place.tags ?? [],
                 note: nil
             )
         )
@@ -299,7 +312,8 @@ private func webDetailsSearchPrompt(for query: String) -> String {
     let base = """
     "\(query)"에 대한 정보를 웹에서 검색해서 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
     확실하지 않은 값은 추측해서 만들어내지 말고 null로 답하세요.
-    {"phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼(예: 캐치테이블 예약, 전화 예약만 가능) 또는 null", "note": "그 외 참고할 만한 정보(메모로 남길 만한 것) 또는 null"}
+    이 장소를 짧게 분류할 만한 태그도 몇 개(0~5개) 제안해주세요(예: "혼밥가능", "데이트코스", "가성비", "야외석") — 검색으로 실제 확인되는 내용에 근거해서만, 근거 없이 지어내지 마세요.
+    {"phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼(예: 캐치테이블 예약, 전화 예약만 가능) 또는 null", "tags": ["태그", ...] 또는 빈 배열, "note": "그 외 참고할 만한 정보(메모로 남길 만한 것) 또는 null"}
     """
     guard let instruction = ScanResultLanguage.current().promptInstruction else { return base }
     return base + "\n" + instruction
@@ -317,6 +331,7 @@ private func parseWebDetails(from text: String) throws -> PlaceWebDetails {
         let holidays: String?
         let amenities: [String]?
         let reservationInfo: String?
+        let tags: [String]?
         let note: String?
     }
 
@@ -332,6 +347,7 @@ private func parseWebDetails(from text: String) throws -> PlaceWebDetails {
         holidays: parsed.holidays,
         amenities: parsed.amenities ?? [],
         reservationInfo: parsed.reservationInfo,
+        tags: parsed.tags ?? [],
         note: parsed.note
     )
 }

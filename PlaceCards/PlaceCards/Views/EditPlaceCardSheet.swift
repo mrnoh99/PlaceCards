@@ -64,6 +64,14 @@ struct EditPlaceCardSheet: View {
     @State private var isSearchingWeb = false
     @State private var webSearchMessage: String?
 
+    /// Tags the AI (photo scan or web search) suggested that aren't
+    /// already in `tagsText` — staged here rather than applied straight
+    /// away (see `PlaceWebDetails.tags`'s own doc comment for why tags
+    /// specifically get this treatment) and shown as one batch to accept
+    /// or dismiss via `isConfirmingSuggestedTags`.
+    @State private var pendingSuggestedTags: [String] = []
+    @State private var isConfirmingSuggestedTags = false
+
     init(card: PlaceCard, onSave: @escaping (PlaceCard) -> Void) {
         self.card = card
         self.onSave = onSave
@@ -150,6 +158,18 @@ struct EditPlaceCardSheet: View {
                 Button("취소".localized, role: .cancel) { pendingExtractedPlace = nil }
             } message: {
                 Text(nameChangeAlertMessage)
+            }
+            .alert(
+                "AI가 태그를 제안했습니다".localized,
+                isPresented: $isConfirmingSuggestedTags
+            ) {
+                Button("추가".localized) {
+                    addSuggestedTags()
+                    pendingSuggestedTags = []
+                }
+                Button("취소".localized, role: .cancel) { pendingSuggestedTags = [] }
+            } message: {
+                Text(pendingSuggestedTags.joined(separator: ", "))
             }
         }
     }
@@ -475,6 +495,7 @@ struct EditPlaceCardSheet: View {
         }
         if let details = result.details {
             filledFields.append(contentsOf: fillBlankFields(from: details))
+            stageSuggestedTags(from: details.tags)
         }
         if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: result.description), combined != memoText {
             memoText = combined
@@ -563,6 +584,7 @@ struct EditPlaceCardSheet: View {
     /// "done" wouldn't say whether anything actually changed.
     private func applyWebDetails(_ details: PlaceWebDetails) {
         var filledFields = fillBlankFields(from: details)
+        stageSuggestedTags(from: details.tags)
         if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: details.note), combined != memoText {
             memoText = combined
             filledFields.append("메모".localized)
@@ -571,6 +593,27 @@ struct EditPlaceCardSheet: View {
         webSearchMessage = filledFields.isEmpty
             ? "웹 검색에서 새로 채울 정보를 찾지 못했습니다.".localized
             : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
+    }
+
+    /// Narrows `suggested` down to tags not already in `tagsText`, and — if
+    /// any remain — stages them for `isConfirmingSuggestedTags`'s alert
+    /// rather than adding them outright (see `PlaceWebDetails.tags`'s own
+    /// doc comment for why). A no-op when there's nothing new to offer, so
+    /// this never pops an empty confirmation.
+    private func stageSuggestedTags(from suggested: [String]) {
+        guard !suggested.isEmpty else { return }
+        let existing = Set(tagsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+        let newTags = suggested.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !existing.contains($0) }
+        guard !newTags.isEmpty else { return }
+        pendingSuggestedTags = newTags
+        isConfirmingSuggestedTags = true
+    }
+
+    private func addSuggestedTags() {
+        guard !pendingSuggestedTags.isEmpty else { return }
+        tagsText = tagsText.trimmingCharacters(in: .whitespaces).isEmpty
+            ? pendingSuggestedTags.joined(separator: ", ")
+            : tagsText + ", " + pendingSuggestedTags.joined(separator: ", ")
     }
 
     private func save() {

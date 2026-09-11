@@ -119,6 +119,7 @@ enum Localization {
         "AI 응답 언어": "AI Response Language",
         "AI 이미지 분석 (BYOK)": "AI Image Analysis (BYOK)",
         "AI가 읽은 정보를 채웠습니다.": "Filled in what AI read.",
+        "AI가 태그를 제안했습니다": "AI suggested some tags",
         "AI가 찾은 장소를 검토·수정하거나 직접 추가하세요. \"Google에서 검색\"으로 정확한 주소·평점·연락처를 채울 수 있습니다.": "Review or edit the places AI found, or add your own. Use \"Search on Google\" to fill in the exact address, rating, and contact info.",
         "AI로 장소 분석하기 (": "Analyze photos with AI (",
         "AI로 정보 읽어오기": "Read info with AI",

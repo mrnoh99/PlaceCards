@@ -424,6 +424,15 @@ final class PlaceCardViewModel: ObservableObject {
     /// a verified search result already set, same "fill gaps only" rule
     /// `EditPlaceCardSheet.applyWebDetails` already follows for the same
     /// fields from a web search instead of a photo.
+    ///
+    /// `details.tags` is deliberately never touched here — unlike every
+    /// other field on `PlaceWebDetails`, AI-suggested tags aren't applied
+    /// silently anywhere in this app (see that field's own doc comment):
+    /// they're closer to the user's own personal categorization than an
+    /// objective fact worth auto-filling, so a wrong guess landing on a
+    /// brand-new card with no review step would be worse than just not
+    /// offering them here. `EditPlaceCardSheet` is where they're actually
+    /// surfaced, staged for the user to accept or dismiss as a batch.
     private func applyScannedDetails(_ details: PlaceWebDetails?, to card: inout PlaceCard) {
         guard let details else { return }
         if card.phone == nil, let value = details.phone, !value.isEmpty { card.phone = value }

@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (119차) — AI 태그 자동 제안 (확인 후 적용)
+#### Added
+- `Services/AIProvider.swift`: `PlaceWebDetails`에 `tags: [String]` 필드
+  추가 — 사진 스캔(`defaultPlaceAnalysisPrompt`)·웹 검색
+  (`webDetailsSearchPrompt`) 둘 다 장소에 어울릴 만한 짧은 태그를 0~5개
+  제안하도록 프롬프트에 추가. 다른 필드(전화번호/카테고리/영업시간 등)와
+  달리 태그는 의도적으로 자동 적용하지 않음 — 태그는 객관적 사실이라기
+  보다 사용자 개인의 분류 체계에 가까워서, 잘못된 추측이 조용히 카드에
+  붙는 게 다른 필드보다 거슬릴 수 있다고 판단(사용자 확인).
+- `Views/EditPlaceCardSheet.swift`: `stageSuggestedTags(from:)` — AI가
+  제안한 태그 중 이미 있는 태그와 안 겹치는 것만 걸러내 있으면
+  "AI가 태그를 제안했습니다" 확인 알림(제안된 태그 목록 표시, "추가"/
+  "취소")으로 띄움. 사진 스캔("AI로 정보 읽어오기")과 웹 검색("웹
+  검색으로 채우기") 둘 다에서 동작.
+- `ViewModels/PlaceCardViewModel.swift`: `applyScannedDetails`(새 카드
+  생성 시 사용, `AddPlaceCardView` 경로)는 태그를 의도적으로 건드리지
+  않음 — 새로 만드는 카드는 확인 절차가 없어서, 태그만큼은
+  `EditPlaceCardSheet`(확인 UI가 있는 곳)에서만 제안되도록 범위를
+  좁혔다.
+
 ### 2026-09-11 (118차) — 앱 시작 시 인트로 화면 추가
 #### Added
 - `Views/MainTabView.swift`: "앱을 열 때 백업으로 시간이 걸린다면 화면에
