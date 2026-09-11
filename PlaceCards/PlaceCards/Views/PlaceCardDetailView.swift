@@ -29,9 +29,20 @@ struct PlaceCardDetailView: View {
     /// open; a few hundred milliseconds is well past any transition but
     /// unnoticeable for a real, deliberate tap.
     @State private var isHeroPhotoTappable = false
+    /// A working copy of `card.tags`, edited freely (add/remove) and only
+    /// written back to `card`/disk when "저장" is tapped — unlike the memo
+    /// field's autosave-on-blur, a tag list has no single natural "done
+    /// editing" moment (adding several, then removing one you just added,
+    /// is a normal way to use it), so committing explicitly avoids writing
+    /// to disk after every single add/remove.
+    @State private var tagsDraft: [String]
+    @State private var newTagInput = ""
+
+    private var isTagsDirty: Bool { tagsDraft != card.tags }
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
+        _tagsDraft = State(initialValue: card.tags)
     }
 
     var body: some View {
@@ -103,11 +114,7 @@ struct PlaceCardDetailView: View {
                         WrapTagsView(tags: card.amenities)
                     }
 
-                    if !card.tags.isEmpty {
-                        Text("태그".localized)
-                            .font(.headline)
-                        WrapTagsView(tags: card.tags)
-                    }
+                    tagsSection
 
                     memoSection
                 }
@@ -368,10 +375,50 @@ struct PlaceCardDetailView: View {
         }
     }
 
+    /// Directly editable right here, like `memoSection` below — no
+    /// separate edit mode/sheet to step into first (unlike amenities
+    /// above it, or every other field on this screen, which route through
+    /// `EditPlaceCardSheet`). Always shown (not hidden when empty) since
+    /// this is also how a tag gets *added* in the first place. Unlike the
+    /// memo field's autosave-on-blur, edits here only commit to `card`
+    /// (and disk) once "저장" is tapped — see `tagsDraft`'s own comment.
+    @ViewBuilder
+    private var tagsSection: some View {
+        Text("태그".localized)
+            .font(.headline)
+        if !tagsDraft.isEmpty {
+            WrapTagsView(tags: tagsDraft) { tag in
+                tagsDraft.removeAll { $0 == tag }
+            }
+        }
+        HStack {
+            TextField("태그 추가".localized, text: $newTagInput)
+                .font(.subheadline)
+                .onSubmit(addTag)
+            Button("추가".localized, action: addTag)
+                .disabled(newTagInput.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        if isTagsDirty {
+            Button("저장".localized) {
+                card.tags = tagsDraft
+                storageService.save(card)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+    }
+
+    private func addTag() {
+        let trimmed = newTagInput.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !tagsDraft.contains(trimmed) else { return }
+        tagsDraft.append(trimmed)
+        newTagInput = ""
+    }
+
     /// Directly typable right here — no separate edit mode/sheet to step
     /// into first, unlike every other field on this screen (which route
-    /// through `EditPlaceCardSheet`). Always shown (unlike amenities/tags
-    /// above it, which hide entirely when empty) since this field itself
+    /// through `EditPlaceCardSheet`). Always shown (unlike amenities
+    /// above it, which hides entirely when empty) since this field itself
     /// is how a memo gets *added* in the first place, not just changed.
     /// Saved once the field loses focus rather than on every keystroke —
     /// `storageService.save(card)` writes the whole JSON store back to
@@ -453,16 +500,30 @@ private struct PhotoViewerSheet: View {
 
 private struct WrapTagsView: View {
     let tags: [String]
+    /// Adds an "x" to each capsule when set — `tagsSection` uses this to
+    /// remove a tag from its draft; every other caller (read-only
+    /// displays like amenities) leaves it `nil` and gets plain capsules.
+    var onRemove: ((String) -> Void)? = nil
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack {
                 ForEach(tags, id: \.self) { tag in
-                    Text(tag)
-                        .font(.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.accentColor.opacity(0.15), in: Capsule())
+                    HStack(spacing: 4) {
+                        Text(tag)
+                        if let onRemove {
+                            Button {
+                                onRemove(tag)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.accentColor.opacity(0.15), in: Capsule())
                 }
             }
         }

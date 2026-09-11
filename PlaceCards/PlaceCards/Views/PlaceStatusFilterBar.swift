@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Which subset of a place list to show — mirrors Peragra's default
 /// "All (n)" / "⭐ Favorites (n)" / "✅ Visited (n)" chips
@@ -66,6 +67,16 @@ struct PlaceStatusFilterBar: View {
     /// list) rather than a plain `Menu` once there are enough categories
     /// that scanning a dropdown by eye stops being practical.
     @State private var isPresentingCategoryPicker = false
+    /// Shown once "현재 위치" comes back with no coordinate *and* the
+    /// reason is a denied/restricted permission — as opposed to still
+    /// being mid-fetch or a transient signal failure, which just leave
+    /// the distance label absent with nothing to tell the user (matches
+    /// every other momentary "no result" case in the app). A denied
+    /// permission is different: it will never resolve on its own, no
+    /// matter how many times "현재 위치" is tapped again, so silently
+    /// doing nothing here previously just looked like the feature didn't
+    /// work at all.
+    @State private var isPresentingLocationDeniedAlert = false
 
     private var referenceCard: PlaceCard? {
         guard case .card(let id) = distanceReference else { return nil }
@@ -134,7 +145,13 @@ struct PlaceStatusFilterBar: View {
         Menu {
             Button {
                 distanceReference = .here
-                Task { hereCoordinate = await LocationService.currentLocation() }
+                Task {
+                    let coordinate = await LocationService.currentLocation()
+                    hereCoordinate = coordinate
+                    if coordinate == nil, await LocationService.isAuthorizationDenied() {
+                        isPresentingLocationDeniedAlert = true
+                    }
+                }
             } label: {
                 Label("현재 위치".localized, systemImage: "location")
             }
@@ -143,6 +160,16 @@ struct PlaceStatusFilterBar: View {
             }
         } label: {
             chipLabel(title: referenceTitle, isSelected: distanceReference != nil)
+        }
+        .alert("위치 권한이 꺼져 있습니다".localized, isPresented: $isPresentingLocationDeniedAlert) {
+            Button("설정 열기".localized) {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("취소".localized, role: .cancel) {}
+        } message: {
+            Text("현재 위치에서의 거리를 표시하려면 설정 앱에서 PlaceCards의 위치 권한을 허용해주세요.".localized)
         }
     }
 

@@ -27,6 +27,19 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         return await service.fetch()
     }
 
+    /// Whether a previously-denied/restricted permission — not "not asked
+    /// yet" or "granted but the fix above simply hasn't resolved yet" —
+    /// is why `currentLocation()` just returned nil. `CLLocationManager`
+    /// is safe to construct fresh here just to read this; it's a
+    /// synchronous property read, not a fetch. Lets a caller tell "still
+    /// waiting"/"no signal" apart from "will never resolve until Settings
+    /// is changed" and show the right message for each instead of the
+    /// silent, indistinguishable nil both used to produce.
+    static func isAuthorizationDenied() -> Bool {
+        let status = CLLocationManager().authorizationStatus
+        return status == .denied || status == .restricted
+    }
+
     private func fetch() async -> Coordinates? {
         await withCheckedContinuation { continuation in
             self.continuation = continuation
