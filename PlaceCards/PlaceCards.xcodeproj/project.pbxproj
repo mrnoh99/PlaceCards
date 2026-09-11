@@ -15,6 +15,7 @@
 		DFCAC6BDCDC8BB0716E42C58 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC0798C7624D4EB0FCD7FF84 /* MediaModels.swift */; };
 		6053CAB58E1C97BA193319B3 /* SourceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73BB0719390F96903381BE05 /* SourceModels.swift */; };
 		C3406DD13ECA47C58C88ADD0 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB40EA8146D813B5C75EF349 /* KeychainService.swift */; };
+		3FD63618D738084769D6A347 /* KeyboardDismiss.swift in Sources */ = {isa = PBXBuildFile; fileRef = B905C7155269EF3D712E09B4 /* KeyboardDismiss.swift */; };
 		CCC680FA33BDBF5F6DB8BD49 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4471C1134E3C0AE75A943A9 /* StorageService.swift */; };
 		7887C1C9178ABED6AFF9E51A /* MediaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB7B3336DBCBFE8321EE4F85 /* MediaStore.swift */; };
 		404E194DDA73796570A42772 /* PlaceSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */; };
@@ -79,6 +80,7 @@
 		FC0798C7624D4EB0FCD7FF84 /* MediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModels.swift; sourceTree = "<group>"; };
 		73BB0719390F96903381BE05 /* SourceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceModels.swift; sourceTree = "<group>"; };
 		AB40EA8146D813B5C75EF349 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
+		B905C7155269EF3D712E09B4 /* KeyboardDismiss.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardDismiss.swift; sourceTree = "<group>"; };
 		F4471C1134E3C0AE75A943A9 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
 		FB7B3336DBCBFE8321EE4F85 /* MediaStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaStore.swift; sourceTree = "<group>"; };
 		3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceSearchService.swift; sourceTree = "<group>"; };
@@ -213,6 +215,7 @@
 			isa = PBXGroup;
 			children = (
 				AB40EA8146D813B5C75EF349 /* KeychainService.swift */,
+				B905C7155269EF3D712E09B4 /* KeyboardDismiss.swift */,
 				F4471C1134E3C0AE75A943A9 /* StorageService.swift */,
 				FB7B3336DBCBFE8321EE4F85 /* MediaStore.swift */,
 				3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */,
@@ -411,6 +414,7 @@
 				26281DCA1D52ED3C056FC699 /* EditBoardSheet.swift in Sources */,
 				7162B58255D046D5A17D8F46 /* PlaceCardListRow.swift in Sources */,
 				C3406DD13ECA47C58C88ADD0 /* KeychainService.swift in Sources */,
+				3FD63618D738084769D6A347 /* KeyboardDismiss.swift in Sources */,
 				CCC680FA33BDBF5F6DB8BD49 /* StorageService.swift in Sources */,
 				7887C1C9178ABED6AFF9E51A /* MediaStore.swift in Sources */,
 				404E194DDA73796570A42772 /* PlaceSearchService.swift in Sources */,

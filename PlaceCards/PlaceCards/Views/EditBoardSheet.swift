@@ -56,6 +56,8 @@ struct EditBoardSheet: View {
                     .padding(.vertical, 4)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .keyboardDoneButton()
             .navigationTitle("게시판 수정".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

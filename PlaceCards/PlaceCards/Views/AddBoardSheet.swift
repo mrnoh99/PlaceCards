@@ -47,6 +47,8 @@ struct AddBoardSheet: View {
                     .padding(.vertical, 4)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .keyboardDoneButton()
             .navigationTitle("새 게시판".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

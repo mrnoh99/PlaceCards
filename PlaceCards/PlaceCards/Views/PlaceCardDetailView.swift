@@ -152,6 +152,8 @@ struct PlaceCardDetailView: View {
             }
             .padding(.vertical)
         }
+        .scrollDismissesKeyboard(.interactively)
+        .keyboardDoneButton()
         .navigationTitle(card.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -115,6 +115,8 @@ struct EditPlaceCardSheet: View {
                 amenitiesSection
                 memoSection
             }
+            .scrollDismissesKeyboard(.interactively)
+            .keyboardDoneButton()
             .navigationTitle("장소 정보 수정".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

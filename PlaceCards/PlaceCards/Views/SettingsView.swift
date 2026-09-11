@@ -49,6 +49,8 @@ struct SettingsView: View {
                 autoBackupSection
                 infoSection
             }
+            .scrollDismissesKeyboard(.interactively)
+            .keyboardDoneButton()
             .navigationTitle("설정".localized)
             .alert(
                 "알림".localized,

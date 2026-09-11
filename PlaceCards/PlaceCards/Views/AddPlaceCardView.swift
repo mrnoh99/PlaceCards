@@ -79,6 +79,8 @@ struct AddPlaceCardView: View {
                         .foregroundStyle(.red)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .keyboardDoneButton()
             .navigationTitle("장소 추가".localized)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (98차) — 키보드가 떠 있는 상태에서 내릴 수 있게 함
+#### Added
+- `Services/KeyboardDismiss.swift`(신규): `View.keyboardDoneButton()` — 키보드
+  바로 위에 "완료" 버튼을 붙여, 포커스된 필드가 무엇이든
+  `resignFirstResponder`를 보내 키보드를 내림(개별 `TextField`마다
+  `@FocusState`를 따로 연결할 필요 없음).
+#### Changed
+- 텍스트 입력이 있는 화면 6곳(`AddPlaceCardView`, `EditPlaceCardSheet`,
+  `AddBoardSheet`, `EditBoardSheet`, `SettingsView`, `PlaceCardDetailView`)의
+  `Form`/`ScrollView`에 `.scrollDismissesKeyboard(.interactively)`(스크롤
+  내려서 키보드 내리기)와 `.keyboardDoneButton()`(항상 보이는 "완료" 버튼,
+  내용이 짧아 스크롤이 안 되는 화면에서도 확실히 작동)을 함께 적용 —
+  지금까지는 리턴 키가 없는 필드(여러 줄 메모 등)에서 키보드를 내릴 방법이
+  없었음.
+
 ### 2026-09-11 (97차) — 장소 추가의 "출처" Picker 제거
 #### Removed
 - `Views/AddPlaceCardView.swift`: 사진 선택 섹션의 "출처" `Picker`(인스타그램
