@@ -2,16 +2,33 @@ import Foundation
 
 struct ParsedSharedPlace {
     var name: String?
+    /// A street address, when the share itself hands one over as text
+    /// (Naver) — never geocoded or guessed, only ever what was literally
+    /// written in the shared content itself.
+    var address: String?
+    /// Exact coordinates, when they're recoverable straight from the
+    /// share without any network round trip — a full (non-shortened)
+    /// Google Maps URL already encodes them in its own path.
+    var coordinates: Coordinates?
+    /// Whatever else the share included beyond name/address/coordinates
+    /// (Naver's extra detail lines) — folded into the candidate row's
+    /// `scannedNote`, same destination as a photo scan's own description.
+    var note: String?
     var url: URL?
     var source: SourceType
 }
 
 /// Google Maps and Naver Map hand the share sheet very different data, so
 /// each needs its own parsing strategy:
-/// - Google Maps only shares a URL, with no place name in it at all — the
-///   name has to come from fetching the page (`LinkMetadataFetcher`).
+/// - Google Maps only ever shares a URL. A *short* link (`goo.gl`) is an
+///   opaque redirect token with nothing recoverable without following it,
+///   so the caller falls back to `LinkMetadataFetcher`. A full link
+///   (`google.com/maps/place/<name>/@<lat>,<lng>,<zoom>z/...`) already
+///   encodes the place name and its exact coordinates right in the path —
+///   both pulled out here with no network access at all.
 /// - Naver Map shares plain text: an app-tag line (e.g. "[네이버 지도]"),
-///   then the place name, address, and other details each on their own line.
+///   then the place name, address, and other details each on their own
+///   line — all of it already text, so all of it is extracted directly.
 enum SharedLinkParser {
     static func parse(_ text: String) -> ParsedSharedPlace? {
         if let url = extractURL(from: text) {
@@ -19,9 +36,15 @@ enum SharedLinkParser {
                 return parseNaverText(text, url: url)
             }
             if isGoogleMapHost(url) {
-                // No place name is recoverable from the URL itself here —
-                // the caller resolves it separately via LinkMetadataFetcher.
-                return ParsedSharedPlace(name: nil, url: url, source: .googleMapShare)
+                let (name, coordinates) = parseGoogleMapsURLPath(url)
+                return ParsedSharedPlace(
+                    name: name,
+                    address: nil,
+                    coordinates: coordinates,
+                    note: nil,
+                    url: url,
+                    source: .googleMapShare
+                )
             }
         }
 
@@ -58,14 +81,66 @@ enum SharedLinkParser {
     }
 
     /// Naver's share text is a handful of lines: an app tag, the place name,
-    /// then address/other details. The tag line is dropped and the first
-    /// remaining non-empty line is treated as the name.
+    /// then address/other details. The tag line and any bare URL line
+    /// (already captured separately as `url`) are dropped; of what's left,
+    /// the first line is the name, the second the address, and anything
+    /// further is joined into `note`.
     private static func parseNaverText(_ text: String, url: URL?) -> ParsedSharedPlace {
+        let urlString = url?.absoluteString
         let lines = text
             .split(separator: "\n", omittingEmptySubsequences: true)
             .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty && !$0.hasPrefix("[") }
+            .filter { line in
+                guard !line.isEmpty, !line.hasPrefix("[") else { return false }
+                if let urlString, line == urlString { return false }
+                return !(line.hasPrefix("http://") || line.hasPrefix("https://"))
+            }
 
-        return ParsedSharedPlace(name: lines.first, url: url, source: .naverMapShare)
+        return ParsedSharedPlace(
+            name: lines.first,
+            address: lines.count > 1 ? lines[1] : nil,
+            coordinates: nil,
+            note: lines.count > 2 ? lines[2...].joined(separator: "\n") : nil,
+            url: url,
+            source: .naverMapShare
+        )
+    }
+
+    /// Pulls the place name and coordinates straight out of a full Google
+    /// Maps URL's own path (`/maps/place/<name>/@<lat>,<lng>,<zoom>z/...`)
+    /// — every value Google Maps' own share button already puts there, so
+    /// none of it needs a page fetch to recover. Silently yields `(nil, nil)`
+    /// for anything that doesn't match this shape (a short `goo.gl` link,
+    /// or any other Google Maps URL form), which just means the caller's
+    /// `LinkMetadataFetcher` fallback runs instead — never a bug on its own.
+    private static func parseGoogleMapsURLPath(_ url: URL) -> (name: String?, coordinates: Coordinates?) {
+        let path = url.path
+
+        var name: String?
+        if let placeRange = path.range(of: "/place/") {
+            let afterPlace = path[placeRange.upperBound...]
+            let nameSegment = afterPlace.prefix(while: { $0 != "/" })
+            // A URL zoomed to bare coordinates rather than a named place
+            // (e.g. ".../place/@37.5,127.0,14z/") puts the "@lat,lng,zoom"
+            // segment right where a name would be — not a real name.
+            if !nameSegment.hasPrefix("@") {
+                let decoded = String(nameSegment)
+                    .replacingOccurrences(of: "+", with: " ")
+                    .removingPercentEncoding
+                name = (decoded?.isEmpty == false) ? decoded : nil
+            }
+        }
+
+        var coordinates: Coordinates?
+        if let atRange = path.range(of: "/@") {
+            let afterAt = path[atRange.upperBound...]
+            let coordsSegment = afterAt.prefix(while: { $0 != "/" })
+            let parts = coordsSegment.split(separator: ",")
+            if parts.count >= 2, let latitude = Double(parts[0]), let longitude = Double(parts[1]) {
+                coordinates = Coordinates(latitude: latitude, longitude: longitude)
+            }
+        }
+
+        return (name, coordinates)
     }
 }

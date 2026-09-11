@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (91차) — 공유받은 링크에서 이름 외의 정보도 전부 추출
+#### Changed
+- `Services/SharedLinkParser.swift`: `ParsedSharedPlace`에 `address`/`coordinates`/
+  `note` 필드를 추가하고, 구글·네이버 각각에서 실제로 뽑아낼 수 있는 정보를
+  전부 채우도록 확장했다.
+  - 네이버: 지금까지 태그 줄을 뗀 첫 줄(이름)만 쓰고 나머지 줄(주소, 기타
+    상세정보)은 버렸는데, 이제 두 번째 줄을 주소로, 세 번째 줄부터는
+    note로 담는다(그 안에 섞여 들어올 수 있는 URL 줄은 제외).
+  - 구글: 공유되는 건 URL 하나뿐이지만, 축약되지 않은 전체 링크
+    (`.../maps/place/<이름>/@<위도>,<경도>,<줌>z/...`)는 장소 이름과 정확한
+    좌표를 URL 경로 자체에 이미 담고 있어서, 페이지를 따로 요청하지 않고도
+    그 자리에서 바로 꺼낼 수 있다(`goo.gl` 축약 링크나 이 형식에 안 맞는
+    링크는 기존처럼 `LinkMetadataFetcher`로 폴백).
+- `ViewModels/PlaceCardViewModel.swift`: `resolveSearchQuery(from:) -> String`를
+  `resolveSharedPlace(from:) -> ResolvedSharedPlace`(name/address/coordinates/note)로
+  교체하고, `search(rowID:)`가 이 정보로 행의 빈 주소·메모 필드를 채운 뒤
+  검색하도록 변경.
+  - 위치 기준(ground truth)을 기존 "주소 문자열을 지오코딩"에서 "구글
+    URL에서 뽑은 정확한 좌표가 있으면 그걸 우선 사용, 없으면 기존처럼
+    주소를 지오코딩"으로 일반화 — 동명이인 장소를 걸러내는
+    100m 반경 필터가 구글 공유 링크에서는 지오코딩 오차 없이 정확한
+    좌표로 작동한다.
+  - 이 변경은 `search(rowID:)`를 쓰는 모든 경로(수동으로 링크 붙여넣기 +
+    "Google에서 검색", 지난 차수에서 추가한 공유 링크 자동 검색)에
+    공통 적용됨 — 네이버든 구글이든 동일하게 동작.
+
 ### 2026-09-11 (90차) — 공유받은 링크를 열면 자동으로 검색·선택
 #### Changed
 - `Views/AddPlaceCardView.swift`: 구글맵/네이버맵에서 "공유"로 넘어온 링크가

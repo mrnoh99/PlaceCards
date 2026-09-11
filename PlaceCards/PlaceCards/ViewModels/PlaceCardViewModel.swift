@@ -151,11 +151,16 @@ final class PlaceCardViewModel: ObservableObject {
     /// discarded unless it's actually within
     /// `maxAddressMatchDistanceMeters` of it — name text alone isn't
     /// enough to trust a result is the right place, only that it's
-    /// *a* place with that name somewhere.
+    /// *a* place with that name somewhere. When the row's name is itself
+    /// a shared link/text, whatever `resolveSharedPlace` recovers from it
+    /// (address, exact coordinates, extra notes) fills in any of those
+    /// fields the row doesn't already have, and its coordinates — being
+    /// exact, unlike a geocoded address — take priority as the location
+    /// ground-truth for the same distance filter.
     func search(rowID: UUID) async {
         guard let index = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
         let placeName = candidateRows[index].name
-        let address = candidateRows[index].address.trimmingCharacters(in: .whitespacesAndNewlines)
+        var address = candidateRows[index].address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !placeName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
         candidateRows[index].isSearching = true
@@ -171,19 +176,36 @@ final class PlaceCardViewModel: ObservableObject {
             return
         }
 
-        let resolvedQuery = await Self.resolveSearchQuery(from: placeName)
-        let combinedQuery = address.isEmpty ? resolvedQuery : "\(resolvedQuery) \(address)"
+        let resolved = await Self.resolveSharedPlace(from: placeName)
+
+        guard let filledIndex = candidateRows.firstIndex(where: { $0.id == rowID }) else { return }
+        if address.isEmpty, let parsedAddress = resolved.address {
+            candidateRows[filledIndex].address = parsedAddress
+            address = parsedAddress
+        }
+        if candidateRows[filledIndex].scannedNote == nil, let note = resolved.note {
+            candidateRows[filledIndex].scannedNote = note
+        }
+
+        let combinedQuery = address.isEmpty ? resolved.name : "\(resolved.name) \(address)"
         let googleService = GooglePlacesService(apiKey: apiKey)
+        let locationHint = resolved.coordinates ?? photoLocationHint
 
         do {
-            let rawResults = try await googleService.search(query: combinedQuery, coordinates: photoLocationHint)
+            let rawResults = try await googleService.search(query: combinedQuery, coordinates: locationHint)
             var results = rawResults
 
-            if !address.isEmpty, let addressLocation = try? await googleService.geocodeAddress(address) {
+            var groundTruth: CLLocation?
+            if let coordinates = resolved.coordinates {
+                groundTruth = CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude)
+            } else if !address.isEmpty, let addressLocation = try? await googleService.geocodeAddress(address) {
+                groundTruth = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
+            }
+
+            if let groundTruth {
                 results = rawResults.filter { result in
                     guard let coordinates = result.coordinates else { return false }
-                    return CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
-                        .distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
+                    return groundTruth.distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
                         <= Self.maxAddressMatchDistanceMeters
                 }
             }
@@ -200,24 +222,40 @@ final class PlaceCardViewModel: ObservableObject {
         }
     }
 
-    /// Turns whatever the user pasted into a plain search query, so pasting
-    /// a Naver Map share or a Google Maps link into the place-name field
-    /// "just works" the same way typing a name does. Resolution happens
-    /// fully here, in one call, so the field is only ever shown a finished
-    /// query — never a raw, not-yet-resolved link.
-    private static func resolveSearchQuery(from input: String) async -> String {
+    private struct ResolvedSharedPlace {
+        var name: String
+        var address: String?
+        var coordinates: Coordinates?
+        var note: String?
+    }
+
+    /// Turns whatever the user pasted (or a Share Extension handed over)
+    /// into a finished search query plus whatever else came with it, so
+    /// pasting a Naver Map share or a Google Maps link into the place-name
+    /// field "just works" the same way typing a name does — and, unlike a
+    /// plain name, also recovers the address/coordinates/extra notes the
+    /// share itself already carried, instead of leaving them to a second
+    /// manual entry. Resolution happens fully here, in one call, so the
+    /// field is only ever shown a finished query — never a raw,
+    /// not-yet-resolved link.
+    private static func resolveSharedPlace(from input: String) async -> ResolvedSharedPlace {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if let parsed = SharedLinkParser.parse(trimmed), let name = parsed.name {
-            return name
+        if let parsed = SharedLinkParser.parse(trimmed) {
+            if let name = parsed.name {
+                return ResolvedSharedPlace(name: name, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note)
+            }
+            // A URL-only share (a Google Maps short link, or a full one
+            // whose path didn't match the expected place/coordinates
+            // shape) has no name of its own to give — recovered from the
+            // page itself instead, keeping whatever address/coordinates
+            // the URL parse still did yield.
+            if let url = parsed.url, let title = await LinkMetadataFetcher.fetchTitle(for: url) {
+                return ResolvedSharedPlace(name: title, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note)
+            }
         }
 
-        if let url = SharedLinkParser.extractURL(from: trimmed),
-           let title = await LinkMetadataFetcher.fetchTitle(for: url) {
-            return title
-        }
-
-        return trimmed
+        return ResolvedSharedPlace(name: trimmed, address: nil, coordinates: nil, note: nil)
     }
 
     /// Saves every selected, named row as its own card in one pass — each

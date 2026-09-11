@@ -119,7 +119,7 @@ final class ShareViewController: UIViewController {
 
     /// A shared URL (the "share this page" prompt for maps.google.com) or
     /// plain text (Naver Map's own share, or a URL handed back as text) —
-    /// both are handed to `SharedLinkParser`/`resolveSearchQuery` on the
+    /// both are handed to `SharedLinkParser`/`resolveSharedPlace` on the
     /// main app side, so this only needs to capture whichever string form
     /// comes back and hand it off as-is.
     private func handleLinkAttachment(_ provider: NSItemProvider, typeIdentifier: String) {
