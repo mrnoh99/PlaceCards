@@ -164,7 +164,24 @@ extension PlaceCard {
         GoogleMapsOpener.url(for: self) != nil || coordinates != nil
     }
 
+    /// A general web search for whatever reservation method this card
+    /// notes (e.g. "캐치테이블 예약") together with the place's own name —
+    /// not a direct deep link into that platform, since this app has no
+    /// verified deep-link/search-URL format for Catch Table or any other
+    /// specific Korean reservation platform (Catch Table's own site is a
+    /// JS app with no documented public search URL — guessing one risked
+    /// a link that silently goes nowhere, or to the wrong place, which is
+    /// worse than no link). A plain web search reliably lands on a results
+    /// page the user can find their way from regardless of which platform
+    /// `reservationInfo` actually names.
+    var reservationSearchURL: URL? {
+        guard let reservationInfo, !reservationInfo.isEmpty else { return nil }
+        var components = URLComponents(string: "https://www.google.com/search")
+        components?.queryItems = [URLQueryItem(name: "q", value: "\(reservationInfo) \(name)")]
+        return components?.url
+    }
+
     var hasAnyAction: Bool {
-        callURL != nil || hasAnyMapLink || website != nil || instagramURL != nil
+        callURL != nil || hasAnyMapLink || website != nil || instagramURL != nil || reservationSearchURL != nil
     }
 }

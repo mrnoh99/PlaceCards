@@ -2,6 +2,47 @@
 
 ## [Unreleased]
 
+### 2026-09-11 (116차) — 사용자 제보 6건 처리
+#### Added
+- `Models/PlaceCard.swift`: `reservationInfo`(예약 방법, 예: "캐치테이블
+  예약") 필드 추가. `Services/MapOpeners.swift`: `reservationSearchURL` —
+  Catch Table 등 특정 예약 플랫폼에 대한 검증된 딥링크/검색 URL 형식이
+  없어(Catch Table 자체 사이트는 JS 앱이라 공개 검색 URL 문서가 없음),
+  직접 연결 대신 `reservationInfo` + 장소명으로 일반 웹 검색을 여는
+  방식으로 구현 — 잘못 추측한 링크가 엉뚱한 곳으로 연결되는 것보다 안전.
+  `PlaceCardDetailView`의 액션 행에 "예약" 버튼 추가, `EditPlaceCardSheet`
+  "영업 정보" 섹션에 편집 필드 추가.
+- `Services/AIProvider.swift`: 사진 스캔(`defaultPlaceAnalysisPrompt`/
+  `AIAnalysisResult`)이 지금까지 이름·주소·description·confidence만
+  요청했던 것을 확인 — "google map의 영업시간을 AI로 읽어도 필드에
+  포함안됨" 제보의 원인. 웹 검색 플로우(`PlaceWebDetails`)와 동일하게
+  전화번호·웹사이트·카테고리·영업시간·마감시간·휴무일·편의시설·예약
+  방법을 사진 스캔에도 요청하도록 확장, `PlaceCandidateRow.scannedDetails`
+  로 카드 생성까지 연결(`PlaceCardViewModel.applyScannedDetails`).
+- `Views/EditPlaceCardSheet.swift`: "웹 검색으로 채우기"의 필드별 결과
+  메시지(`fillBlankFields`)를 사진 스캔(`applyExtractedPlace`)에도
+  재사용 — "사진추가후 AI로 정보 추가할때 추가되는 정보를 작은 글씨로
+  보여달라" 요청 처리. 기존에도 `.caption`(작은 글씨)였지만 내용이
+  "AI가 읽은 정보를 채웠습니다"로 고정이었던 걸 "전화번호, 영업시간
+  정보를 채웠습니다"처럼 실제로 채워진 필드를 나열하도록 수정.
+- `Views/PlaceStatusFilterBar.swift`: "현재 위치에서 거리 표시가 안된다"
+  제보 — 권한 거부(이미 알림 있음) 외에, 시스템 전체 위치 서비스 꺼짐/
+  GPS 신호 없음/타임아웃처럼 nil이 반환되는 다른 모든 경우엔 아무 피드백
+  없이 조용히 실패하던 부분을 발견, 별도 알림 추가. (근본 원인이 이
+  경우들 중 무엇인지는 기기에서 재현하지 못해 확정 못함 — 다음 테스트에서
+  어떤 알림이 뜨는지로 원인을 좁힐 수 있음)
+#### Fixed
+- `Services/AIProvider.swift`(`GatewayProvider.searchWebForDetails`):
+  "web 검색으로 채우기 작동안한다" 제보 스크린샷에 정확한 원인이 찍혀있었음
+  — `API 오류 (400): tools.0.type: Input should be 'function'`. 114차
+  이전 라운드에서 "게이트웨이가 벤더별(Claude/GPT) 호스팅 검색 도구를
+  그대로 전달해줄 것"이라고 추측하고 구현했던 게 이제 실제 기기 오류로
+  틀렸음이 확인됨 — 이 게이트웨이의 `/chat/completions`는 어떤 벤더
+  모델이든 OpenAI 함수 호출 스키마(`type: "function"`)만 엄격하게
+  검증하고, 자체 호스팅 검색 도구가 전혀 없음. 잘못된 추측을 걷어내고
+  기본 "지원하지 않음" 동작으로 되돌림 — 진짜로 구현하려면 이 앱에 아직
+  없는 별도의 실제 웹 검색 백엔드가 필요한, 훨씬 큰 작업.
+
 ### 2026-09-11 (115차) — 사진 저장 시에도 원본 대신 축소해서 저장
 #### Changed
 - `Services/MediaStore.swift`(`saveImage(_:compressionQuality:)`): "사진을

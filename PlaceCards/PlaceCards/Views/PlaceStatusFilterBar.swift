@@ -77,6 +77,14 @@ struct PlaceStatusFilterBar: View {
     /// doing nothing here previously just looked like the feature didn't
     /// work at all.
     @State private var isPresentingLocationDeniedAlert = false
+    /// The other way "현재 위치" can come back with no coordinate — not a
+    /// denied/restricted permission (that already gets its own alert
+    /// above), but the device's system-wide Location Services toggle being
+    /// off, or a transient failure (no GPS signal indoors, request timed
+    /// out) — previously left the distance label silently absent with no
+    /// feedback at all, which read as "현재 위치가 아예 안 된다" with
+    /// nothing to go on for telling *why*.
+    @State private var isPresentingLocationUnavailableAlert = false
 
     private var referenceCard: PlaceCard? {
         guard case .card(let id) = distanceReference else { return nil }
@@ -161,8 +169,11 @@ struct PlaceStatusFilterBar: View {
                 Task {
                     let coordinate = await LocationService.currentLocation()
                     hereCoordinate = coordinate
-                    if coordinate == nil, await LocationService.isAuthorizationDenied() {
+                    guard coordinate == nil else { return }
+                    if await LocationService.isAuthorizationDenied() {
                         isPresentingLocationDeniedAlert = true
+                    } else {
+                        isPresentingLocationUnavailableAlert = true
                     }
                 }
             } label: {
@@ -183,6 +194,11 @@ struct PlaceStatusFilterBar: View {
             Button("취소".localized, role: .cancel) {}
         } message: {
             Text("현재 위치에서의 거리를 표시하려면 설정 앱에서 PlaceCards의 위치 권한을 허용해주세요.".localized)
+        }
+        .alert("현재 위치를 가져오지 못했습니다".localized, isPresented: $isPresentingLocationUnavailableAlert) {
+            Button("확인".localized, role: .cancel) {}
+        } message: {
+            Text("기기의 위치 서비스가 꺼져 있지 않은지 확인하거나, 위치 신호를 받을 수 있는 곳에서 다시 시도해주세요.".localized)
         }
     }
 

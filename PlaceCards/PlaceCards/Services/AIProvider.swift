@@ -120,6 +120,14 @@ struct AIAnalysisResult {
     let address: String?
     let description: String?
     let confidence: Double
+    /// Whatever else the scan could read off the screenshot beyond name/
+    /// address/description — phone, website, category, hours, amenities,
+    /// when visible (a Google Maps info card routinely shows its own
+    /// "영업시간" section, say). Reuses `PlaceWebDetails`'s exact shape
+    /// since it's the same set of fields `searchWebForDetails` fills, just
+    /// read off a photo instead of a web search — `note` on it is always
+    /// `nil` here since `description` above already is this result's note.
+    let details: PlaceWebDetails?
 }
 
 /// Whatever a web search turns up about a named place beyond what a photo
@@ -134,6 +142,10 @@ struct PlaceWebDetails {
     let closingTime: String?
     let holidays: String?
     let amenities: [String]
+    /// How to reserve a table, e.g. "캐치테이블 예약" — free text naming the
+    /// method/platform, not a link (see `PlaceCard.reservationSearchURL`'s
+    /// own comment for why this app doesn't attempt a direct deep link).
+    let reservationInfo: String?
     /// Anything else worth keeping that doesn't fit a specific field —
     /// folded into the card's `memo` the same way a photo scan's
     /// `AIAnalysisResult.description` is.
@@ -159,12 +171,13 @@ protocol AIProvider {
     /// (the newer Interactions API's `google_search` tool — likewise a
     /// different endpoint from `analyzePlaces`' `generateContent` call,
     /// which as of this writing no longer documents a grounding tool of
-    /// its own), and `GatewayProvider` (conditionally — see its own doc
-    /// comment: it attaches the selected model's own vendor tool to its
-    /// one shared chat-completions endpoint, keyed off the model name,
-    /// and falls through to the default below for anything it can't key
-    /// off of). Any provider that can't identify a real hosted tool to
-    /// use gets the default below and stays unsupported, rather than
+    /// its own). `GatewayProvider` doesn't implement this at all — its
+    /// shared chat-completions endpoint has no hosted search tool of its
+    /// own, confirmed by an actual "tools.0.type: Input should be
+    /// 'function'" error from trying to guess one (see `GatewayProvider`'s
+    /// own comment) — so it always falls through to the default below.
+    /// Any provider that can't identify a real hosted tool to use gets the
+    /// default below and stays unsupported, rather than
     /// bolting on a guessed tool shape that risks being silently ignored
     /// — which would fill a card's fields with the model's ungrounded
     /// guesses while looking exactly like a real web search happened. A
@@ -206,7 +219,8 @@ func defaultPlaceAnalysisPrompt() -> String {
     한 이미지(또는 여러 이미지 전체)에 여러 장소가 나열되어 있으면 전부 별도 항목으로 포함하세요.
     확실하지 않은 장소명은 추측해서 만들어내지 말고 제외하세요.
     스캔의 목적은 이 장소에 대한 정보를 최대한 모으는 것입니다 — 이름·주소 외에도 이미지에 함께 적힌, 나중에 참고할 만한 내용(해시태그, 한줄평·추천 이유·특이사항 등, 예: "#한끼식사됨")이 있으면 description에 그대로 담아주세요. 그런 내용이 없으면 null로 답하세요.
-    {"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "이름/주소로 담기지 않는, 메모로 남길 만한 내용 또는 null", "confidence": 0.0에서 1.0 사이 숫자}]}
+    지도 앱 스크린샷의 정보 카드에 전화번호·웹사이트·업종/카테고리·영업시간·라스트오더(마감 시간)·정기 휴무일·편의시설(예: 주차, 반려동물 동반, 포장 등)·예약 방법(예: 캐치테이블 예약, 테이블링 예약, 전화 예약만 가능) 중 실제로 보이는 값이 있으면 아래 해당 필드에 채워주세요. 이미지에 없는 값은 추측하지 말고 null(또는 빈 배열)로 답하세요.
+    {"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "이름/주소로 담기지 않는, 메모로 남길 만한 내용 또는 null", "confidence": 0.0에서 1.0 사이 숫자, "phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼 또는 null"}]}
     장소를 하나도 찾지 못했으면 {"places": []}로 답하세요.
     """
     guard let instruction = ScanResultLanguage.current().promptInstruction else { return base }
@@ -244,6 +258,14 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
         let address: String?
         let description: String?
         let confidence: Double?
+        let phone: String?
+        let website: String?
+        let category: String?
+        let hoursDetail: [String: String]?
+        let closingTime: String?
+        let holidays: String?
+        let amenities: [String]?
+        let reservationInfo: String?
     }
     struct ExtractedPlacesResponse: Decodable {
         let places: [ExtractedPlace]
@@ -257,7 +279,18 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
             placeName: place.placeName,
             address: place.address,
             description: place.description,
-            confidence: place.confidence ?? 0.5
+            confidence: place.confidence ?? 0.5,
+            details: PlaceWebDetails(
+                phone: place.phone,
+                website: place.website,
+                category: place.category,
+                hoursDetail: place.hoursDetail,
+                closingTime: place.closingTime,
+                holidays: place.holidays,
+                amenities: place.amenities ?? [],
+                reservationInfo: place.reservationInfo,
+                note: nil
+            )
         )
     }
 }
@@ -266,7 +299,7 @@ private func webDetailsSearchPrompt(for query: String) -> String {
     let base = """
     "\(query)"에 대한 정보를 웹에서 검색해서 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
     확실하지 않은 값은 추측해서 만들어내지 말고 null로 답하세요.
-    {"phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "note": "그 외 참고할 만한 정보(메모로 남길 만한 것) 또는 null"}
+    {"phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼(예: 캐치테이블 예약, 전화 예약만 가능) 또는 null", "note": "그 외 참고할 만한 정보(메모로 남길 만한 것) 또는 null"}
     """
     guard let instruction = ScanResultLanguage.current().promptInstruction else { return base }
     return base + "\n" + instruction
@@ -283,6 +316,7 @@ private func parseWebDetails(from text: String) throws -> PlaceWebDetails {
         let closingTime: String?
         let holidays: String?
         let amenities: [String]?
+        let reservationInfo: String?
         let note: String?
     }
 
@@ -297,6 +331,7 @@ private func parseWebDetails(from text: String) throws -> PlaceWebDetails {
         closingTime: parsed.closingTime,
         holidays: parsed.holidays,
         amenities: parsed.amenities ?? [],
+        reservationInfo: parsed.reservationInfo,
         note: parsed.note
     )
 }
@@ -580,67 +615,22 @@ final class GatewayProvider: AIProvider {
         )
     }
 
-    /// Best-effort: this gateway has no documented hosted-search feature
-    /// of its own (see the class doc comment above and Peragra, whose own
-    /// gateway client never sends a `tools` field either). But every model
-    /// `GatewayModels.all` lists is a real, named vendor model proxied
-    /// through one shared chat-completions endpoint — not a gateway-house
-    /// model — so this attaches *that vendor's own* hosted web-search tool
-    /// definition to the request, keyed off the selected model's name:
-    /// Claude's `web_search` tool for a `claude-*` model (mirroring
-    /// `ClaudeProvider.searchWebForDetails` exactly), OpenAI's `web_search`
-    /// tool for a `gpt-*` model. The bet is that a gateway proxying a
-    /// vendor's own model recognizes and forwards that vendor's own tool
-    /// field rather than silently dropping it — unverified, but a better
-    /// bet than guessing blind. A custom/unrecognized model ID has no
-    /// vendor to key off, so it falls through to the shared "not
-    /// supported" default instead of guessing further.
-    func searchWebForDetails(name: String, address: String) async throws -> PlaceWebDetails {
-        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
-
-        let tool: [String: Any]
-        if model.hasPrefix("claude") {
-            tool = ["type": "web_search_20260209", "name": "web_search", "max_uses": 5]
-        } else if model.hasPrefix("gpt") {
-            tool = ["type": "web_search"]
-        } else {
-            throw PlaceCardsError.notImplemented(
-                "웹 검색 (\(model)에서는 아직 지원하지 않음 — Gateway 설정에서 Claude 또는 GPT 계열 모델을 선택해주세요)"
-            )
-        }
-
-        let url = URL(string: "https://factchat-cloud.mindlogic.ai/v1/gateway/chat/completions/")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-
-        let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        let query = trimmedAddress.isEmpty ? name : "\(name), \(trimmedAddress)"
-        let body: [String: Any] = [
-            "model": model,
-            "tools": [tool],
-            "messages": [
-                ["role": "user", "content": webDetailsSearchPrompt(for: query)]
-            ]
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await session.data(for: request)
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw mapHTTPError(statusCode: http.statusCode, data: data, serviceLabel: "Gateway")
-        }
-
-        guard
-            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let choices = json["choices"] as? [[String: Any]],
-            let message = choices.first?["message"] as? [String: Any],
-            let text = message["content"] as? String
-        else {
-            throw PlaceCardsError.decodingError("Gateway 응답을 해석할 수 없습니다.")
-        }
-        return try parseWebDetails(from: text)
-    }
+    // `searchWebForDetails` is intentionally NOT overridden here — falls
+    // through to `AIProvider`'s own "not supported" default. This used to
+    // attach a *guessed* vendor-native hosted-search tool (Claude's
+    // `web_search`, OpenAI's `web_search`) to the request, betting that a
+    // gateway proxying a vendor's own model would recognize and forward
+    // that vendor's own tool field. Confirmed wrong by an actual device
+    // error: "API 오류 (400): ... tools.0.type: Input should be 'function'"
+    // — this gateway's `/chat/completions` endpoint validates `tools`
+    // strictly against the OpenAI Chat Completions *function-calling*
+    // schema (every entry must be `{"type": "function", "function": {...}}`)
+    // regardless of which vendor model is selected, and has no hosted
+    // built-in search tool of its own at all. Implementing this for real
+    // would mean defining an actual function tool, having the model request
+    // a call, and this app performing a real web search itself to answer
+    // it — a genuinely different, larger feature this app doesn't have the
+    // pieces for yet, not a one-line fix.
 }
 
 // MARK: - Gemini (Google Generative Language API)

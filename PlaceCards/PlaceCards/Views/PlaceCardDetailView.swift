@@ -241,6 +241,13 @@ struct PlaceCardDetailView: View {
                 }
                 .tint(.pink)
             }
+            if let url = card.reservationSearchURL {
+                Button {
+                    openURL(url)
+                } label: {
+                    Label("예약".localized, systemImage: "magnifyingglass")
+                }
+            }
         }
         .buttonStyle(.bordered)
         .font(.caption)
@@ -292,6 +299,7 @@ struct PlaceCardDetailView: View {
 
     private var hasHoursInfo: Bool {
         card.hoursDetail?.isEmpty == false || card.closingTime?.isEmpty == false || card.holidays?.isEmpty == false
+            || card.reservationInfo?.isEmpty == false
     }
 
     @ViewBuilder
@@ -316,6 +324,11 @@ struct PlaceCardDetailView: View {
             }
             if let holidays = card.holidays, !holidays.isEmpty {
                 Label("휴무일 ".localized + holidays, systemImage: "calendar")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            if let reservationInfo = card.reservationInfo, !reservationInfo.isEmpty {
+                Label("예약 ".localized + reservationInfo, systemImage: "checkmark.seal")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

@@ -27,6 +27,13 @@ struct PlaceCandidateRow: Identifiable {
     /// listed at all, so this carries straight into the saved card instead
     /// of waiting on a Google Places match that may never come.
     var scannedWebsite: String? = nil
+    /// Phone/website/category/hours/amenities the AI scan could read off
+    /// the screenshot itself, beyond name/address/note (e.g. a Google Maps
+    /// info card's own "영업시간" section) — carried into the saved card
+    /// at `createCards()` the same way `scannedNote`/`scannedWebsite` are,
+    /// filling in whatever the eventual card doesn't already have from a
+    /// chosen search result.
+    var scannedDetails: PlaceWebDetails? = nil
     /// Which app this row's info originally came from, if any — set once,
     /// the first time `search(rowID:)` resolves this row, and never
     /// touched again after that. Needed because `search(rowID:)` also
@@ -115,7 +122,9 @@ final class PlaceCardViewModel: ObservableObject {
         do {
             let results = try await provider.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
             candidateRows = results.map {
-                PlaceCandidateRow(name: $0.placeName, address: $0.address ?? "", scannedNote: $0.description)
+                PlaceCandidateRow(
+                    name: $0.placeName, address: $0.address ?? "", scannedNote: $0.description, scannedDetails: $0.details
+                )
             }
             if candidateRows.isEmpty {
                 errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요.".localized
@@ -393,19 +402,38 @@ final class PlaceCardViewModel: ObservableObject {
         for row in candidateRows where row.selected && !row.name.trimmingCharacters(in: .whitespaces).isEmpty {
             if let chosen = row.chosenResult {
                 if let card = try? await createPlaceCard(
-                    from: chosen, images: selectedImages, source: source, note: row.scannedNote, website: row.scannedWebsite
+                    from: chosen, images: selectedImages, source: source,
+                    note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails
                 ) {
                     created.append(card)
                 }
             } else {
                 let card = createManualPlaceCard(
                     name: row.name, address: row.address, images: selectedImages, source: source,
-                    note: row.scannedNote, website: row.scannedWebsite
+                    note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails
                 )
                 created.append(card)
             }
         }
         return created
+    }
+
+    /// Fills only whatever's still blank on `card` from a scanned photo's
+    /// extra details (`PlaceCandidateRow.scannedDetails`, e.g. a Google
+    /// Maps info card's own "영업시간" section) — never overwrites a value
+    /// a verified search result already set, same "fill gaps only" rule
+    /// `EditPlaceCardSheet.applyWebDetails` already follows for the same
+    /// fields from a web search instead of a photo.
+    private func applyScannedDetails(_ details: PlaceWebDetails?, to card: inout PlaceCard) {
+        guard let details else { return }
+        if card.phone == nil, let value = details.phone, !value.isEmpty { card.phone = value }
+        if card.website == nil, let value = details.website, !value.isEmpty { card.website = value }
+        if card.category == nil, let value = details.category, !value.isEmpty { card.category = value }
+        if card.hoursDetail?.isEmpty ?? true, let value = details.hoursDetail, !value.isEmpty { card.hoursDetail = value }
+        if card.closingTime == nil, let value = details.closingTime, !value.isEmpty { card.closingTime = value }
+        if card.holidays == nil, let value = details.holidays, !value.isEmpty { card.holidays = value }
+        if card.amenities.isEmpty, !details.amenities.isEmpty { card.amenities = details.amenities }
+        if card.reservationInfo == nil, let value = details.reservationInfo, !value.isEmpty { card.reservationInfo = value }
     }
 
     /// `note` is whatever the AI scan found worth keeping beyond name/
@@ -416,9 +444,13 @@ final class PlaceCardViewModel: ObservableObject {
     /// `website` only ever fills in when `result` itself has none — a row
     /// resolved from a business-homepage link (`scannedWebsite`) still
     /// picking up a verified Google Places match shouldn't lose the one
-    /// link it started from.
+    /// link it started from. `details` fills in whatever `result` itself
+    /// has no field for at all (hours/closing time/holidays/amenities —
+    /// none of which Google's own search result carries, only its full
+    /// place-details lookup, which this app doesn't call).
     func createPlaceCard(
-        from result: PlaceSearchResult, images: [UIImage], source: SourceType, note: String? = nil, website: String? = nil
+        from result: PlaceSearchResult, images: [UIImage], source: SourceType,
+        note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil
     ) async throws -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId,
@@ -432,6 +464,7 @@ final class PlaceCardViewModel: ObservableObject {
             website: result.website ?? website,
             memo: PlaceCard.combinedMemo(nil, appending: note)
         )
+        applyScannedDetails(details, to: &card)
 
         for image in images {
             let fileName = try MediaStore.saveImage(image)
@@ -484,14 +517,18 @@ final class PlaceCardViewModel: ObservableObject {
     /// (`PlaceCandidateRow.scannedNote`), same as `createPlaceCard(from:)`.
     /// `website` is only ever set this way for a row resolved from a plain
     /// business-homepage link (`PlaceCandidateRow.scannedWebsite`).
+    /// `details` is the rest of what the AI scan could read off the
+    /// screenshot (phone/category/hours/amenities), same as
+    /// `createPlaceCard(from:)`.
     func createManualPlaceCard(
         name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput,
-        note: String? = nil, website: String? = nil
+        note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil
     ) -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId, name: name, address: address, website: website,
             memo: PlaceCard.combinedMemo(nil, appending: note)
         )
+        applyScannedDetails(details, to: &card)
         card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
 
         for image in images {

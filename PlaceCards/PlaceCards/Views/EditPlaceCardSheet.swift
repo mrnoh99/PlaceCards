@@ -47,6 +47,7 @@ struct EditPlaceCardSheet: View {
     @State private var isVisited: Bool
     @State private var closingTime: String
     @State private var holidays: String
+    @State private var reservationInfo: String
     @State private var hoursEntries: [HoursEntry]
     @State private var tagsText: String
     @State private var amenitiesText: String
@@ -80,6 +81,7 @@ struct EditPlaceCardSheet: View {
         _isVisited = State(initialValue: card.isVisited)
         _closingTime = State(initialValue: card.closingTime ?? "")
         _holidays = State(initialValue: card.holidays ?? "")
+        _reservationInfo = State(initialValue: card.reservationInfo ?? "")
         _hoursEntries = State(initialValue: (card.hoursDetail ?? [:]).sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) })
         _tagsText = State(initialValue: card.tags.joined(separator: ", "))
         _amenitiesText = State(initialValue: card.amenities.joined(separator: ", "))
@@ -255,8 +257,11 @@ struct EditPlaceCardSheet: View {
             }
             TextField("마감 시간".localized, text: $closingTime)
             TextField("휴무일".localized, text: $holidays)
+            TextField("예약 방법 (예: 캐치테이블 예약)".localized, text: $reservationInfo)
         } header: {
             Text("영업 정보".localized)
+        } footer: {
+            Text("특정 예약 플랫폼으로 바로 연결되는 링크는 지원하지 않아, 상세보기의 \"예약\" 버튼은 여기 적은 내용으로 웹 검색을 열어줍니다.".localized)
         }
     }
 
@@ -449,19 +454,36 @@ struct EditPlaceCardSheet: View {
         }
     }
 
+    /// Reports back exactly which fields got filled (name/address/memo,
+    /// plus whatever `fillBlankFields(from:)` picked up from `result
+    /// .details` — phone/website/category/hours/amenities, the same
+    /// fields a Google Maps screenshot's own info card routinely shows)
+    /// instead of a generic "정보를 채웠습니다.", the same reasoning
+    /// `applyWebDetails` below already follows for a web search's result.
     private func applyExtractedPlace(_ result: AIAnalysisResult) {
+        var filledFields: [String] = []
+
         let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
         if !extractedName.isEmpty {
             name = extractedName
+            filledFields.append("이름".localized)
         }
         if address.trimmingCharacters(in: .whitespaces).isEmpty,
            let extractedAddress = result.address?.trimmingCharacters(in: .whitespaces), !extractedAddress.isEmpty {
             address = extractedAddress
+            filledFields.append("주소".localized)
         }
-        if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: result.description) {
+        if let details = result.details {
+            filledFields.append(contentsOf: fillBlankFields(from: details))
+        }
+        if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: result.description), combined != memoText {
             memoText = combined
+            filledFields.append("메모".localized)
         }
-        photoAnalysisMessage = "AI가 읽은 정보를 채웠습니다.".localized
+
+        photoAnalysisMessage = filledFields.isEmpty
+            ? "사진에서 새로 채울 정보를 찾지 못했습니다.".localized
+            : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
     }
 
     private func searchWebForDetails() async {
@@ -484,11 +506,14 @@ struct EditPlaceCardSheet: View {
         }
     }
 
-    /// Fills only what's currently blank — never overwrites a value the
-    /// user (or another source) already set — and reports back exactly
-    /// which fields it touched, since a silent "done" wouldn't say
-    /// whether anything actually changed.
-    private func applyWebDetails(_ details: PlaceWebDetails) {
+    /// Fills only whatever's currently blank from `details` — phone/
+    /// website/category/hours/amenities — and returns the localized names
+    /// of exactly which fields got filled. Shared by `applyWebDetails`
+    /// (from a web search) and `applyExtractedPlace` (from a photo scan —
+    /// `AIAnalysisResult.details` is the exact same shape), so both report
+    /// precisely what changed instead of a generic "정보를 채웠습니다."
+    /// that says nothing about what actually happened.
+    private func fillBlankFields(from details: PlaceWebDetails) -> [String] {
         var filledFields: [String] = []
 
         if phone.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.phone, !value.isEmpty {
@@ -515,6 +540,10 @@ struct EditPlaceCardSheet: View {
             holidays = value
             filledFields.append("휴무일".localized)
         }
+        if reservationInfo.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.reservationInfo, !value.isEmpty {
+            reservationInfo = value
+            filledFields.append("예약 방법".localized)
+        }
         if !details.amenities.isEmpty {
             let existing = Set(amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
             let newOnes = details.amenities.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !existing.contains($0) }
@@ -525,6 +554,15 @@ struct EditPlaceCardSheet: View {
                 filledFields.append("편의시설".localized)
             }
         }
+
+        return filledFields
+    }
+
+    /// Never overwrites a value the user (or another source) already set —
+    /// and reports back exactly which fields it touched, since a silent
+    /// "done" wouldn't say whether anything actually changed.
+    private func applyWebDetails(_ details: PlaceWebDetails) {
+        var filledFields = fillBlankFields(from: details)
         if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: details.note), combined != memoText {
             memoText = combined
             filledFields.append("메모".localized)
@@ -569,6 +607,8 @@ struct EditPlaceCardSheet: View {
         updated.closingTime = trimmedClosingTime.isEmpty ? nil : trimmedClosingTime
         let trimmedHolidays = holidays.trimmingCharacters(in: .whitespaces)
         updated.holidays = trimmedHolidays.isEmpty ? nil : trimmedHolidays
+        let trimmedReservationInfo = reservationInfo.trimmingCharacters(in: .whitespaces)
+        updated.reservationInfo = trimmedReservationInfo.isEmpty ? nil : trimmedReservationInfo
 
         var hoursDetail: [String: String] = [:]
         for entry in hoursEntries {

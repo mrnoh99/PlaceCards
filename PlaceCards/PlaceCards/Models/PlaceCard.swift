@@ -38,6 +38,17 @@ struct PlaceCard: Identifiable, Codable {
     var closingTime: String?
     var holidays: String?
 
+    /// Free text naming how to reserve a table here (e.g. "캐치테이블 예약",
+    /// "테이블링 예약", "전화 예약만 가능") — set by hand, or filled in by
+    /// an AI photo scan/web search the same way phone/hours are. No
+    /// dedicated field for a specific platform's own booking link, since
+    /// this app has no verified deep-link/search-URL format for any one
+    /// Korean reservation platform (see `PlaceCard.reservationSearchURL`'s
+    /// own comment); instead this text becomes the query for a general web
+    /// search that reliably lands the user on results for it regardless of
+    /// which platform it names.
+    var reservationInfo: String?
+
     var amenities: [String] = []
     var tags: [String] = []
 
@@ -156,6 +167,7 @@ extension PlaceCard {
         card.memo = memo?.strippingInvisibleFormatCharacters()
         card.closingTime = closingTime?.strippingInvisibleFormatCharacters()
         card.holidays = holidays?.strippingInvisibleFormatCharacters()
+        card.reservationInfo = reservationInfo?.strippingInvisibleFormatCharacters()
         card.tags = tags.map { $0.strippingInvisibleFormatCharacters() }
         card.amenities = amenities.map { $0.strippingInvisibleFormatCharacters() }
         if let hoursDetail {
