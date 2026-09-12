@@ -513,15 +513,15 @@ struct EditPlaceCardSheet: View {
         let imageDatas = pickedImages.compactMap { $0.jpegData(compressionQuality: 0.8) }
         guard !imageDatas.isEmpty else { return }
 
-        let providerType = SettingsViewModel.currentAIProviderType()
-        guard let apiKey = KeychainService.load(providerType.keychainKey), !apiKey.isEmpty else {
+        guard AIProviderChain.hasAnyConfiguredProvider() else {
             photoAnalysisMessage = PlaceCardsError.apiKeyMissing.localizedDescription
             return
         }
 
-        let provider = await AIProviderFactory.create(type: providerType, apiKey: apiKey)
         do {
-            let results = try await provider.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
+            let (results, _, _) = try await AIProviderChain.run {
+                try await $0.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
+            }
             handleAnalysisResults(results)
         } catch {
             photoAnalysisMessage = error.localizedDescription
@@ -597,16 +597,16 @@ struct EditPlaceCardSheet: View {
         webSearchMessage = nil
         defer { isSearchingWeb = false }
 
-        let providerType = SettingsViewModel.currentAIProviderType()
-        guard let apiKey = KeychainService.load(providerType.keychainKey), !apiKey.isEmpty else {
+        guard AIProviderChain.hasAnyConfiguredProvider() else {
             webSearchMessage = PlaceCardsError.apiKeyMissing.localizedDescription
             return
         }
 
-        let provider = await AIProviderFactory.create(type: providerType, apiKey: apiKey)
         do {
-            let details = try await provider.searchWebForDetails(name: name, address: address, knownLinks: knownLinks)
-            applyWebDetails(details)
+            let (details, provider, isFallback) = try await AIProviderChain.run {
+                try await $0.searchWebForDetails(name: name, address: address, knownLinks: knownLinks)
+            }
+            applyWebDetails(details, answeredBy: isFallback ? provider : nil)
         } catch {
             webSearchMessage = error.localizedDescription
         }
@@ -683,8 +683,12 @@ struct EditPlaceCardSheet: View {
 
     /// Never overwrites a value the user (or another source) already set —
     /// and reports back exactly which fields it touched, since a silent
-    /// "done" wouldn't say whether anything actually changed.
-    private func applyWebDetails(_ details: PlaceWebDetails) {
+    /// "done" wouldn't say whether anything actually changed. `answeredBy`
+    /// is set only when a higher-priority provider failed first and this
+    /// result came from a fallback (`AIProviderChain.run(_:)`'s
+    /// `isFallback`) — appended as a visible note rather than switching
+    /// providers silently under the user.
+    private func applyWebDetails(_ details: PlaceWebDetails, answeredBy fallbackProvider: AIProviderType? = nil) {
         var filledFields = fillBlankFields(from: details)
         stageSuggestedTags(from: details.tags)
         if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: details.note), combined != memoText {
@@ -695,6 +699,9 @@ struct EditPlaceCardSheet: View {
         webSearchMessage = filledFields.isEmpty
             ? "웹 검색에서 새로 채울 정보를 찾지 못했습니다.".localized
             : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
+        if let fallbackProvider {
+            webSearchMessage? += fallbackProvider.fallbackNoteSuffix
+        }
     }
 
     /// Narrows `suggested` down to tags not already in `tagsText`, and — if

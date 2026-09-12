@@ -75,7 +75,7 @@ enum ScanResultLanguage: String, Codable, CaseIterable, Identifiable {
     private static let defaultsKey = "scanResultLanguage"
 
     /// Reads the saved response-language choice without needing an
-    /// instance, mirroring `SettingsViewModel.currentAIProviderType()` —
+    /// instance, mirroring `SettingsViewModel.currentProviderPriority()` —
     /// looked up right before building a prompt.
     static func current() -> ScanResultLanguage {
         if let stored = UserDefaults.standard.string(forKey: defaultsKey),

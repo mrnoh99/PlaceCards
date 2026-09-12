@@ -12,12 +12,24 @@ final class SettingsViewModel: ObservableObject {
     @Published var naverSearchClientId: String = ""
     @Published var naverSearchClientSecret: String = ""
 
-    @Published var aiProviderType: AIProviderType = .claude
-    @Published var aiAPIKey: String = ""
+    /// Every provider's own API key, keyed by provider — unlike the old
+    /// single `aiProviderType`/`aiAPIKey` pair (one "active" provider at a
+    /// time), all four can be registered at once now, so
+    /// `AIProviderChain.run(_:)` has more than one to fall back through.
+    /// Loaded from Keychain per-provider in `init()`; `nil`/missing keys
+    /// read back as `""`.
+    @Published var providerAPIKeys: [AIProviderType: String] = [:]
+    /// The order `AIProviderChain.run(_:)` tries registered providers in —
+    /// edited via the up/down buttons in `SettingsView`'s "AI 제공자
+    /// 우선순위" section. A provider with no key registered is still
+    /// listed (so its position is preserved for whenever a key is added)
+    /// but is skipped when actually running a request.
+    @Published var providerPriority: [AIProviderType] = AIProviderType.allCases
     /// The gateway's chosen model ID — either one of `GatewayModels.all` or
     /// a custom ID the user typed in, mirroring Peragra's own "pick from a
-    /// list, or Custom…" model picker. Kept independent of `aiProviderType`
-    /// so switching providers and back doesn't lose it.
+    /// list, or Custom…" model picker. Independent of which provider(s)
+    /// are registered/prioritized, since Gateway either has a key
+    /// registered or it doesn't.
     @Published var gatewayModel: String = ""
     /// The language AI-generated scan/search results are written in — the
     /// app's own UI text is unaffected (stays Korean everywhere), only
@@ -30,7 +42,7 @@ final class SettingsViewModel: ObservableObject {
     }
     @Published var statusMessage: String?
 
-    private static let aiProviderDefaultsKey = "aiProviderType"
+    private static let providerPriorityDefaultsKey = "aiProviderPriority"
     private static let gatewayModelDefaultsKey = "gatewayModel"
 
     init() {
@@ -38,20 +50,32 @@ final class SettingsViewModel: ObservableObject {
         naverMapClientId = KeychainService.load(.naverMapClientId) ?? ""
         naverSearchClientId = KeychainService.load(.naverSearchClientId) ?? ""
         naverSearchClientSecret = KeychainService.load(.naverSearchClientSecret) ?? ""
-        aiProviderType = Self.currentAIProviderType()
-        aiAPIKey = KeychainService.load(aiProviderType.keychainKey) ?? ""
+        for provider in AIProviderType.allCases {
+            providerAPIKeys[provider] = KeychainService.load(provider.keychainKey) ?? ""
+        }
+        providerPriority = Self.currentProviderPriority()
         gatewayModel = Self.currentGatewayModel()
         scanResultLanguage = ScanResultLanguage.current()
     }
 
-    /// Reads the saved AI provider choice without needing an instance, so
-    /// `PlaceCardViewModel` can look it up right before analyzing an image.
-    static func currentAIProviderType() -> AIProviderType {
-        if let stored = UserDefaults.standard.string(forKey: aiProviderDefaultsKey),
-           let provider = AIProviderType(rawValue: stored) {
-            return provider
+    /// Reads the saved provider priority order without needing an
+    /// instance, so `AIProviderChain.run(_:)` can look it up right before
+    /// trying providers one by one. Any provider missing from a
+    /// stored-but-incomplete list (a case added after the user last
+    /// reordered, or no priority ever saved at all) is appended at the
+    /// end in `AIProviderType`'s own declaration order, so a new provider
+    /// is still reachable rather than silently dropped from the chain.
+    static func currentProviderPriority() -> [AIProviderType] {
+        guard let stored = UserDefaults.standard.array(forKey: providerPriorityDefaultsKey) as? [String] else {
+            return AIProviderType.allCases
         }
-        return .claude
+        let known = stored.compactMap(AIProviderType.init(rawValue:))
+        let missing = AIProviderType.allCases.filter { !known.contains($0) }
+        return known + missing
+    }
+
+    private static func saveProviderPriority(_ order: [AIProviderType]) {
+        UserDefaults.standard.set(order.map(\.rawValue), forKey: providerPriorityDefaultsKey)
     }
 
     /// Reads the saved gateway model choice without needing an instance, so
@@ -82,10 +106,6 @@ final class SettingsViewModel: ObservableObject {
         return (id, secret)
     }
 
-    func loadAIKey(for provider: AIProviderType) {
-        aiAPIKey = KeychainService.load(provider.keychainKey) ?? ""
-    }
-
     func saveGoogleAPIKey() {
         do {
             try KeychainService.save(googleAPIKey, for: .googlePlacesAPIKey)
@@ -114,19 +134,42 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
-    func saveAIProviderSettings() {
-        UserDefaults.standard.set(aiProviderType.rawValue, forKey: Self.aiProviderDefaultsKey)
-        let trimmedModel = gatewayModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        UserDefaults.standard.set(
-            trimmedModel.isEmpty ? GatewayModels.defaultModel : trimmedModel,
-            forKey: Self.gatewayModelDefaultsKey
-        )
+    /// Saves one provider's key (and, for Gateway, its model choice too —
+    /// there's no separate "저장" step for that) without touching any
+    /// other provider's — each row in `SettingsView`'s "AI 이미지 분석"
+    /// section has its own independent "저장" button calling this.
+    func saveProviderAPIKey(_ provider: AIProviderType) {
+        if provider == .gateway {
+            let trimmedModel = gatewayModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            UserDefaults.standard.set(
+                trimmedModel.isEmpty ? GatewayModels.defaultModel : trimmedModel,
+                forKey: Self.gatewayModelDefaultsKey
+            )
+        }
         do {
-            try KeychainService.save(aiAPIKey, for: aiProviderType.keychainKey)
-            statusMessage = aiProviderType.displayName + " API 키가 저장되었습니다.".localized
+            try KeychainService.save(providerAPIKeys[provider] ?? "", for: provider.keychainKey)
+            statusMessage = provider.displayName + " API 키가 저장되었습니다.".localized
         } catch {
             statusMessage = error.localizedDescription
         }
+    }
+
+    /// Moves `provider` one slot earlier in `providerPriority` and
+    /// persists the new order immediately (no separate "저장" step,
+    /// matching how the map-provider picker elsewhere in this app
+    /// behaves) — a no-op if it's already first.
+    func moveProviderUp(_ provider: AIProviderType) {
+        guard let index = providerPriority.firstIndex(of: provider), index > 0 else { return }
+        providerPriority.swapAt(index, index - 1)
+        Self.saveProviderPriority(providerPriority)
+    }
+
+    /// The downward counterpart to `moveProviderUp(_:)` — a no-op if
+    /// `provider` is already last.
+    func moveProviderDown(_ provider: AIProviderType) {
+        guard let index = providerPriority.firstIndex(of: provider), index < providerPriority.count - 1 else { return }
+        providerPriority.swapAt(index, index + 1)
+        Self.saveProviderPriority(providerPriority)
     }
 }
 

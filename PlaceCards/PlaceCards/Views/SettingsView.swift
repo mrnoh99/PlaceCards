@@ -43,7 +43,10 @@ struct SettingsView: View {
                 googlePlacesAPISection
                 naverMapSection
                 naverSearchAPISection
-                aiImageAnalysisSection
+                Group {
+                    aiProviderKeysSection
+                    aiProviderPrioritySection
+                }
                 scanResponseLanguageSection
                 backupSection
                 autoBackupSection
@@ -132,45 +135,96 @@ struct SettingsView: View {
         }
     }
 
+    /// Every provider gets its own row now (not one Picker that swaps a
+    /// single shared field) — since `AIProviderChain.run(_:)` can fall
+    /// back through more than one, all four need to be registerable at
+    /// once instead of only whichever one was "selected" at save time.
     @ViewBuilder
-    private var aiImageAnalysisSection: some View {
-        Section("AI 이미지 분석 (BYOK)".localized) {
-            Picker("제공자".localized, selection: $viewModel.aiProviderType) {
-                ForEach(AIProviderType.allCases) { provider in
-                    Text(provider.displayName).tag(provider)
-                }
-            }
-            .onChange(of: viewModel.aiProviderType) { _, newValue in
-                viewModel.loadAIKey(for: newValue)
-            }
-
-            SecureField("API 키".localized, text: $viewModel.aiAPIKey)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-
-            if viewModel.aiProviderType == .gateway {
-                Picker("모델".localized, selection: $gatewayModelSelection) {
-                    ForEach(GatewayModels.all) { model in
-                        Text(model.label).tag(model.id)
-                    }
-                    Text("직접 입력…".localized).tag(Self.customModelTag)
-                }
-                if gatewayModelSelection == Self.customModelTag {
-                    TextField("model-id", text: $gatewayCustomModelInput)
+    private var aiProviderKeysSection: some View {
+        Section {
+            ForEach(AIProviderType.allCases) { provider in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(provider.displayName)
+                        .font(.subheadline.bold())
+                    SecureField("API 키".localized, text: providerKeyBinding(provider))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                }
-            }
 
-            Button("저장".localized) {
-                if viewModel.aiProviderType == .gateway {
-                    viewModel.gatewayModel = gatewayModelSelection == Self.customModelTag
-                        ? gatewayCustomModelInput
-                        : gatewayModelSelection
+                    if provider == .gateway {
+                        Picker("모델".localized, selection: $gatewayModelSelection) {
+                            ForEach(GatewayModels.all) { model in
+                                Text(model.label).tag(model.id)
+                            }
+                            Text("직접 입력…".localized).tag(Self.customModelTag)
+                        }
+                        if gatewayModelSelection == Self.customModelTag {
+                            TextField("model-id", text: $gatewayCustomModelInput)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                        }
+                    }
+
+                    Button("저장".localized) {
+                        if provider == .gateway {
+                            viewModel.gatewayModel = gatewayModelSelection == Self.customModelTag
+                                ? gatewayCustomModelInput
+                                : gatewayModelSelection
+                        }
+                        viewModel.saveProviderAPIKey(provider)
+                    }
+                    .font(.caption)
                 }
-                viewModel.saveAIProviderSettings()
+                .padding(.vertical, 4)
             }
+        } header: {
+            Text("AI 이미지 분석 (BYOK)".localized)
+        } footer: {
+            Text("여러 제공자의 키를 등록해두면, 아래 \"AI 제공자 우선순위\" 순서대로 시도하다가 하나가 실패(호출 한도 초과, 오류 등)해도 자동으로 다음 제공자로 넘어갑니다.".localized)
         }
+    }
+
+    /// Up/down buttons rather than native drag-to-reorder — simpler and
+    /// more reliable inside a `Form` than `.onMove`/`EditMode`, and this
+    /// list only ever has as many rows as `AIProviderType` has cases.
+    @ViewBuilder
+    private var aiProviderPrioritySection: some View {
+        Section {
+            ForEach(Array(viewModel.providerPriority.enumerated()), id: \.element) { index, provider in
+                HStack {
+                    Text(provider.displayName)
+                    if (viewModel.providerAPIKeys[provider] ?? "").isEmpty {
+                        Text("(키 없음)".localized)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        viewModel.moveProviderUp(provider)
+                    } label: {
+                        Image(systemName: "chevron.up")
+                    }
+                    .disabled(index == 0)
+                    Button {
+                        viewModel.moveProviderDown(provider)
+                    } label: {
+                        Image(systemName: "chevron.down")
+                    }
+                    .disabled(index == viewModel.providerPriority.count - 1)
+                }
+                .buttonStyle(.borderless)
+            }
+        } header: {
+            Text("AI 제공자 우선순위".localized)
+        } footer: {
+            Text("사진 스캔·웹 검색 시 이 순서대로 시도합니다. 키가 등록되지 않은 제공자는 건너뜁니다.".localized)
+        }
+    }
+
+    private func providerKeyBinding(_ provider: AIProviderType) -> Binding<String> {
+        Binding(
+            get: { viewModel.providerAPIKeys[provider] ?? "" },
+            set: { viewModel.providerAPIKeys[provider] = $0 }
+        )
     }
 
     @ViewBuilder

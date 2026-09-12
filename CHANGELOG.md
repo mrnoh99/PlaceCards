@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (123차) — AI 제공자 여러 개 등록 + 우선순위 기반 자동 대체
+#### Added
+- `Services/AIProviderChain.swift`(신규): 등록된 AI 제공자를 우선순위
+  순서대로 시도하다가 실패(키 오류, 호출 한도 초과, 기능 미지원 등
+  어떤 실패든)하면 자동으로 다음 제공자로 넘어가는 `AIProviderChain
+  .run(_:)`. 등록된 제공자가 하나도 없으면 기존과 동일하게
+  `apiKeyMissing`으로 실패. 어떤 제공자가 실제로 응답했는지, 그게
+  최우선 제공자가 아니었는지(`isFallback`)도 함께 돌려줘서 호출부가
+  필요하면 사용자에게 "대체 제공자로 응답" 사실을 알릴 수 있음.
+- `ViewModels/SettingsViewModel.swift`: 기존 "하나만 선택" 방식이던
+  `aiProviderType`/`aiAPIKey`를 `providerAPIKeys: [AIProviderType:
+  String]`(제공자별 키를 전부 독립적으로 저장)와 `providerPriority:
+  [AIProviderType]`(시도 순서, `UserDefaults`에 저장, 사용자가
+  위/아래로 재배열)로 교체. `saveProviderAPIKey(_:)`가 제공자별로
+  개별 저장.
+- `Views/SettingsView.swift`: "AI 이미지 분석 (BYOK)" 섹션을 제공자
+  하나를 고르는 Picker+키 한 칸에서, 4개 제공자 각각 자기 키 입력칸과
+  "저장" 버튼을 가진 목록으로 변경. 그 아래 새 "AI 제공자 우선순위"
+  섹션에서 위/아래 버튼으로 시도 순서를 정하고, 키가 등록 안 된
+  제공자는 "(키 없음)"으로 표시.
+#### Changed
+- `ViewModels/PlaceCardViewModel.swift`, `Views/EditPlaceCardSheet.swift`
+  (사진 스캔·웹 검색 채우기 둘 다), `Views/MapScreenshotImportSheet
+  .swift`: 전부 "설정에서 고른 제공자 하나로만 호출" 방식에서
+  `AIProviderChain.run(_:)`로 교체 — 등록된 제공자가 여러 개면 자동
+  대체가 적용됨. `EditPlaceCardSheet`의 "웹 검색으로 채우기"는 대체
+  제공자가 응답했을 때 결과 메시지에 "OOO로 대체해 가져왔습니다"를
+  덧붙여 어떤 제공자가 실제로 답했는지 알림(나머지 세 곳은 같은 정보를
+  덧붙이기엔 기존 메시지 구조가 더 복잡해서 이번엔 생략).
+
 ### 2026-09-11 (122차) — 외부 링크 여러 개 지원 + 웹 검색 시 우선 확인
 #### Changed
 - `Models/PlaceCard.swift`: `externalLinks`를 `[String: String]`

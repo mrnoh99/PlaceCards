@@ -124,16 +124,15 @@ final class PlaceCardViewModel: ObservableObject {
             return
         }
 
-        let providerType = SettingsViewModel.currentAIProviderType()
-        guard let apiKey = KeychainService.load(providerType.keychainKey), !apiKey.isEmpty else {
+        guard AIProviderChain.hasAnyConfiguredProvider() else {
             errorMessage = PlaceCardsError.apiKeyMissing.localizedDescription
             return
         }
 
-        let provider = AIProviderFactory.create(type: providerType, apiKey: apiKey)
-
         do {
-            let results = try await provider.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
+            let (results, _, _) = try await AIProviderChain.run {
+                try await $0.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
+            }
             candidateRows = results.map {
                 PlaceCandidateRow(
                     name: $0.placeName, address: $0.address ?? "", scannedNote: $0.description, scannedDetails: $0.details

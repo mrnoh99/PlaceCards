@@ -160,15 +160,15 @@ struct MapScreenshotImportSheet: View {
             return
         }
 
-        let providerType = SettingsViewModel.currentAIProviderType()
-        guard let apiKey = KeychainService.load(providerType.keychainKey), !apiKey.isEmpty else {
+        guard AIProviderChain.hasAnyConfiguredProvider() else {
             statusMessage = "사진을 카드에 추가했습니다.".localized
             return
         }
 
-        let provider = await AIProviderFactory.create(type: providerType, apiKey: apiKey)
         do {
-            let results = try await provider.analyzePlaces(imageDatas: [jpegData], prompt: defaultPlaceAnalysisPrompt())
+            let (results, _, _) = try await AIProviderChain.run {
+                try await $0.analyzePlaces(imageDatas: [jpegData], prompt: defaultPlaceAnalysisPrompt())
+            }
             handleAnalysisResults(results)
         } catch {
             statusMessage = "사진을 카드에 추가했습니다. (정보 읽기 실패: ".localized + error.localizedDescription + ")"
