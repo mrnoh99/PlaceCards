@@ -278,6 +278,7 @@ enum Localization {
         "사진을 카드에 추가했습니다. (장소 정보는 찾지 못했습니다.)": "Added the photo to the card. (No place info was found.)",
         "사진을 카드에 추가했습니다. (정보 읽기 실패: ": "Added the photo to the card. (Failed to read info: ",
         "사진을 카드에 추가했습니다. 사진에서 여러 장소(": "Added the photo to the card. Several places were found in the photo (",
+        "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.": "The photo's location was too far from the recognized place's address, so it wasn't used.",
         "삭제": "Delete",
         "상태": "Status",
         "새 게시판": "New Board",

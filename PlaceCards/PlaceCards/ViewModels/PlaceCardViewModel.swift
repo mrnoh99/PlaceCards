@@ -167,19 +167,51 @@ final class PlaceCardViewModel: ObservableObject {
             // GPS can stand in as a shared hint/ground-truth for all of
             // them; those rows rely on the AI's per-photo name/text
             // recognition alone.
+            var notes: [String] = []
             if results.count == 1 {
-                photoLocationHint = photoCoordinates.count > 1
+                let candidate = photoCoordinates.count > 1
                     ? Self.averageCoordinate(photoCoordinates)
                     : photoCoordinates.first
+                if let candidate {
+                    if let verified = await verifiedPhotoLocationHint(candidate, placeAddress: results.first?.address) {
+                        photoLocationHint = verified
+                    } else {
+                        notes.append("사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
+                    }
+                }
             }
             if candidateRows.isEmpty {
                 errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요.".localized
-            } else if isFallback {
-                infoMessage = provider.fallbackNoteSuffix.trimmingCharacters(in: .whitespaces)
+            } else {
+                if isFallback { notes.append(provider.fallbackNoteSuffix.trimmingCharacters(in: .whitespaces)) }
+                if !notes.isEmpty { infoMessage = notes.joined(separator: "\n") }
             }
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Cross-checks a candidate `photoLocationHint` (this batch's own photo
+    /// GPS) against the AI-identified place's own address before trusting
+    /// it — a photo's EXIF GPS can be wrong for the place it's meant to
+    /// document (saved from elsewhere, taken earlier in the same trip,
+    /// stale metadata carried over from an edit), so agreement with the
+    /// address the AI actually read off the photo is real corroborating
+    /// evidence, not a redundant check. Returns the candidate unchanged
+    /// when there's no address to check it against or the address fails
+    /// to geocode (nothing to contradict it, so no reason to distrust the
+    /// photo), and `nil` when the two disagree by more than
+    /// `maxPhotoLocationMatchDistanceMeters`.
+    private func verifiedPhotoLocationHint(_ candidate: Coordinates, placeAddress: String?) async -> Coordinates? {
+        let address = placeAddress?.trimmingCharacters(in: .whitespaces) ?? ""
+        guard !address.isEmpty,
+            let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty,
+            let addressLocation = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(address)
+        else { return candidate }
+
+        let distance = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
+            .distance(from: CLLocation(latitude: candidate.latitude, longitude: candidate.longitude))
+        return distance <= Self.maxPhotoLocationMatchDistanceMeters ? candidate : nil
     }
 
     /// A plain arithmetic mean of latitude/longitude — accurate enough at

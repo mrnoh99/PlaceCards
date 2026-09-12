@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (136차) — 사진 GPS를 AI가 인식한 장소 주소와 대조해 검증
+#### Added
+- `ViewModels/PlaceCardViewModel.swift`: `analyzeImages()`가 장소를
+  정확히 1곳으로 판단해 `photoLocationHint` 후보(평균 또는 단일
+  좌표)를 만든 뒤, 그 사진이 정말 그 장소의 사진인지 확인하지 않고
+  바로 신뢰하던 문제 수정 — 사진 GPS는 웹에서 저장했거나, 같은 여행의
+  다른 시점에 찍었거나, 편집으로 옛 메타데이터가 남아 있는 등 실제로는
+  다른 장소를 가리킬 수 있음. 새 `verifiedPhotoLocationHint(_:
+  placeAddress:)`가 AI가 읽어낸 장소 주소를
+  `GooglePlacesService.geocodeAddress(_:)`로 지오코딩해 사진 GPS와
+  거리를 비교 — 기존 `maxPhotoLocationMatchDistanceMeters`(500m) 이내면
+  그대로 채택, 멀면 `photoLocationHint`를 비우고 사용자에게
+  `infoMessage`로 알림("사진의 위치 정보가 인식된 장소 주소와 너무 멀어
+  사진 위치는 사용하지 않았습니다"). 주소가 없거나 지오코딩이 실패하면
+  대조할 근거가 없으므로 기존처럼 사진 GPS를 그대로 신뢰(과도한 거부
+  방지). AI 폴백 안내 메시지와 동시에 뜰 수 있어 `infoMessage`를
+  줄바꿈으로 합쳐서 표시하도록 함께 정리.
+
 ### 2026-09-12 (135차) — 장소 수가 확정되기 전(AI 미설정·실패 포함)에도 사진 GPS가 새어 나가던 잔여 구멍 수정
 #### Fixed
 - `ViewModels/PlaceCardViewModel.swift`: 134차에서 `results.count > 1`일
