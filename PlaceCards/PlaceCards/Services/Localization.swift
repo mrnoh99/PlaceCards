@@ -408,6 +408,8 @@ enum Localization {
         "추가": "Add",
         "추가 (": "Add (",
         "추가하기": "Add",
+        "추가한 사진이 이 장소에서 촬영된 것 같지 않습니다 (사진 GPS가 주소에서 100m 이상 떨어져 있습니다).":
+            "The photo you added doesn't look like it was taken at this place (its GPS is more than 100m from the address).",
         "추가할 장소 (": "Places to add (",
         "추천 메뉴": "Recommended menu",
         "추천 메뉴 ": "Recommended menu: ",

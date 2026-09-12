@@ -20,6 +20,14 @@ struct MapScreenshotImportSheet: View {
     /// have none), but a photo shared through this same path could.
     private static let maxPhotoLocationMatchDistanceMeters: CLLocationDistance = 500
 
+    /// Tighter than `maxPhotoLocationMatchDistanceMeters` — used only for
+    /// `warnIfNotOnsitePhoto`, where the card's own name+address are
+    /// already established (not a first guess this app is trying to
+    /// confirm), so a photo held against them deserves the same tight
+    /// standard `PlaceCardViewModel.maxAddressMatchDistanceMeters` uses
+    /// for an address match elsewhere.
+    private static let maxAddressMatchDistanceMeters: CLLocationDistance = 100
+
     @State private var card: PlaceCard
     let imageData: Data
     var onApplied: (PlaceCard) -> Void
@@ -183,6 +191,16 @@ struct MapScreenshotImportSheet: View {
         storageService.save(card)
         onApplied(card)
 
+        // Checked right away, independent of whether AI analysis below
+        // ever runs — appended to whatever `statusMessage` that path ends
+        // up setting, at every exit from this function.
+        let onsiteWarning = await warnIfNotOnsitePhoto(PhotoMetadata.extractLocation(from: imageData))
+        defer {
+            if let onsiteWarning {
+                statusMessage = [statusMessage, onsiteWarning].compactMap { $0 }.joined(separator: "\n")
+            }
+        }
+
         guard let jpegData = previewImage?.jpegData(compressionQuality: 0.8) else {
             statusMessage = "사진을 카드에 추가했습니다.".localized
             return
@@ -245,6 +263,42 @@ struct MapScreenshotImportSheet: View {
             return (candidate, nil)
         }
         return (nil, "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
+    }
+
+    /// Distinct from `verifiedPhotoLocationCandidate` above — that one
+    /// only ever runs to help *fill in* a still-missing coordinate, gated
+    /// on the card having none yet. This one is a sanity check that runs
+    /// whenever the card already has both a name and an address (an
+    /// established place, not one still being identified) — a newly
+    /// added photo whose own EXIF GPS lands far from that address is
+    /// likely not actually a photo taken there at all (saved from
+    /// elsewhere, someone else's photo, a mislabeled screenshot), so it's
+    /// worth flagging even though the card's location data itself is
+    /// left untouched. Prefers the card's own coordinates as ground
+    /// truth when it already has them (the strongest evidence available)
+    /// and only geocodes the address as a fallback. `nil` when there's
+    /// nothing to flag — no photo GPS, no established name+address, no
+    /// ground truth available, or the photo is close enough.
+    private func warnIfNotOnsitePhoto(_ photoCoordinate: Coordinates?) async -> String? {
+        guard let photoCoordinate else { return nil }
+        let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
+        let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty, !trimmedAddress.isEmpty else { return nil }
+
+        let groundTruth: Coordinates?
+        if let coordinates = card.coordinates {
+            groundTruth = coordinates
+        } else if let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty {
+            groundTruth = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(trimmedAddress)
+        } else {
+            groundTruth = nil
+        }
+        guard let groundTruth else { return nil }
+
+        let distance = CLLocation(latitude: groundTruth.latitude, longitude: groundTruth.longitude)
+            .distance(from: CLLocation(latitude: photoCoordinate.latitude, longitude: photoCoordinate.longitude))
+        guard distance > Self.maxAddressMatchDistanceMeters else { return nil }
+        return "추가한 사진이 이 장소에서 촬영된 것 같지 않습니다 (사진 GPS가 주소에서 100m 이상 떨어져 있습니다).".localized
     }
 
     private func handleAnalysisResults(
