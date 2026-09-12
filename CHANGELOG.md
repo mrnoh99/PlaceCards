@@ -2,6 +2,45 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (125차) — AI 없이 할 수 있는 작업 정리 + Google Places 새로고침(비-AI) 추가
+#### Investigated
+- 코드 전수 조사 결과: 장소를 새로 만들고(수동 입력, Google/Naver
+  검증 검색) 모든 필드를 편집하는 것까지 AI 없이 전부 가능함을 확인.
+  `AddPlaceCardView`의 "+ 장소 추가"(수동)와 "Google에서 검색"
+  (`PlaceCardViewModel.search(rowID:)`)은 애초에 AI를 전혀 거치지
+  않고, `EditPlaceCardSheet`는 AI가 채울 수 있는 모든 필드(전화/
+  웹사이트/카테고리/영업시간/마감시간/휴무일/편의시설/예약 방법/
+  추천 메뉴)에 대응하는 수동 입력칸을 이미 갖추고 있었음.
+  `SharedLinkParser`(공유 링크 파싱)·`WebsiteBusinessInfoFetcher`
+  (홈페이지 schema.org 파싱)도 AI 없이 동작. `PlaceCardDetailView`의
+  지도 메뉴·외부 링크 버튼도 AI 실패 시 직접 확인하는 대안으로
+  이미 존재. 유일한 발견: `GooglePlacesService.details(placeId:)`가
+  선언만 되어 있고 실제로는 어디서도 호출되지 않는 죽은 코드였음 —
+  이번에 실제로 연결함(아래).
+#### Added
+- `Services/PlaceSearchService.swift`: `PlaceSearchResult`에
+  `isFromGooglePlaces: Bool` 추가 — Naver 검증 결과의 `id`는 Google
+  placeId가 아니라서, 이 값 없이는 `details(placeId:)`를 안전하게
+  호출할 대상을 구분할 수 없었음.
+- `Models/PlaceCard.swift`: `googlePlaceId: String?` 추가 — 카드가
+  Google Places로 검증되어 만들어질 때만 채워짐(수동/Naver 카드는
+  `nil`).
+- `ViewModels/PlaceCardViewModel.swift`: `createPlaceCard(from:...)`가
+  카드를 만들 때, Google 검증 결과라면 (AI 설정 여부와 무관하게)
+  `GooglePlacesService.details(placeId:)`로 영업시간을 비어있을 때만
+  채움(`fetchGoogleHoursDetail(placeId:)`) — 지금까지 영업시간은
+  사진 스캔이나 AI 웹 검색으로만 채울 수 있었는데, Google 자체
+  API로도 채울 수 있게 됨. 이 죽어있던 API 호출을 실제로 연결한 것.
+- `Views/EditPlaceCardSheet.swift`: `card.googlePlaceId`가 있는
+  카드에 한해 새 "Google에서 새로고침" 섹션 추가 — AI 제공자가
+  하나도 등록되어 있지 않아도 항상 쓸 수 있는, Google Places API
+  키 하나만 있으면 되는 비어있는 항목 새로고침(영업시간·평점·
+  전화번호·웹사이트). "웹 검색으로 채우기"(AI)와 나란히 배치.
+- `Views/MapScreenshotImportSheet.swift`: AI 제공자가 없을 때
+  뜨는 안내 문구를(사진 처리 *후* 상태 메시지로만 알려주던 것을)
+  화면이 열리자마자 바로 보이는 섹션 footer로 옮김 — 나머지 AI
+  버튼들과 마찬가지로 미리 알 수 있게.
+
 ### 2026-09-12 (124차) — AI 미설정/일부 실패 상황 보강
 #### Added
 - `Views/AddPlaceCardView.swift`, `Views/EditPlaceCardSheet.swift`: AI

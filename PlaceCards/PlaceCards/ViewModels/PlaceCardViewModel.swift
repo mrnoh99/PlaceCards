@@ -492,9 +492,11 @@ final class PlaceCardViewModel: ObservableObject {
     /// resolved from a business-homepage link (`scannedWebsite`) still
     /// picking up a verified Google Places match shouldn't lose the one
     /// link it started from. `details` fills in whatever `result` itself
-    /// has no field for at all (hours/closing time/holidays/amenities —
-    /// none of which Google's own search result carries, only its full
-    /// place-details lookup, which this app doesn't call).
+    /// has no field for at all (hours/closing time/holidays/amenities) —
+    /// AI-sourced, when the row came from a photo scan or web search; a
+    /// Google-verified result with no AI involved at all still gets its
+    /// hours filled non-AI, straight from Google's own place-details
+    /// lookup (`fetchGoogleHoursDetail(placeId:)` below).
     func createPlaceCard(
         from result: PlaceSearchResult, images: [UIImage], source: SourceType,
         note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = [],
@@ -506,6 +508,7 @@ final class PlaceCardViewModel: ObservableObject {
             category: result.category,
             address: result.address,
             coordinates: result.coordinates,
+            googlePlaceId: result.isFromGooglePlaces ? result.id : nil,
             rating: result.rating,
             reviewCount: result.reviewCount,
             priceLevel: result.priceLevel,
@@ -516,6 +519,11 @@ final class PlaceCardViewModel: ObservableObject {
             memo: PlaceCard.combinedMemo(nil, appending: note)
         )
         card.applyScannedDetails(details)
+
+        if card.hoursDetail?.isEmpty ?? true, result.isFromGooglePlaces,
+           let hoursDetail = await fetchGoogleHoursDetail(placeId: result.id), !hoursDetail.isEmpty {
+            card.hoursDetail = hoursDetail
+        }
 
         for image in images {
             let fileName = try MediaStore.saveImage(image)
@@ -559,6 +567,21 @@ final class PlaceCardViewModel: ObservableObject {
         guard let data = try? await googleService.photoData(photoName: googlePhotoName),
               let fileName = try? MediaStore.saveImage(data: data) else { return nil }
         return MediaItem(localPath: fileName, source: .googleDirectLookup)
+    }
+
+    /// Best-effort, entirely non-AI: `search(query:coordinates:)`'s own
+    /// result never carries opening hours (only Google's separate
+    /// Place Details call does), so this is the one piece a
+    /// Google-verified card would otherwise only ever get from an AI
+    /// photo scan or web search. Called for every Google-origin result
+    /// regardless of whether any AI provider is even configured — this
+    /// only needs the same Google Places API key `search`/`photoData`
+    /// already use. Silently skipped (returns `nil`) on any failure,
+    /// same as `fetchOfficialPhoto` above.
+    private func fetchGoogleHoursDetail(placeId: String) async -> [String: String]? {
+        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }
+        let googleService = GooglePlacesService(apiKey: apiKey)
+        return try? await googleService.details(placeId: placeId).hoursDetail
     }
 
     /// Manually-entered places have no coordinates at all — unlike a card

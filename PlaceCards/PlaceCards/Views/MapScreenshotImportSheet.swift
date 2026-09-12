@@ -61,7 +61,11 @@ struct MapScreenshotImportSheet: View {
                 } header: {
                     Text("이 카드에 추가할까요?".localized)
                 } footer: {
-                    Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, AI로 읽어 비어 있는 이름·주소를 채웁니다.".localized)
+                    if AIProviderChain.hasAnyConfiguredProvider() {
+                        Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, AI로 읽어 비어 있는 이름·주소를 채웁니다.".localized)
+                    } else {
+                        Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가합니다. (AI 제공자가 등록되어 있지 않아 정보는 자동으로 읽지 않습니다 — 설정에서 등록하면 이용할 수 있습니다.)".localized)
+                    }
                 }
 
                 if let statusMessage {

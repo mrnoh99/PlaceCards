@@ -19,6 +19,15 @@ struct PlaceSearchResult: Identifiable {
     /// `GooglePlacesService.photoData(photoName:)` to fetch the actual
     /// image bytes. `nil` when Google has no photo for this place.
     let photoName: String?
+    /// Whether `id` is an actual Google Places `placeId` — `true` only
+    /// for `GooglePlace.toSearchResult()`, `false` for a Naver-verified
+    /// result (`NaverLocalItem.toSearchResult()`'s own `id` is just its
+    /// share link or a random UUID). Callers use this to decide whether
+    /// it's safe to pass `id` to `GooglePlacesService.details(placeId:)`
+    /// — doing that with a Naver-origin `id` would just fail (it isn't a
+    /// Google place at all), not silently return wrong data, but it's
+    /// still wasted network traffic worth skipping outright.
+    let isFromGooglePlaces: Bool
 }
 
 struct PlaceDetails {
@@ -214,7 +223,8 @@ private struct GooglePlace: Decodable {
             website: websiteUri,
             category: primaryTypeDisplayName?.text.strippingInvisibleFormatCharacters(),
             priceLevel: priceLevel.flatMap(PriceLevel.init(rawValue:)),
-            photoName: photos?.first?.name
+            photoName: photos?.first?.name,
+            isFromGooglePlaces: true
         )
     }
 }

@@ -70,6 +70,9 @@ struct EditPlaceCardSheet: View {
     @State private var isSearchingWeb = false
     @State private var webSearchMessage: String?
 
+    @State private var isRefreshingGoogleDetails = false
+    @State private var googleRefreshMessage: String?
+
     /// Tags the AI (photo scan or web search) suggested that aren't
     /// already in `tagsText` — staged here rather than applied straight
     /// away (see `PlaceWebDetails.tags`'s own doc comment for why tags
@@ -129,6 +132,7 @@ struct EditPlaceCardSheet: View {
                     photoImportSection
                     basicInfoSection
                     webSearchSection
+                    googleRefreshSection
                     coordinatesSection
                     contactSection
                     externalLinksSection
@@ -505,6 +509,38 @@ struct EditPlaceCardSheet: View {
         }
     }
 
+    /// AI가 전혀 필요 없는 대안 — 이 카드가 만들어질 때 검증됐던 바로
+    /// 그 Google Places 장소(`card.googlePlaceId`)의 공식 상세 정보를
+    /// 다시 조회해 비어 있는 항목만 채운다. Google Places API 키만
+    /// 있으면 되고, AI 제공자가 하나도 등록되어 있지 않아도 항상 쓸 수
+    /// 있음 — `googlePlaceId`가 없는 카드(Naver로 검증됐거나 수동으로
+    /// 만든 카드)에는 아예 표시하지 않는다.
+    @ViewBuilder
+    private var googleRefreshSection: some View {
+        if card.googlePlaceId != nil {
+            Section {
+                Button {
+                    Task { await refreshFromGooglePlaceDetails() }
+                } label: {
+                    if isRefreshingGoogleDetails {
+                        ProgressView()
+                    } else {
+                        Label("Google에서 새로고침".localized, systemImage: "arrow.clockwise")
+                    }
+                }
+                .disabled(isRefreshingGoogleDetails)
+
+                if let googleRefreshMessage {
+                    Text(googleRefreshMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } footer: {
+                Text("AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다.".localized)
+            }
+        }
+    }
+
     private func loadPhotos(_ items: [PhotosPickerItem]) async {
         isLoadingPhotos = true
         defer { isLoadingPhotos = false }
@@ -629,6 +665,33 @@ struct EditPlaceCardSheet: View {
         }
     }
 
+    /// The non-AI counterpart to `searchWebForDetails()` above — re-fetches
+    /// this exact place's own Google Places details (only possible when
+    /// `card.googlePlaceId` is set — see `googleRefreshSection`) and fills
+    /// whatever's still blank, same "never overwrite" rule as every other
+    /// fill-in action here.
+    private func refreshFromGooglePlaceDetails() async {
+        guard let placeId = card.googlePlaceId else { return }
+        isRefreshingGoogleDetails = true
+        googleRefreshMessage = nil
+        defer { isRefreshingGoogleDetails = false }
+
+        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else {
+            googleRefreshMessage = PlaceCardsError.apiKeyMissing.localizedDescription
+            return
+        }
+
+        do {
+            let details = try await GooglePlacesService(apiKey: apiKey).details(placeId: placeId)
+            let filledFields = fillBlankFields(from: details)
+            googleRefreshMessage = filledFields.isEmpty
+                ? "Google에서 새로 채울 정보를 찾지 못했습니다.".localized
+                : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
+        } catch {
+            googleRefreshMessage = error.localizedDescription
+        }
+    }
+
     /// This card's own `externalLinks`, formatted as `"<platform>:
     /// <url>"` for `AIProvider.searchWebForDetails` to check first —
     /// blank rows (still being typed in, or never filled in) are dropped
@@ -683,6 +746,49 @@ struct EditPlaceCardSheet: View {
         if recommendedMenu.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.recommendedMenu, !value.isEmpty {
             recommendedMenu = value
             filledFields.append("추천 메뉴".localized)
+        }
+        if !details.amenities.isEmpty {
+            let existing = Set(amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+            let newOnes = details.amenities.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !existing.contains($0) }
+            if !newOnes.isEmpty {
+                amenitiesText = amenitiesText.trimmingCharacters(in: .whitespaces).isEmpty
+                    ? newOnes.joined(separator: ", ")
+                    : amenitiesText + ", " + newOnes.joined(separator: ", ")
+                filledFields.append("편의시설".localized)
+            }
+        }
+
+        return filledFields
+    }
+
+    /// The `PlaceDetails` counterpart to `fillBlankFields(from:
+    /// PlaceWebDetails)` above, for `refreshFromGooglePlaceDetails()` —
+    /// a different (smaller, Google-specific) shape than `PlaceWebDetails`
+    /// (it also carries rating/review count, which no AI-sourced result
+    /// does, since that's already covered at card-creation time from the
+    /// search result itself).
+    private func fillBlankFields(from details: PlaceDetails) -> [String] {
+        var filledFields: [String] = []
+
+        if ratingText.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.rating {
+            ratingText = String(value)
+            filledFields.append("평점".localized)
+        }
+        if reviewCountText.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.reviewCount {
+            reviewCountText = String(value)
+            filledFields.append("리뷰 수".localized)
+        }
+        if phone.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.phone, !value.isEmpty {
+            phone = value
+            filledFields.append("전화번호".localized)
+        }
+        if website.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.website, !value.isEmpty {
+            website = value
+            filledFields.append("웹사이트".localized)
+        }
+        if hoursEntries.isEmpty, let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
+            hoursEntries = hoursDetail.sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) }
+            filledFields.append("영업시간".localized)
         }
         if !details.amenities.isEmpty {
             let existing = Set(amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })

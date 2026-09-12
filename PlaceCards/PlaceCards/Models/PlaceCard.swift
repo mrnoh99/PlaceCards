@@ -58,6 +58,15 @@ struct PlaceCard: Identifiable, Codable {
     var category: String?
     var address: String
     var coordinates: Coordinates?
+    /// This place's Google Places `placeId`, set only when the card was
+    /// created from a verified Google Places search result
+    /// (`PlaceSearchResult.isFromGooglePlaces`) — `nil` for a
+    /// Naver-verified or manually-entered card, and never retroactively
+    /// filled in later. Lets `EditPlaceCardSheet` re-fetch this place's
+    /// own `GooglePlacesService.details(placeId:)` (hours, rating, phone,
+    /// website) straight from Google with no AI involved at all — the
+    /// one non-AI way to refresh a card's info after creation.
+    var googlePlaceId: String?
 
     var rating: Double?
     var reviewCount: Int?
