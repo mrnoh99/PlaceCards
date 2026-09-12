@@ -212,6 +212,7 @@ enum Localization {
         "다시 안 갈래요": "Wouldn't revisit",
         "다음": "Next",
         "닫기": "Close",
+        "대조할 장소 주소가 없어 사진의 위치 정보만 사용합니다.": "There's no place address to compare against, so only the photo's location is used.",
         "대표사진": "Cover Photo",
         "대표사진으로 설정": "Set as Cover Photo",
         "데이터": "Data",

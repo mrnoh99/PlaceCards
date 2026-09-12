@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (137차) — Naver 경로 거리 검증 추가 + 사진 GPS 단독 사용 시 안내
+#### Added
+- `ViewModels/PlaceCardViewModel.swift`: `search(rowID:)`의 Naver
+  경로(`originSource == .naverMapShare`)가 지금까지 거리 기반
+  ground-truth 검증이 전혀 없어서, 같은 이름의 다른 지역 업체가 그대로
+  받아들여질 수 있었음 — Google 경로(`searchViaGoogle`)만 반복적으로
+  강화되어 온 것과 불균형했던 부분. `searchViaGoogle`의 ground-truth
+  로직(공유 링크 좌표 → 주소 지오코딩 → 사진 GPS, 순서대로 우선)을
+  `GroundTruth` 구조체 + `resolveGroundTruth(coordinateHint:address:)`
+  / `filterByGroundTruth(_:groundTruth:)`로 공용 헬퍼화해서 Naver
+  검색 결과에도 동일하게 적용(기존 100m/500m 반경 그대로).
+  `searchViaGoogle`도 이 공용 헬퍼를 쓰도록 정리.
+- `verifiedPhotoLocationHint(_:placeAddress:)`(136차)가 대조할 주소가
+  없거나 지오코딩이 실패해 사진 GPS를 그대로 신뢰할 때, 이전엔 조용히
+  통과시켰는데 이제 `(coordinates, note)` 튜플을 반환해 "대조할 장소
+  주소가 없어 사진의 위치 정보만 사용합니다"라고 `infoMessage`로
+  안내함 — 검증 없이 사진 GPS 하나에만 의존하고 있다는 사실을
+  사용자가 알 수 있도록.
+
 ### 2026-09-12 (136차) — 사진 GPS를 AI가 인식한 장소 주소와 대조해 검증
 #### Added
 - `ViewModels/PlaceCardViewModel.swift`: `analyzeImages()`가 장소를

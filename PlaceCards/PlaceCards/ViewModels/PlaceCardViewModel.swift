@@ -173,11 +173,9 @@ final class PlaceCardViewModel: ObservableObject {
                     ? Self.averageCoordinate(photoCoordinates)
                     : photoCoordinates.first
                 if let candidate {
-                    if let verified = await verifiedPhotoLocationHint(candidate, placeAddress: results.first?.address) {
-                        photoLocationHint = verified
-                    } else {
-                        notes.append("사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
-                    }
+                    let (verified, note) = await verifiedPhotoLocationHint(candidate, placeAddress: results.first?.address)
+                    photoLocationHint = verified
+                    if let note { notes.append(note) }
                 }
             }
             if candidateRows.isEmpty {
@@ -197,21 +195,30 @@ final class PlaceCardViewModel: ObservableObject {
     /// document (saved from elsewhere, taken earlier in the same trip,
     /// stale metadata carried over from an edit), so agreement with the
     /// address the AI actually read off the photo is real corroborating
-    /// evidence, not a redundant check. Returns the candidate unchanged
-    /// when there's no address to check it against or the address fails
-    /// to geocode (nothing to contradict it, so no reason to distrust the
-    /// photo), and `nil` when the two disagree by more than
-    /// `maxPhotoLocationMatchDistanceMeters`.
-    private func verifiedPhotoLocationHint(_ candidate: Coordinates, placeAddress: String?) async -> Coordinates? {
+    /// evidence, not a redundant check. Returns `(candidate, nil)` on
+    /// agreement; when there's no address to check it against or the
+    /// address fails to geocode, there's nothing to contradict the photo,
+    /// so it's still trusted — but the caller is told via the note so the
+    /// user knows this location rests on the photo's GPS alone, unverified
+    /// against anything else; and `(nil, note)` when the two disagree by
+    /// more than `maxPhotoLocationMatchDistanceMeters`.
+    private func verifiedPhotoLocationHint(
+        _ candidate: Coordinates, placeAddress: String?
+    ) async -> (coordinates: Coordinates?, note: String?) {
         let address = placeAddress?.trimmingCharacters(in: .whitespaces) ?? ""
         guard !address.isEmpty,
             let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty,
             let addressLocation = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(address)
-        else { return candidate }
+        else {
+            return (candidate, "대조할 장소 주소가 없어 사진의 위치 정보만 사용합니다.".localized)
+        }
 
         let distance = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
             .distance(from: CLLocation(latitude: candidate.latitude, longitude: candidate.longitude))
-        return distance <= Self.maxPhotoLocationMatchDistanceMeters ? candidate : nil
+        if distance <= Self.maxPhotoLocationMatchDistanceMeters {
+            return (candidate, nil)
+        }
+        return (nil, "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
     }
 
     /// A plain arithmetic mean of latitude/longitude — accurate enough at
@@ -368,7 +375,16 @@ final class PlaceCardViewModel: ObservableObject {
                         clientSecret: credentials.clientSecret
                     )
                 }
-                outcome = SearchOutcome(results: results, hadUnfilteredMatches: !results.isEmpty)
+                let hadUnfilteredMatches = !results.isEmpty
+                // Naver's own local search had no ground-truth check at
+                // all until now — a same-named place in a different city
+                // would previously have been accepted outright, unlike the
+                // Google path below. Uses the same ground truth (share's
+                // own coordinates → geocoded address → photo GPS) and
+                // radii as `searchViaGoogle`.
+                let groundTruth = await resolveGroundTruth(coordinateHint: resolved.coordinates, address: address)
+                results = Self.filterByGroundTruth(results, groundTruth: groundTruth)
+                outcome = SearchOutcome(results: results, hadUnfilteredMatches: hadUnfilteredMatches)
             } else {
                 outcome = try await searchViaGoogle(query: combinedQuery, address: address, coordinateHint: resolved.coordinates)
             }
@@ -394,11 +410,59 @@ final class PlaceCardViewModel: ObservableObject {
         var hadUnfilteredMatches: Bool
     }
 
+    private struct GroundTruth {
+        var location: CLLocation
+        var radius: CLLocationDistance
+    }
+
+    /// Picks the best available ground truth for verifying a row's search
+    /// results by distance, in priority order: the share link's own baked-
+    /// in coordinate (as precise as its source) → the row's address,
+    /// geocoded via Google → the current batch's photo GPS (real evidence
+    /// of where it was taken, not a guess, but looser-radius since it only
+    /// reflects wherever the phone was standing, not necessarily the
+    /// place's own doorstep) — see `maxAddressMatchDistanceMeters`/
+    /// `maxPhotoLocationMatchDistanceMeters`. Returns `nil` when none of
+    /// these are available, meaning nothing can be verified against.
+    private func resolveGroundTruth(coordinateHint: Coordinates?, address: String) async -> GroundTruth? {
+        if let coordinateHint {
+            return GroundTruth(
+                location: CLLocation(latitude: coordinateHint.latitude, longitude: coordinateHint.longitude),
+                radius: Self.maxAddressMatchDistanceMeters
+            )
+        }
+        if !address.isEmpty, let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty,
+            let addressLocation = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(address) {
+            return GroundTruth(
+                location: CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude),
+                radius: Self.maxAddressMatchDistanceMeters
+            )
+        }
+        if let photoLocationHint {
+            return GroundTruth(
+                location: CLLocation(latitude: photoLocationHint.latitude, longitude: photoLocationHint.longitude),
+                radius: Self.maxPhotoLocationMatchDistanceMeters
+            )
+        }
+        return nil
+    }
+
+    /// Discards any result with no coordinates or too far from `groundTruth`
+    /// to be the same place — passing `nil` (nothing to verify against)
+    /// returns `results` unchanged.
+    private static func filterByGroundTruth(_ results: [PlaceSearchResult], groundTruth: GroundTruth?) -> [PlaceSearchResult] {
+        guard let groundTruth else { return results }
+        return results.filter { result in
+            guard let coordinates = result.coordinates else { return false }
+            return groundTruth.location.distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
+                <= groundTruth.radius
+        }
+    }
+
     /// Verifies against Google Places, narrowing by the row's address (or,
     /// when there is one, the exact coordinates a Google Maps share link
     /// itself already carried, or — when neither of those exist — the
-    /// photo's own EXIF GPS) via the distance ground-truth filter — see
-    /// `maxAddressMatchDistanceMeters`/`maxPhotoLocationMatchDistanceMeters`.
+    /// photo's own EXIF GPS) via `resolveGroundTruth`/`filterByGroundTruth`.
     /// The fallback path for anything that isn't a Naver-origin share
     /// with Naver Search credentials configured (see `search(rowID:)`).
     private func searchViaGoogle(query: String, address: String, coordinateHint: Coordinates?) async throws -> SearchOutcome {
@@ -409,28 +473,8 @@ final class PlaceCardViewModel: ObservableObject {
         let locationHint = coordinateHint ?? photoLocationHint
         let rawResults = try await googleService.search(query: query, coordinates: locationHint)
 
-        var groundTruth: CLLocation?
-        var groundTruthRadius = Self.maxAddressMatchDistanceMeters
-        if let coordinateHint {
-            groundTruth = CLLocation(latitude: coordinateHint.latitude, longitude: coordinateHint.longitude)
-        } else if !address.isEmpty, let addressLocation = try? await googleService.geocodeAddress(address) {
-            groundTruth = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
-        } else if let photoLocationHint {
-            // The one case this app can still verify a plain name-only
-            // search against even with no address at all — a photo's own
-            // GPS is real evidence of where it was taken, not a guess.
-            groundTruth = CLLocation(latitude: photoLocationHint.latitude, longitude: photoLocationHint.longitude)
-            groundTruthRadius = Self.maxPhotoLocationMatchDistanceMeters
-        }
-
-        guard let groundTruth else {
-            return SearchOutcome(results: rawResults, hadUnfilteredMatches: !rawResults.isEmpty)
-        }
-        let filtered = rawResults.filter { result in
-            guard let coordinates = result.coordinates else { return false }
-            return groundTruth.distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
-                <= groundTruthRadius
-        }
+        let groundTruth = await resolveGroundTruth(coordinateHint: coordinateHint, address: address)
+        let filtered = Self.filterByGroundTruth(rawResults, groundTruth: groundTruth)
         return SearchOutcome(results: filtered, hadUnfilteredMatches: !rawResults.isEmpty)
     }
 
