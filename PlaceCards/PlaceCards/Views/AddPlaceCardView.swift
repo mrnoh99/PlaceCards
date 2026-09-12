@@ -353,18 +353,39 @@ struct AddPlaceCardView: View {
                     // screenshot back into one specific still-unsaved row
                     // isn't attempted automatically.
                     Menu {
-                        Button("Google Maps") {
-                            GoogleMapsOpener.open(name: row.wrappedValue.name, address: row.wrappedValue.address, using: openURL)
+                        if !row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty {
+                            Button("Google Maps") {
+                                GoogleMapsOpener.open(name: row.wrappedValue.name, address: row.wrappedValue.address, using: openURL)
+                            }
+                            if let url = NaverMapOpener.searchURL(name: row.wrappedValue.name, address: row.wrappedValue.address) {
+                                Button("Naver Map") {
+                                    openURL(url)
+                                }
+                            }
                         }
-                        if let url = NaverMapOpener.searchURL(name: row.wrappedValue.name, address: row.wrappedValue.address) {
-                            Button("Naver Map") {
-                                openURL(url)
+                        // Opens at the exact spot the photo was taken
+                        // (`viewModel.photoLocationHint`) rather than
+                        // searching by the name AI guessed — real evidence
+                        // of where the place is, worth offering even when
+                        // a name search above already exists, and the only
+                        // option here at all when the row has no name yet.
+                        if let photoLocationHint = viewModel.photoLocationHint {
+                            Button("사진 위치로 보기 (Google)".localized) {
+                                GoogleMapsOpener.open(coordinates: photoLocationHint, using: openURL)
+                            }
+                            if let url = NaverMapOpener.mapURL(coordinates: photoLocationHint) {
+                                Button("사진 위치로 보기 (Naver)".localized) {
+                                    openURL(url)
+                                }
                             }
                         }
                     } label: {
                         Label("지도에서 찾기".localized, systemImage: "map")
                     }
-                    .disabled(row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(
+                        row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty
+                            && viewModel.photoLocationHint == nil
+                    )
                 }
                 .font(.caption)
 

@@ -88,12 +88,20 @@ final class PlaceCardViewModel: ObservableObject {
     /// them (mirrors Peragra's `AIExtractionService.extractPlaces(images:)`).
     @Published var selectedImages: [UIImage] = []
     @Published var candidateRows: [PlaceCandidateRow] = []
-    /// The first GPS coordinate found among the current batch's original
-    /// (EXIF-intact) photo data, if any — passed to Google Places as a
-    /// location bias so an on-site photo's own location narrows the
-    /// search instead of a blind text query. Shared across every row in
-    /// the batch for the same reason their media is: there's no reliable
-    /// way to know which specific photo named which specific place.
+    /// A GPS coordinate from the current batch's original (EXIF-intact)
+    /// photo data, if any — passed to Google Places as a location bias
+    /// (and, when nothing else is available, as the actual ground-truth
+    /// coordinate for verifying a name search — see `searchViaGoogle`)
+    /// so an on-site photo's own location narrows/checks the search
+    /// instead of a blind text query. Shared across every row in the
+    /// batch for the same reason their media is: there's no reliable way
+    /// to know which specific photo named which specific place — *except*
+    /// when the whole batch resolved to exactly one place, in which case
+    /// `analyzeImages` averages every photo's GPS instead of just taking
+    /// the first: several photos of the same place taken from slightly
+    /// different spots (walking up to it, standing across the street)
+    /// average out sensor/positioning noise better than any single one
+    /// of them alone.
     @Published var photoLocationHint: Coordinates?
 
     private let storageService: StorageService
@@ -123,7 +131,8 @@ final class PlaceCardViewModel: ObservableObject {
         defer { isLoading = false }
 
         selectedImages = images
-        photoLocationHint = rawImageDatas.lazy.compactMap(PhotoMetadata.extractLocation).first
+        let photoCoordinates = rawImageDatas.compactMap(PhotoMetadata.extractLocation)
+        photoLocationHint = photoCoordinates.first
         guard !images.isEmpty else { return }
 
         let imageDatas = images.compactMap { $0.jpegData(compressionQuality: 0.8) }
@@ -146,6 +155,11 @@ final class PlaceCardViewModel: ObservableObject {
                     name: $0.placeName, address: $0.address ?? "", scannedNote: $0.description, scannedDetails: $0.details
                 )
             }
+            // Every photo in this batch is of the one same place — safe
+            // to average their GPS instead of just trusting the first.
+            if results.count == 1, photoCoordinates.count > 1 {
+                photoLocationHint = Self.averageCoordinate(photoCoordinates)
+            }
             if candidateRows.isEmpty {
                 errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요.".localized
             } else if isFallback {
@@ -154,6 +168,18 @@ final class PlaceCardViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// A plain arithmetic mean of latitude/longitude — accurate enough at
+    /// the scale this matters for (several photos of one place, taken at
+    /// most a couple hundred meters apart); the sphere's curvature only
+    /// meaningfully distorts a plain average over much larger distances
+    /// than that, so there's no need for a proper geodesic mean here.
+    private static func averageCoordinate(_ coordinates: [Coordinates]) -> Coordinates? {
+        guard !coordinates.isEmpty else { return nil }
+        let latitude = coordinates.map(\.latitude).reduce(0, +) / Double(coordinates.count)
+        let longitude = coordinates.map(\.longitude).reduce(0, +) / Double(coordinates.count)
+        return Coordinates(latitude: latitude, longitude: longitude)
     }
 
     func addBlankRow() {

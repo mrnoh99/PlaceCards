@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (133차) — 같은 장소 사진 여러 장이면 GPS 평균 + 사진 위치를 지도에서 직접 보기
+#### Added
+- `ViewModels/PlaceCardViewModel.swift`: 사진 여러 장을 한 번에
+  스캔했는데 AI가 전부 같은 장소 하나로 판단했으면(`results.count ==
+  1`), `photoLocationHint`를 첫 사진의 GPS 하나만 쓰는 대신 전체
+  사진의 GPS를 평균 낸 값으로 씀 — 같은 장소를 여러 각도(다가가면서,
+  건너편에서 등)에서 찍은 사진들의 위치 오차를 서로 상쇄시킴. 장소가
+  여러 곳으로 나뉘면(어느 사진이 어느 장소인지 알 수 없어) 기존처럼
+  첫 사진의 GPS만 사용.
+- `Services/MapOpeners.swift`: `GoogleMapsOpener.url/appSchemeURL/open
+  (coordinates:)`, `NaverMapOpener.mapURL(coordinates:zoom:)` 추가 —
+  이름/주소로 검색하는 게 아니라 좌표를 그대로 지도 중심에 놓고
+  보여줌(Naver 쪽은 `nmap://map?lat=...&lng=...&zoom=...&appname=...`,
+  공식 문서로 확인). AI가 이름을 잘못 추정했어도 사진이 실제로 찍힌
+  위치 자체는 확실한 증거이므로, 이름 기반 검색 결과를 거리로
+  검증하는 것보다 사진 위치를 직접 지도에서 보고 사용자가 눈으로
+  확인하는 쪽이 더 근본적으로 정확함.
+- `Views/AddPlaceCardView.swift`: "지도에서 찾기" 메뉴에 "사진
+  위치로 보기 (Google/Naver)" 항목 추가 — `photoLocationHint`가 있을
+  때만 보이고, 이름 기반 검색과 별개로 항상 제공(행에 이름이 아직
+  없어도 사진 위치만으로 지도를 열 수 있음). 사용자가 그 지도에서
+  정확한 장소를 확인해 공유(기존 공유 링크/스크린샷 가져오기 흐름)로
+  돌아오면 정확하게 저장됨.
+
 ### 2026-09-12 (132차) — 사진 GPS가 유일한 정보일 때 조용히 버려지던 문제 수정
 #### Fixed
 - `ViewModels/PlaceCardViewModel.swift`: `photoLocationHint`(사진 EXIF

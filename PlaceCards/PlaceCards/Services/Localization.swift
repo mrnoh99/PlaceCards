@@ -265,6 +265,8 @@ enum Localization {
         "사진 선택": "Choose Photos",
         "사진 스캔·웹 검색 시 이 순서대로 시도합니다. 키가 등록되지 않은 제공자는 건너뜁니다.": "Tried in this order for photo scanning and web search. A provider with no key registered is skipped.",
         "사진 스캔·웹 검색으로 채워지는 카테고리·메모 같은 텍스트를 어떤 언어로 작성할지 정합니다. 앱 화면 자체의 언어(한국어)에는 영향을 주지 않습니다.": "Sets the language for text filled in by photo scanning and web search, like category and memo. This doesn't affect the app's own screen language.",
+        "사진 위치로 보기 (Google)": "View Photo's Location (Google)",
+        "사진 위치로 보기 (Naver)": "View Photo's Location (Naver)",
         "사진 추가": "Add Photo",
         "사진에서 여러 장소(": "Several places found in the photo (",
         "사진에서 장소 정보를 찾지 못했습니다.": "Couldn't find place info in the photo.",

@@ -32,6 +32,20 @@ enum GoogleMapsOpener {
         url(query: query(name: name, address: address))
     }
 
+    /// Centers the map on an exact coordinate directly — no name/address
+    /// text search involved at all, unlike every other `url(...)` above.
+    /// Google Maps' own search box already recognizes a bare "lat,lng"
+    /// query string as a coordinate rather than search text (well-
+    /// established, stable behavior of its URL API — not something that
+    /// needed separate verification the way a less-common scheme like
+    /// Naver's did) and drops a pin there. Meant for a photo's own EXIF
+    /// GPS: better evidence of the real place than trusting whatever name
+    /// AI guessed off the photo, since the user can see the actual pin
+    /// and every nearby business themselves.
+    static func url(coordinates: Coordinates) -> URL? {
+        url(query: "\(coordinates.latitude),\(coordinates.longitude)")
+    }
+
     private static func url(query: String?) -> URL? {
         guard let query else { return nil }
         var components = URLComponents(string: "https://www.google.com/maps/search/")
@@ -59,6 +73,10 @@ enum GoogleMapsOpener {
         appSchemeURL(query: query(name: name, address: address))
     }
 
+    static func appSchemeURL(coordinates: Coordinates) -> URL? {
+        appSchemeURL(query: "\(coordinates.latitude),\(coordinates.longitude)")
+    }
+
     private static func appSchemeURL(query: String?) -> URL? {
         guard let query, let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
             return nil
@@ -79,6 +97,12 @@ enum GoogleMapsOpener {
     /// The saved-card-independent counterpart to `open(for:using:)`.
     static func open(name: String, address: String, using openURL: OpenURLAction) {
         open(appURL: appSchemeURL(name: name, address: address), webURL: url(name: name, address: address), using: openURL)
+    }
+
+    /// The coordinate-only counterpart to `open(for:using:)`/`open(name:
+    /// address:using:)` — see `url(coordinates:)`.
+    static func open(coordinates: Coordinates, using openURL: OpenURLAction) {
+        open(appURL: appSchemeURL(coordinates: coordinates), webURL: url(coordinates: coordinates), using: openURL)
     }
 
     private static func open(appURL: URL?, webURL: URL?, using openURL: OpenURLAction) {
@@ -163,6 +187,27 @@ enum NaverMapOpener {
         var components = URLComponents(string: "nmap://search")
         components?.queryItems = [
             URLQueryItem(name: "query", value: query),
+            URLQueryItem(name: "appname", value: appName),
+        ]
+        return components?.url
+    }
+
+    /// Centers the map on an exact coordinate — no place name/search
+    /// involved at all, unlike `url(for:)`/`searchURL(name:address:)`
+    /// above. Meant for a photo's own EXIF GPS: rather than trust
+    /// whatever name AI guessed off the photo, this drops the user right
+    /// where it was actually taken so they can see for themselves which
+    /// business is really there. Confirmed against NAVER Cloud Platform's
+    /// own URL Scheme reference (`nmap://map?lat=...&lng=...&zoom=...&
+    /// appname=...`, all four required) rather than guessed. `zoom` 17 is
+    /// roughly street level — close enough to tell individual storefronts
+    /// apart without the map coming up centered a whole neighborhood out.
+    static func mapURL(coordinates: Coordinates, zoom: Int = 17) -> URL? {
+        var components = URLComponents(string: "nmap://map")
+        components?.queryItems = [
+            URLQueryItem(name: "lat", value: "\(coordinates.latitude)"),
+            URLQueryItem(name: "lng", value: "\(coordinates.longitude)"),
+            URLQueryItem(name: "zoom", value: "\(zoom)"),
             URLQueryItem(name: "appname", value: appName),
         ]
         return components?.url
