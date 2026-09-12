@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (132차) — 사진 GPS가 유일한 정보일 때 조용히 버려지던 문제 수정
+#### Fixed
+- `ViewModels/PlaceCardViewModel.swift`: `photoLocationHint`(사진 EXIF
+  GPS)가 지금까지 Google 검색의 위치 편향(locationBias)에만 쓰이고,
+  실제 검증(ground truth 거리 필터)에는 전혀 쓰이지 않았음 — 이름/
+  주소만으로 검색했을 때 진짜 검증 없이 결과를 그대로 돌려주고
+  있었다는 뜻. `searchViaGoogle`에 사진 GPS를 ground truth로 쓰는
+  경로를 추가(coordinateHint·주소 지오코딩이 둘 다 없을 때만). 다만
+  사진 GPS는 주소/링크 좌표보다 부정확할 수 있어(촬영 당시 서 있던
+  위치일 뿐, 그 장소 입구가 아닐 수 있음) 기존 100m보다 넉넉한
+  500m(`maxPhotoLocationMatchDistanceMeters`)로 검증.
+- 같은 이유로 `createManualPlaceCard`(검색 결과를 고르지 않고 수동
+  저장한 카드)가 주소 지오코딩에 실패하거나 주소 자체가 없을 때
+  `photoLocationHint`로 좌표를 채우도록 함 — 지금까지는 "사진의
+  GPS가 유일한 정보"인 카드가 좌표 없이 저장되고 있었음(128차에서
+  주소 지오코딩만 추가했었는데, 주소가 아예 없는 경우는 여전히
+  빠져 있었음). 여러 사진을 한 번에 스캔했을 때 `photoLocationHint`가
+  그중 첫 사진의 GPS 하나만 담는 기존 한계는 그대로 남아있음 — 다른
+  사진에서 나온 행에는 안 맞을 수 있다는 점을 주석으로 남김.
+
 ### 2026-09-12 (131차) — 좌표 없는 카드에서 "지도에서 열기"가 아예 안 보이던 버그 수정 + 주소로 좌표 확인 기능
 #### Fixed
 - `Views/PlaceCardDetailView.swift`: "지도에서 열기" 메뉴 전체가

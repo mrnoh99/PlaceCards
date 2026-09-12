@@ -206,6 +206,16 @@ final class PlaceCardViewModel: ObservableObject {
     /// not just a ranking hint.
     private static let maxAddressMatchDistanceMeters: CLLocationDistance = 100
 
+    /// Looser than `maxAddressMatchDistanceMeters` — a typed address or a
+    /// share link's own baked-in coordinate is as precise as its source,
+    /// but a photo's own EXIF GPS (`photoLocationHint`) only reflects
+    /// wherever the phone happened to be standing when the shutter went
+    /// off (across a parking lot, inside a large mall, at a rooftop
+    /// viewpoint looking down at the place), not necessarily the place's
+    /// own doorstep — a tight 100m cutoff would routinely reject the
+    /// *correct* match on nothing more than ordinary GPS imprecision.
+    private static let maxPhotoLocationMatchDistanceMeters: CLLocationDistance = 500
+
     /// Verifies one row's current name (and, when present, address) to get
     /// a verified address, rating, and contact details worth saving. A
     /// Naver Map share is checked against Naver's own local-business
@@ -316,10 +326,11 @@ final class PlaceCardViewModel: ObservableObject {
 
     /// Verifies against Google Places, narrowing by the row's address (or,
     /// when there is one, the exact coordinates a Google Maps share link
-    /// itself already carried) via the distance ground-truth filter — see
-    /// `maxAddressMatchDistanceMeters`. The fallback path for anything
-    /// that isn't a Naver-origin share with Naver Search credentials
-    /// configured (see `search(rowID:)`).
+    /// itself already carried, or — when neither of those exist — the
+    /// photo's own EXIF GPS) via the distance ground-truth filter — see
+    /// `maxAddressMatchDistanceMeters`/`maxPhotoLocationMatchDistanceMeters`.
+    /// The fallback path for anything that isn't a Naver-origin share
+    /// with Naver Search credentials configured (see `search(rowID:)`).
     private func searchViaGoogle(query: String, address: String, coordinateHint: Coordinates?) async throws -> SearchOutcome {
         guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else {
             throw PlaceCardsError.apiKeyMissing
@@ -329,10 +340,17 @@ final class PlaceCardViewModel: ObservableObject {
         let rawResults = try await googleService.search(query: query, coordinates: locationHint)
 
         var groundTruth: CLLocation?
+        var groundTruthRadius = Self.maxAddressMatchDistanceMeters
         if let coordinateHint {
             groundTruth = CLLocation(latitude: coordinateHint.latitude, longitude: coordinateHint.longitude)
         } else if !address.isEmpty, let addressLocation = try? await googleService.geocodeAddress(address) {
             groundTruth = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
+        } else if let photoLocationHint {
+            // The one case this app can still verify a plain name-only
+            // search against even with no address at all — a photo's own
+            // GPS is real evidence of where it was taken, not a guess.
+            groundTruth = CLLocation(latitude: photoLocationHint.latitude, longitude: photoLocationHint.longitude)
+            groundTruthRadius = Self.maxPhotoLocationMatchDistanceMeters
         }
 
         guard let groundTruth else {
@@ -341,7 +359,7 @@ final class PlaceCardViewModel: ObservableObject {
         let filtered = rawResults.filter { result in
             guard let coordinates = result.coordinates else { return false }
             return groundTruth.distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
-                <= Self.maxAddressMatchDistanceMeters
+                <= groundTruthRadius
         }
         return SearchOutcome(results: filtered, hadUnfilteredMatches: !rawResults.isEmpty)
     }
@@ -637,7 +655,10 @@ final class PlaceCardViewModel: ObservableObject {
     /// this makes a best effort at both anyway, entirely non-AI: an
     /// address geocodes to coordinates the same way
     /// `searchViaGoogle`/`GooglePlacesService.geocodeAddress(_:)` already
-    /// do elsewhere, and those coordinates then feed the same
+    /// do elsewhere, falling back to the photo's own EXIF GPS
+    /// (`photoLocationHint`) when there's no address to geocode at all —
+    /// the one case this app still has real location evidence for a
+    /// place with nothing else identifying it. Those coordinates then feed the same
     /// distance-verified `fetchGooglePhotoFallback(name:address:
     /// coordinates:)` a Naver-origin card uses (see its own comment) —
     /// name+address alone found a same-named place a town over often
@@ -672,6 +693,19 @@ final class PlaceCardViewModel: ObservableObject {
         let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
         if !trimmedAddress.isEmpty, let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty {
             card.coordinates = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(trimmedAddress)
+        }
+        // No address to geocode (or it didn't resolve to anything) — a
+        // photo's own EXIF GPS is real evidence of where it was taken,
+        // not a guess, so it's worth keeping even when it's the *only*
+        // location info this card has. `photoLocationHint` is shared
+        // across every row a batch of photos produced (see its own
+        // property comment), so this can be wrong when several photos of
+        // different places were analyzed together and this particular
+        // row didn't come from the one photo the hint is actually from —
+        // a real but narrower risk than saving the card with no location
+        // at all.
+        if card.coordinates == nil, let photoLocationHint {
+            card.coordinates = photoLocationHint
         }
 
         if card.media.allItems.isEmpty, let coordinates = card.coordinates,
