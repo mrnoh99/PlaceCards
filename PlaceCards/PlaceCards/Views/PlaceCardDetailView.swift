@@ -167,27 +167,40 @@ struct PlaceCardDetailView: View {
                     }
                     .padding(.horizontal)
 
-                    if let coordinates = card.coordinates {
-                        // `Map(coordinateRegion:)` (the pre-iOS 17 API, driven by
-                        // a `.constant()` binding) is prone to a well-known
-                        // MapKit bug: inside a plain `ScrollView` (not `List`),
-                        // its tiles can fail to finish loading and are left
-                        // permanently blank — with `allowsHitTesting(false)`
-                        // below (this is a static preview, not a real
-                        // interactive map) there's no gesture to ever retrigger
-                        // a retry, so a tile stuck blank stays that way. The
-                        // newer `Map(initialPosition:)` composable API uses a
-                        // different, more reliable rendering path that doesn't
-                        // exhibit this.
-                        Map(initialPosition: .region(MKCoordinateRegion(
-                            center: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude),
-                            span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                        ))) {
-                            Marker(card.name, coordinate: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude))
+                    // The static preview `Map` still needs a real coordinate
+                    // (it has to center on something), but `mapMenu` itself
+                    // doesn't — `GoogleMapsOpener.url(for:)` happily builds a
+                    // plain name/address text-search link with no coordinate
+                    // at all, so gating the whole menu behind `card
+                    // .coordinates` (as this used to) hid the one button that
+                    // could have gotten a card its first coordinate in the
+                    // first place: open Google Maps by name, find the real
+                    // pin there, then bring the confirmed address back via
+                    // "주소로 좌표 확인" in `EditPlaceCardSheet`. The two are
+                    // independent now — each shows on its own.
+                    Group {
+                        if let coordinates = card.coordinates {
+                            // `Map(coordinateRegion:)` (the pre-iOS 17 API, driven by
+                            // a `.constant()` binding) is prone to a well-known
+                            // MapKit bug: inside a plain `ScrollView` (not `List`),
+                            // its tiles can fail to finish loading and are left
+                            // permanently blank — with `allowsHitTesting(false)`
+                            // below (this is a static preview, not a real
+                            // interactive map) there's no gesture to ever retrigger
+                            // a retry, so a tile stuck blank stays that way. The
+                            // newer `Map(initialPosition:)` composable API uses a
+                            // different, more reliable rendering path that doesn't
+                            // exhibit this.
+                            Map(initialPosition: .region(MKCoordinateRegion(
+                                center: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude),
+                                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                            ))) {
+                                Marker(card.name, coordinate: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude))
+                            }
+                            .frame(height: 180)
+                            .padding(.horizontal)
+                            .allowsHitTesting(false)
                         }
-                        .frame(height: 180)
-                        .padding(.horizontal)
-                        .allowsHitTesting(false)
 
                         if card.hasAnyMapLink {
                             mapMenu

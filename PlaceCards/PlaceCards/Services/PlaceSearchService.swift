@@ -37,6 +37,13 @@ struct PlaceDetails {
     var amenities: [String]
     var website: String?
     var phone: String?
+    /// Usually redundant with what the original search result already
+    /// had, but a card that somehow ended up with a `googlePlaceId` and
+    /// no coordinates (a decode/migration edge case, say) can still
+    /// recover one from here — `EditPlaceCardSheet`'s "Google에서
+    /// 새로고침" fills it in the same "only if blank" way as every other
+    /// field on this struct.
+    var coordinates: Coordinates?
 }
 
 protocol PlaceSearchService {
@@ -129,7 +136,7 @@ final class GooglePlacesService: PlaceSearchService {
         request.httpMethod = "GET"
         request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.setValue(
-            "rating,userRatingCount,regularOpeningHours,websiteUri,internationalPhoneNumber",
+            "rating,userRatingCount,regularOpeningHours,websiteUri,internationalPhoneNumber,location",
             forHTTPHeaderField: "X-Goog-FieldMask"
         )
 
@@ -233,12 +240,14 @@ private struct GooglePlaceDetail: Decodable {
     struct OpeningHours: Decodable {
         let weekdayDescriptions: [String]?
     }
+    struct Location: Decodable { let latitude: Double; let longitude: Double }
 
     let rating: Double?
     let userRatingCount: Int?
     let regularOpeningHours: OpeningHours?
     let websiteUri: String?
     let internationalPhoneNumber: String?
+    let location: Location?
 
     func toPlaceDetails() -> PlaceDetails {
         var hours: [String: String]?
@@ -258,7 +267,8 @@ private struct GooglePlaceDetail: Decodable {
             hoursDetail: hours,
             amenities: [],
             website: websiteUri,
-            phone: internationalPhoneNumber
+            phone: internationalPhoneNumber,
+            coordinates: location.map { Coordinates(latitude: $0.latitude, longitude: $0.longitude) }
         )
     }
 }

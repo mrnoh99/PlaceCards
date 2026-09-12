@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (131차) — 좌표 없는 카드에서 "지도에서 열기"가 아예 안 보이던 버그 수정 + 주소로 좌표 확인 기능
+#### Fixed
+- `Views/PlaceCardDetailView.swift`: "지도에서 열기" 메뉴 전체가
+  `card.coordinates != nil`일 때만 보이게 되어 있었음 — 정작 그 메뉴의
+  "Google Maps" 항목은 `GoogleMapsOpener.url(for:)`가 이름/주소
+  텍스트만으로도 링크를 만들 수 있어서 좌표가 필요 없는데, 좌표가
+  없으면 버튼 자체가 안 보여서 좌표를 처음 얻을 유일한 수단(지도
+  앱에서 직접 확인)에 접근할 방법이 없었음. 지도 미리보기(좌표
+  필요)와 "지도에서 열기" 메뉴(`card.hasAnyMapLink`만 있으면 됨)를
+  분리해서, 좌표가 없어도 Google Maps는 열 수 있게 함.
+#### Added
+- `Views/EditPlaceCardSheet.swift`: "좌표" 섹션에 "주소로 좌표 확인"
+  버튼 추가 — AI 없이 `GooglePlacesService.geocodeAddress(_:)`(126·
+  128차에서 쓰던 것과 동일)로 현재 입력된 주소를 좌표로 바꿔줌. 위
+  버그 수정과 합쳐서: Naver로 검증했거나 이름 텍스트로만 저장돼
+  좌표가 없는 카드도 — 상세보기에서 "지도에서 열기"로 실제 위치를
+  확인 → 정확한 주소를 여기 입력 → "주소로 좌표 확인" 누르기 — 로
+  좌표를 확정할 수 있게 됨. `googlePlaceId`가 있어야만 쓸 수 있는
+  기존 "Google에서 새로고침"과 별개 기능(그건 없어도 됨).
+- `Services/PlaceSearchService.swift`: `PlaceDetails`에 `coordinates`
+  추가, `details(placeId:)`의 필드 마스크에 `location` 포함 — 드문
+  경우지만 `googlePlaceId`는 있는데 좌표가 없는 카드도 "Google에서
+  새로고침"으로 좌표를 채울 수 있게(비어 있을 때만).
+
 ### 2026-09-12 (130차) — 장소 추가 화면에서 Google/Naver 지도로 바로 확인
 #### Added
 - `Services/MapOpeners.swift`: `GoogleMapsOpener`에 `PlaceCard` 없이

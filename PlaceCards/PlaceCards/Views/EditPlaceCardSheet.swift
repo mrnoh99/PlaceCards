@@ -77,6 +77,9 @@ struct EditPlaceCardSheet: View {
     @State private var isRefreshingGoogleDetails = false
     @State private var googleRefreshMessage: String?
 
+    @State private var isGeocodingAddress = false
+    @State private var geocodeMessage: String?
+
     /// Tags the AI (photo scan or web search) suggested that aren't
     /// already in `tagsText` — staged here rather than applied straight
     /// away (see `PlaceWebDetails.tags`'s own doc comment for why tags
@@ -248,6 +251,20 @@ struct EditPlaceCardSheet: View {
         }
     }
 
+    /// A card with no `googlePlaceId` (Naver-verified, or saved without
+    /// ever searching — see `createManualPlaceCard`) has no way to get
+    /// coordinates other than typing them in by hand, until now: this
+    /// turns whatever's in the 주소 field into a coordinate the same
+    /// non-AI way `createManualPlaceCard` already does at creation time
+    /// (`GooglePlacesService.geocodeAddress(_:)`) — meant to close the
+    /// loop after using `PlaceCardDetailView`'s "지도에서 열기" (now
+    /// available even with no coordinates yet, since Google Maps only
+    /// needs a name/address text query) to find the real place and copy
+    /// its confirmed address back here. Always overwrites on tap, unlike
+    /// every other "fill in" action on this screen — this one only ever
+    /// runs when the user explicitly asks it to re-derive coordinates
+    /// from whatever address is currently typed, not as a background
+    /// fill-blanks step.
     @ViewBuilder
     private var coordinatesSection: some View {
         Section {
@@ -255,10 +272,27 @@ struct EditPlaceCardSheet: View {
                 .keyboardType(.numbersAndPunctuation)
             TextField("경도".localized, text: $longitudeText)
                 .keyboardType(.numbersAndPunctuation)
+
+            Button {
+                Task { await geocodeFromAddress() }
+            } label: {
+                if isGeocodingAddress {
+                    ProgressView()
+                } else {
+                    Label("주소로 좌표 확인".localized, systemImage: "location.magnifyingglass")
+                }
+            }
+            .disabled(isGeocodingAddress || address.trimmingCharacters(in: .whitespaces).isEmpty)
+
+            if let geocodeMessage {
+                Text(geocodeMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         } header: {
             Text("좌표".localized)
         } footer: {
-            Text("둘 다 비우면 좌표가 삭제됩니다. 하나만 채워지면 원래 값이 그대로 유지됩니다.".localized)
+            Text("둘 다 비우면 좌표가 삭제됩니다. 하나만 채워지면 원래 값이 그대로 유지됩니다. \"주소로 좌표 확인\"은 AI 없이 Google Places로 위 주소를 좌표로 바꿔줍니다 — 상세보기의 \"지도에서 열기\"로 정확한 주소를 먼저 확인한 뒤 여기 채우고 눌러보세요.".localized)
         }
     }
 
@@ -739,6 +773,41 @@ struct EditPlaceCardSheet: View {
         }
     }
 
+    /// Re-derives coordinates from whatever's currently in the 주소
+    /// field, entirely non-AI — the same `geocodeAddress(_:)` call
+    /// `createManualPlaceCard`/`searchViaGoogle` already use elsewhere,
+    /// just triggered by hand here instead of automatically at creation
+    /// time. The one way to give a card coordinates after the fact when
+    /// it has no `googlePlaceId` to refresh from (`refreshFromGooglePlace
+    /// Details()` above needs one) — meant to follow up on manually
+    /// confirming the real address via `PlaceCardDetailView`'s "지도에서
+    /// 열기" (Google Maps opens off name/address text alone, no
+    /// coordinate needed, so it's reachable even before this ever runs).
+    private func geocodeFromAddress() async {
+        let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
+        guard !trimmedAddress.isEmpty else { return }
+        isGeocodingAddress = true
+        geocodeMessage = nil
+        defer { isGeocodingAddress = false }
+
+        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else {
+            geocodeMessage = PlaceCardsError.apiKeyMissing.localizedDescription
+            return
+        }
+
+        do {
+            guard let coordinates = try await GooglePlacesService(apiKey: apiKey).geocodeAddress(trimmedAddress) else {
+                geocodeMessage = "주소로 좌표를 찾지 못했습니다.".localized
+                return
+            }
+            latitudeText = String(coordinates.latitude)
+            longitudeText = String(coordinates.longitude)
+            geocodeMessage = "좌표를 확인했습니다.".localized
+        } catch {
+            geocodeMessage = error.localizedDescription
+        }
+    }
+
     /// This card's own `externalLinks`, formatted as `"<platform>:
     /// <url>"` for `AIProvider.searchWebForDetails` to check first —
     /// blank rows (still being typed in, or never filled in) are dropped
@@ -850,6 +919,13 @@ struct EditPlaceCardSheet: View {
         if let merged = mergeCommaList(details.amenities, into: amenitiesText) {
             amenitiesText = merged
             filledFields.append("편의시설".localized)
+        }
+        if latitudeText.trimmingCharacters(in: .whitespaces).isEmpty,
+           longitudeText.trimmingCharacters(in: .whitespaces).isEmpty,
+           let coordinates = details.coordinates {
+            latitudeText = String(coordinates.latitude)
+            longitudeText = String(coordinates.longitude)
+            filledFields.append("좌표".localized)
         }
 
         return filledFields
