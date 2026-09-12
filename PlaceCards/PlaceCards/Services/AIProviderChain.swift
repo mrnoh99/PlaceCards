@@ -25,6 +25,16 @@ enum AIProviderChain {
         !candidates().isEmpty
     }
 
+    /// A one-line hint for any AI-triggered button, shown instead of (or
+    /// alongside) disabling it when `hasAnyConfiguredProvider()` is
+    /// `false` — steers the user to Settings up front rather than letting
+    /// them tap the button just to learn that. A computed property
+    /// (never a stored constant) so it re-reads the current app language
+    /// on every access, same as every other `.localized` call site.
+    static var unconfiguredHint: String {
+        "설정에서 AI 제공자 키를 등록하면 이 기능을 사용할 수 있습니다.".localized
+    }
+
     /// Runs `operation` against each registered provider in priority
     /// order until one succeeds or all of them have failed. `provider` is
     /// whichever one actually answered, and `isFallback` is `true` only
@@ -62,5 +72,16 @@ extension AIProviderType {
     /// fallback visible instead of a silent switch.
     var fallbackNoteSuffix: String {
         " " + displayName + "로 대체해 가져왔습니다.".localized
+    }
+
+    /// Whether this provider's `searchWebForDetails` is actually
+    /// implemented — mirrors which `AIProvider` conformances override it
+    /// (`ClaudeProvider`/`OpenAIProvider`/`GeminiProvider`) versus which
+    /// fall through to the "not supported" default (`GatewayProvider` —
+    /// see its own comment for why it has none of its own). Surfaced in
+    /// `SettingsView` so this is visible up front rather than only after
+    /// a failed "웹 검색으로 채우기" attempt.
+    var supportsWebSearch: Bool {
+        self != .gateway
     }
 }

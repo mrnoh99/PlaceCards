@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (124차) — AI 미설정/일부 실패 상황 보강
+#### Added
+- `Views/AddPlaceCardView.swift`, `Views/EditPlaceCardSheet.swift`: AI
+  버튼("AI로 장소 분석하기", "AI로 정보 읽어오기", "웹 검색으로
+  채우기")을 등록된 AI 제공자가 하나도 없으면 눌러보기 전에 미리
+  비활성화하고, `AIProviderChain.unconfiguredHint`("설정에서 AI
+  제공자 키를 등록하면 이 기능을 사용할 수 있습니다.")를 바로 옆에
+  보여줌 — 이전에는 눌러야만 "API 키 등록해주세요"를 알 수 있었음.
+- `Services/AIProviderChain.swift`: `AIProviderType.supportsWebSearch`
+  추가(Gateway만 `false`, `GatewayProvider`가 `searchWebForDetails`를
+  구현하지 않는 것과 정확히 대응). `Views/SettingsView.swift`가 이걸
+  읽어 Gateway 키 입력 칸 아래에 "이 제공자는 \"웹 검색으로 채우기\"
+  기능을 지원하지 않습니다 — 사진 스캔에만 쓰입니다."를 미리 표시 —
+  실패해보고 나서야 아는 대신 등록 시점에 바로 알 수 있음.
+- `ViewModels/PlaceCardViewModel.swift`(신규 `infoMessage`),
+  `Views/EditPlaceCardSheet.swift`, `Views/MapScreenshotImportSheet
+  .swift`: 123차에서 "웹 검색으로 채우기"에만 붙였던 대체 제공자 알림
+  ("OOO로 대체해 가져왔습니다")을 나머지 세 곳(신규 카드 만들기의
+  사진 분석, 카드 수정의 사진 분석, "지도에서 열기" 스크린샷 가져오기)
+  에도 확장 — 이름이 바뀌어 확인 알림이 뜨는 경우엔 알림을 누르는
+  시점이 응답 시점과 떨어져 있어 그 한 번만 대체 안내를 생략함.
+
 ### 2026-09-12 (123차) — AI 제공자 여러 개 등록 + 우선순위 기반 자동 대체
 #### Added
 - `Services/AIProviderChain.swift`(신규): 등록된 AI 제공자를 우선순위

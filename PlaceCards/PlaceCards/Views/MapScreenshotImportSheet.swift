@@ -166,16 +166,16 @@ struct MapScreenshotImportSheet: View {
         }
 
         do {
-            let (results, _, _) = try await AIProviderChain.run {
+            let (results, provider, isFallback) = try await AIProviderChain.run {
                 try await $0.analyzePlaces(imageDatas: [jpegData], prompt: defaultPlaceAnalysisPrompt())
             }
-            handleAnalysisResults(results)
+            handleAnalysisResults(results, answeredBy: isFallback ? provider : nil)
         } catch {
             statusMessage = "사진을 카드에 추가했습니다. (정보 읽기 실패: ".localized + error.localizedDescription + ")"
         }
     }
 
-    private func handleAnalysisResults(_ results: [AIAnalysisResult]) {
+    private func handleAnalysisResults(_ results: [AIAnalysisResult], answeredBy fallbackProvider: AIProviderType? = nil) {
         guard !results.isEmpty else {
             statusMessage = "사진을 카드에 추가했습니다. (장소 정보는 찾지 못했습니다.)".localized
             return
@@ -190,14 +190,17 @@ struct MapScreenshotImportSheet: View {
         let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
         let currentName = card.name.trimmingCharacters(in: .whitespaces)
         if !extractedName.isEmpty, !currentName.isEmpty, extractedName != currentName {
+            // Same scope cut as `EditPlaceCardSheet`: the confirm alert's
+            // own button applies the result later, by which point this
+            // call's fallback note is stale context — skipped here.
             pendingResult = result
             isConfirmingNameChange = true
         } else {
-            applyExtracted(result, applyName: true)
+            applyExtracted(result, applyName: true, answeredBy: fallbackProvider)
         }
     }
 
-    private func applyExtracted(_ result: AIAnalysisResult, applyName: Bool) {
+    private func applyExtracted(_ result: AIAnalysisResult, applyName: Bool, answeredBy fallbackProvider: AIProviderType? = nil) {
         if applyName {
             let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
             if !extractedName.isEmpty {
@@ -217,6 +220,9 @@ struct MapScreenshotImportSheet: View {
         storageService.save(card)
         onApplied(card)
         statusMessage = "AI가 읽은 정보를 채웠습니다.".localized
+        if let fallbackProvider {
+            statusMessage? += fallbackProvider.fallbackNoteSuffix
+        }
 
         if let tags = result.details?.tags, !tags.isEmpty {
             let newTags = tags.filter { !card.tags.contains($0) }

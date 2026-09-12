@@ -74,6 +74,13 @@ final class PlaceCardViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isSaving = false
     @Published var errorMessage: String?
+    /// A neutral (non-error) notice — currently only used to tell the
+    /// user their photo scan was answered by a fallback AI provider
+    /// (`AIProviderChain.run(_:)`'s `isFallback`) rather than the one
+    /// they've prioritized first, so the switch isn't silent. Shown
+    /// alongside `errorMessage` in `AddPlaceCardView`, but styled
+    /// differently (not red) since it isn't a failure.
+    @Published var infoMessage: String?
 
     /// Every photo behind the current AI analysis — a screenshot's caption
     /// or map info card can name several places at once, and several
@@ -112,6 +119,7 @@ final class PlaceCardViewModel: ObservableObject {
     func analyzeImages(_ images: [UIImage], rawImageDatas: [Data], source: SourceType) async {
         isLoading = true
         errorMessage = nil
+        infoMessage = nil
         defer { isLoading = false }
 
         selectedImages = images
@@ -130,7 +138,7 @@ final class PlaceCardViewModel: ObservableObject {
         }
 
         do {
-            let (results, _, _) = try await AIProviderChain.run {
+            let (results, provider, isFallback) = try await AIProviderChain.run {
                 try await $0.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
             }
             candidateRows = results.map {
@@ -140,6 +148,8 @@ final class PlaceCardViewModel: ObservableObject {
             }
             if candidateRows.isEmpty {
                 errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요.".localized
+            } else if isFallback {
+                infoMessage = provider.fallbackNoteSuffix.trimmingCharacters(in: .whitespaces)
             }
         } catch {
             errorMessage = error.localizedDescription

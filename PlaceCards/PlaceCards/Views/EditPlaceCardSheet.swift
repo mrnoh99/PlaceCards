@@ -449,7 +449,13 @@ struct EditPlaceCardSheet: View {
                         Text("AI로 정보 읽어오기".localized)
                     }
                 }
-                .disabled(isAnalyzingPhotos)
+                .disabled(isAnalyzingPhotos || !AIProviderChain.hasAnyConfiguredProvider())
+
+                if !AIProviderChain.hasAnyConfiguredProvider() {
+                    Text(AIProviderChain.unconfiguredHint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if let photoAnalysisMessage {
@@ -483,9 +489,13 @@ struct EditPlaceCardSheet: View {
                     Label("웹 검색으로 채우기".localized, systemImage: "magnifyingglass")
                 }
             }
-            .disabled(isSearchingWeb || name.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(isSearchingWeb || name.trimmingCharacters(in: .whitespaces).isEmpty || !AIProviderChain.hasAnyConfiguredProvider())
 
-            if let webSearchMessage {
+            if !AIProviderChain.hasAnyConfiguredProvider() {
+                Text(AIProviderChain.unconfiguredHint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if let webSearchMessage {
                 Text(webSearchMessage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -519,10 +529,10 @@ struct EditPlaceCardSheet: View {
         }
 
         do {
-            let (results, _, _) = try await AIProviderChain.run {
+            let (results, provider, isFallback) = try await AIProviderChain.run {
                 try await $0.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
             }
-            handleAnalysisResults(results)
+            handleAnalysisResults(results, answeredBy: isFallback ? provider : nil)
         } catch {
             photoAnalysisMessage = error.localizedDescription
         }
@@ -537,7 +547,7 @@ struct EditPlaceCardSheet: View {
     /// existing name is a real behavior change; everything else (filling
     /// a blank name/address) applies immediately, matching how every
     /// other "fill in" action elsewhere in this app already behaves.
-    private func handleAnalysisResults(_ results: [AIAnalysisResult]) {
+    private func handleAnalysisResults(_ results: [AIAnalysisResult], answeredBy fallbackProvider: AIProviderType? = nil) {
         guard !results.isEmpty else {
             photoAnalysisMessage = "사진에서 장소 정보를 찾지 못했습니다.".localized
             return
@@ -552,10 +562,14 @@ struct EditPlaceCardSheet: View {
         let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
         let currentName = name.trimmingCharacters(in: .whitespaces)
         if !extractedName.isEmpty, !currentName.isEmpty, extractedName != currentName {
+            // The name-change confirmation happens on a later tap (the
+            // alert's own button), by which point this call's fallback
+            // note would be stale context to carry along — skipped here,
+            // same as every other detail this branch already defers.
             pendingExtractedPlace = result
             isConfirmingNameChange = true
         } else {
-            applyExtractedPlace(result)
+            applyExtractedPlace(result, answeredBy: fallbackProvider)
         }
     }
 
@@ -565,7 +579,7 @@ struct EditPlaceCardSheet: View {
     /// fields a Google Maps screenshot's own info card routinely shows)
     /// instead of a generic "정보를 채웠습니다.", the same reasoning
     /// `applyWebDetails` below already follows for a web search's result.
-    private func applyExtractedPlace(_ result: AIAnalysisResult) {
+    private func applyExtractedPlace(_ result: AIAnalysisResult, answeredBy fallbackProvider: AIProviderType? = nil) {
         var filledFields: [String] = []
 
         let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
@@ -590,6 +604,9 @@ struct EditPlaceCardSheet: View {
         photoAnalysisMessage = filledFields.isEmpty
             ? "사진에서 새로 채울 정보를 찾지 못했습니다.".localized
             : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
+        if let fallbackProvider {
+            photoAnalysisMessage? += fallbackProvider.fallbackNoteSuffix
+        }
     }
 
     private func searchWebForDetails() async {

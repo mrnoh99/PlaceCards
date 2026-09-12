@@ -150,6 +150,12 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
+                    if !provider.supportsWebSearch {
+                        Text("이 제공자는 \"웹 검색으로 채우기\" 기능을 지원하지 않습니다 — 사진 스캔에만 쓰입니다.".localized)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     if provider == .gateway {
                         Picker("모델".localized, selection: $gatewayModelSelection) {
                             ForEach(GatewayModels.all) { model in

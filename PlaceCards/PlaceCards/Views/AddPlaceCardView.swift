@@ -89,6 +89,10 @@ struct AddPlaceCardView: View {
                     Text(errorMessage)
                         .font(.caption)
                         .foregroundStyle(.red)
+                } else if let infoMessage = viewModel.infoMessage {
+                    Text(infoMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .scrollDismissesKeyboard(.interactively)
@@ -203,7 +207,13 @@ struct AddPlaceCardView: View {
                         Text("AI로 장소 분석하기 (".localized + "\(pickedImages.count)" + "장)".localized)
                     }
                 }
-                .disabled(viewModel.isLoading)
+                .disabled(viewModel.isLoading || !AIProviderChain.hasAnyConfiguredProvider())
+
+                if !AIProviderChain.hasAnyConfiguredProvider() {
+                    Text(AIProviderChain.unconfiguredHint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
