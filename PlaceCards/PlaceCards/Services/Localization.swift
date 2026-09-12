@@ -393,6 +393,7 @@ enum Localization {
         "지도 앱, SNS, 직접 찍은 사진에서 발견한 장소를 하나의 카드로 모아보세요.": "Gather places you found in map apps, social media, or photos you took, into a single card.",
         "지도에서 보기": "View on Map",
         "지도에서 열기": "Open in Map",
+        "지도에서 찾기": "Look Up on Map",
         "직접 입력": "Enter manually",
         "직접 입력…": "Enter manually…",
         "찾아낸 중복을 모두 병합했습니다.": "All the duplicates found have been merged.",

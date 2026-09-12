@@ -21,7 +21,19 @@ enum KoreaRegion {
 /// status to distinguish a confidently-located address from a guessed one).
 enum GoogleMapsOpener {
     static func url(for card: PlaceCard) -> URL? {
-        guard let query = query(for: card) else { return nil }
+        url(query: query(for: card))
+    }
+
+    /// The saved-card-independent counterpart to `url(for:)` — for a
+    /// place that isn't (or isn't yet) a `PlaceCard` at all, like an
+    /// `AddPlaceCardView` candidate row a user wants to eyeball in the
+    /// real Google Maps app before verifying it against Google Places.
+    static func url(name: String, address: String) -> URL? {
+        url(query: query(name: name, address: address))
+    }
+
+    private static func url(query: String?) -> URL? {
+        guard let query else { return nil }
         var components = URLComponents(string: "https://www.google.com/maps/search/")
         components?.queryItems = [
             URLQueryItem(name: "api", value: "1"),
@@ -40,8 +52,15 @@ enum GoogleMapsOpener {
     /// universal link only when nothing answers it (see `open(for:using:)`),
     /// avoids that path entirely whenever the app is actually installed.
     static func appSchemeURL(for card: PlaceCard) -> URL? {
-        guard let query = query(for: card),
-              let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+        appSchemeURL(query: query(for: card))
+    }
+
+    static func appSchemeURL(name: String, address: String) -> URL? {
+        appSchemeURL(query: query(name: name, address: address))
+    }
+
+    private static func appSchemeURL(query: String?) -> URL? {
+        guard let query, let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
             return nil
         }
         return URL(string: "comgooglemaps://?q=\(encoded)")
@@ -54,23 +73,40 @@ enum GoogleMapsOpener {
     /// `url(for:)` straight to `openURL` should use this instead. See
     /// `appSchemeURL(for:)` for why.
     static func open(for card: PlaceCard, using openURL: OpenURLAction) {
-        if let appURL = appSchemeURL(for: card) {
+        open(appURL: appSchemeURL(for: card), webURL: url(for: card), using: openURL)
+    }
+
+    /// The saved-card-independent counterpart to `open(for:using:)`.
+    static func open(name: String, address: String, using openURL: OpenURLAction) {
+        open(appURL: appSchemeURL(name: name, address: address), webURL: url(name: name, address: address), using: openURL)
+    }
+
+    private static func open(appURL: URL?, webURL: URL?, using openURL: OpenURLAction) {
+        if let appURL {
             openURL(appURL) { accepted in
-                guard !accepted, let webURL = url(for: card) else { return }
+                guard !accepted, let webURL else { return }
                 openURL(webURL)
             }
-        } else if let webURL = url(for: card) {
+        } else if let webURL {
             openURL(webURL)
         }
     }
 
     private static func query(for card: PlaceCard) -> String? {
-        let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
+        query(name: card.name, address: card.address, coordinates: card.coordinates)
+    }
+
+    private static func query(name: String, address: String) -> String? {
+        query(name: name, address: address, coordinates: nil)
+    }
+
+    private static func query(name: String, address: String, coordinates: Coordinates?) -> String? {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else {
-            guard let coordinates = card.coordinates else { return nil }
+            guard let coordinates else { return nil }
             return "\(coordinates.latitude),\(coordinates.longitude)"
         }
-        let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
+        let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
         return trimmedAddress.isEmpty ? trimmedName : "\(trimmedName), \(trimmedAddress)"
     }
 }
@@ -105,6 +141,28 @@ enum NaverMapOpener {
             URLQueryItem(name: "lat", value: "\(coordinates.latitude)"),
             URLQueryItem(name: "lng", value: "\(coordinates.longitude)"),
             URLQueryItem(name: "name", value: card.name),
+            URLQueryItem(name: "appname", value: appName),
+        ]
+        return components?.url
+    }
+
+    /// A plain keyword search, unlike `url(for:)` above (which needs an
+    /// exact coordinate, since `/place` pins one specific point) — for a
+    /// place with no verified coordinate yet, like an `AddPlaceCardView`
+    /// candidate row a user wants to eyeball in the real Naver Map app
+    /// before verifying it. Confirmed against NAVER Cloud Platform's own
+    /// URL Scheme reference (`nmap://search?query=<keyword>&appname=
+    /// <bundle id>`, both required) rather than guessed — this project
+    /// has been burned before by guessing an external API's shape
+    /// (`NaverPlaceSearchService`'s original endpoint/headers).
+    static func searchURL(name: String, address: String) -> URL? {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return nil }
+        let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
+        let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName) \(trimmedAddress)"
+        var components = URLComponents(string: "nmap://search")
+        components?.queryItems = [
+            URLQueryItem(name: "query", value: query),
             URLQueryItem(name: "appname", value: appName),
         ]
         return components?.url

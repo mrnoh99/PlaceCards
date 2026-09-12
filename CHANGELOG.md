@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (130차) — 장소 추가 화면에서 Google/Naver 지도로 바로 확인
+#### Added
+- `Services/MapOpeners.swift`: `GoogleMapsOpener`에 `PlaceCard` 없이
+  이름/주소만으로 열 수 있는 `url(name:address:)`/`appSchemeURL(name:
+  address:)`/`open(name:address:using:)` 오버로드 추가(기존 `PlaceCard`
+  기반 함수들은 내부적으로 이 새 함수들에 위임하도록 리팩터링만 하고
+  동작은 그대로). `NaverMapOpener`에는 `searchURL(name:address:)`
+  추가 — 기존 `url(for:)`는 정확한 좌표가 있어야 하는 `/place` 방식이라
+  아직 좌표가 없는 후보 행에는 못 쓰는데, 이건 `nmap://search?query=
+  ...&appname=...`(NAVER Cloud Platform 공식 URL Scheme 문서로 확인 —
+  이 프로젝트가 예전에 Naver API 형식을 추측했다가 겪은 일 때문에 짐작
+  대신 문서로 재확인) 키워드 검색 방식이라 좌표 없이도 동작.
+- `Views/AddPlaceCardView.swift`: 장소 추가 화면의 각 후보 행에
+  "Google에서 검색"/"Naver에서 검색"(API로 검증) 버튼 옆에 "지도에서
+  찾기" 메뉴 추가 — Google Maps/Naver Map 앱을 직접 열어 그 행의 현재
+  이름/주소로 검색해준다. API 검색과 별개로, 실제 지도 앱에서 눈으로
+  직접 확인하고 싶을 때(API 검색이 안 나오거나 틀렸을 때, 혹은 검색
+  전에 먼저) 쓰는 용도 — 행 자체에 정보를 자동으로 채워넣지는 않음
+  (자세한 이유는 이 세션 답변의 "여러 장소 검증 중" 설계 메모 참고).
+
 ### 2026-09-12 (129차) — 공유로 받은 사진의 GPS 위치 추정이 조용히 실패하던 버그 수정
 #### Fixed
 - `PlaceCardsShare/ShareViewController.swift`: 공유 시트로 사진을

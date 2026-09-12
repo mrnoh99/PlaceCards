@@ -26,6 +26,7 @@ struct AddPlaceCardView: View {
     @StateObject private var viewModel: PlaceCardViewModel
     @EnvironmentObject private var navigation: AppNavigation
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     @State private var photoPickerItems: [PhotosPickerItem] = []
     @State private var pickedImages: [UIImage] = []
@@ -316,29 +317,56 @@ struct AddPlaceCardView: View {
                     .foregroundStyle(.green)
                 }
 
-                Button {
-                    Task { await viewModel.search(rowID: row.wrappedValue.id) }
-                } label: {
-                    if row.wrappedValue.isSearching {
-                        ProgressView()
-                    } else {
-                        // Which backend this actually verifies against
-                        // isn't up to the user's choice here — a Naver
-                        // Map share always checks against Naver's own
-                        // listings (see `PlaceCardViewModel.search(rowID:)`)
-                        // — so the button's own label should say which
-                        // one it's really about to call rather than always
-                        // claiming Google, which was actively misleading
-                        // once this button could mean either.
-                        Text(
-                            row.wrappedValue.originSource == .naverMapShare
-                                ? "Naver에서 검색".localized
-                                : "Google에서 검색".localized
-                        )
+                HStack(spacing: 12) {
+                    Button {
+                        Task { await viewModel.search(rowID: row.wrappedValue.id) }
+                    } label: {
+                        if row.wrappedValue.isSearching {
+                            ProgressView()
+                        } else {
+                            // Which backend this actually verifies against
+                            // isn't up to the user's choice here — a Naver
+                            // Map share always checks against Naver's own
+                            // listings (see `PlaceCardViewModel.search(rowID:)`)
+                            // — so the button's own label should say which
+                            // one it's really about to call rather than always
+                            // claiming Google, which was actively misleading
+                            // once this button could mean either.
+                            Text(
+                                row.wrappedValue.originSource == .naverMapShare
+                                    ? "Naver에서 검색".localized
+                                    : "Google에서 검색".localized
+                            )
+                        }
                     }
+                    .disabled(row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty || row.wrappedValue.isSearching)
+
+                    // A read-only detour to the real map app for this row's
+                    // current name/address, entirely separate from
+                    // "Google/Naver에서 검색" above — that verifies against
+                    // the search API and fills the row's own fields; this
+                    // just opens the actual app so the user can eyeball the
+                    // place themselves (useful when the API search above
+                    // comes back empty/wrong, or before ever trying it).
+                    // Doesn't feed anything back into the row on its own —
+                    // see this app's own design notes on why capturing a
+                    // screenshot back into one specific still-unsaved row
+                    // isn't attempted automatically.
+                    Menu {
+                        Button("Google Maps") {
+                            GoogleMapsOpener.open(name: row.wrappedValue.name, address: row.wrappedValue.address, using: openURL)
+                        }
+                        if let url = NaverMapOpener.searchURL(name: row.wrappedValue.name, address: row.wrappedValue.address) {
+                            Button("Naver Map") {
+                                openURL(url)
+                            }
+                        }
+                    } label: {
+                        Label("지도에서 찾기".localized, systemImage: "map")
+                    }
+                    .disabled(row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 .font(.caption)
-                .disabled(row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty || row.wrappedValue.isSearching)
 
                 ForEach(row.wrappedValue.searchResults) { result in
                     Button {
