@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (134차) — 장소가 여러 곳으로 나뉘면 사진 GPS를 아예 사용하지 않도록 수정
+#### Fixed
+- `ViewModels/PlaceCardViewModel.swift`: `analyzeImages()`가 AI 스캔
+  결과 장소가 2곳 이상으로 나뉘어도(`results.count > 1`)
+  `photoLocationHint`를 여전히 첫 사진의 GPS로 남겨두고 있었음(133차
+  당시 의도적으로 남긴 동작) — 어느 사진이 어느 장소인지 매핑이 없는
+  상태에서 임의의 한 사진 GPS를 모든 행이 공유하는 위치 힌트/검증
+  기준으로 쓰는 것은 잘못된 장소에 잘못된 위치를 붙일 수 있음. 장소가
+  여러 곳으로 나뉜 경우엔 `photoLocationHint = nil`로 명시적으로
+  비움 — 이 경우 각 행은 AI의 사진별 텍스트/이름 인식 결과에만
+  의존하고, `searchViaGoogle`의 위치 편향/ground-truth 검증과
+  `AddPlaceCardView`의 "사진 위치로 보기" 메뉴, `createManualPlaceCard`의
+  좌표 폴백 모두 자동으로 이 배치에 한해 비활성화됨(기존 옵셔널
+  처리 그대로 활용). 장소가 정확히 1곳으로 판단된 경우의 GPS 평균
+  로직(133차)은 그대로 유지.
+
 ### 2026-09-12 (133차) — 같은 장소 사진 여러 장이면 GPS 평균 + 사진 위치를 지도에서 직접 보기
 #### Added
 - `ViewModels/PlaceCardViewModel.swift`: 사진 여러 장을 한 번에

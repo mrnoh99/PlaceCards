@@ -93,15 +93,16 @@ final class PlaceCardViewModel: ObservableObject {
     /// (and, when nothing else is available, as the actual ground-truth
     /// coordinate for verifying a name search — see `searchViaGoogle`)
     /// so an on-site photo's own location narrows/checks the search
-    /// instead of a blind text query. Shared across every row in the
-    /// batch for the same reason their media is: there's no reliable way
-    /// to know which specific photo named which specific place — *except*
-    /// when the whole batch resolved to exactly one place, in which case
-    /// `analyzeImages` averages every photo's GPS instead of just taking
-    /// the first: several photos of the same place taken from slightly
-    /// different spots (walking up to it, standing across the street)
-    /// average out sensor/positioning noise better than any single one
-    /// of them alone.
+    /// instead of a blind text query. Only ever set when the whole batch
+    /// resolves to exactly one place — there's no reliable way to know
+    /// which specific photo named which specific place when the batch
+    /// yields several, so photo GPS is never used as a shared hint across
+    /// rows in that case; those rows rely solely on the AI's per-photo
+    /// name/text recognition. For the single-place case, `analyzeImages`
+    /// averages every photo's GPS instead of just taking the first:
+    /// several photos of the same place taken from slightly different
+    /// spots (walking up to it, standing across the street) average out
+    /// sensor/positioning noise better than any single one of them alone.
     @Published var photoLocationHint: Coordinates?
 
     private let storageService: StorageService
@@ -159,6 +160,12 @@ final class PlaceCardViewModel: ObservableObject {
             // to average their GPS instead of just trusting the first.
             if results.count == 1, photoCoordinates.count > 1 {
                 photoLocationHint = Self.averageCoordinate(photoCoordinates)
+            } else if results.count > 1 {
+                // Multiple places found: rows may each come from a different
+                // photo, so no single photo's GPS can stand in as a shared
+                // hint/ground-truth for all of them. Rely on the AI's
+                // per-photo name/text recognition alone.
+                photoLocationHint = nil
             }
             if candidateRows.isEmpty {
                 errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요.".localized
