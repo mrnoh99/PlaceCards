@@ -2,6 +2,60 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (138차) — 남은 감사 항목(B/A/C/F) 모두 구현: 사진 GPS 활용 경로 전면 정리
+지난 "남아 있는 문제를 정리해라" 감사에서 나온 7개 항목(A-G) 중 E는
+134~137차에서 이미 처리했고, 이번에 B·A·C·F를 모두 구현. G(Share
+Extension 실기기 검증)는 이 환경에 Xcode/Swift 툴체인이 없어 여전히
+불가능.
+#### Fixed
+- **B (`Views/EditPlaceCardSheet.swift`)**: `loadPhotos(_:)`가
+  `PhotosPickerItem.loadTransferable(type: Data.self)`로 받은 원본
+  `Data`를 `UIImage`로 디코딩한 뒤 버리고 있어서, `analyzePickedPhotos()`가
+  다시 만드는 JPEG는 이미 EXIF가 없는 상태였음(Share Extension의
+  129차 버그와 같은 부류지만 원인은 다름 — 데이터 재인코딩이 아니라
+  애초에 보존하지 않음). `pickedImageDatas: [Data]`를 `pickedImages`와
+  같은 인덱스로 나란히 유지하도록 수정(`AddPlaceCardView.pickedImageDatas`와
+  동일한 패턴). 장소가 정확히 1곳으로 확인되면 사진 GPS(여러 장이면
+  평균)를 AI가 읽은 주소와 대조해(136차와 동일한 `verifiedPhotoLocation
+  Candidate` 로직) 빈 위도/경도 필드만 채우고, 이름 변경 확인
+  알럿으로 미뤄지는 경우엔 `pendingPhotoLocationCandidate`/`pendingPhoto
+  LocationNote`로 함께 들고 감.
+- **A (`ViewModels/PlaceCardViewModel.swift`, `Views/AddPlaceCardView.swift`)**:
+  `photoLocationHint`가 `analyzeImages()`(AI 분석) 안에서만 계산되어,
+  사용자가 사진을 고르고 "AI로 장소 분석하기"를 건너뛴 채 "+ 장소
+  추가"로 바로 가면 GPS가 전혀 추출되지 않았음. 새
+  `primePhotoLocationHintIfNeeded(rawImageDatas:)`를 "+ 장소 추가"
+  버튼 탭 시 `addBlankRow()` 직전에 호출 — 그 시점엔 새로 만드는
+  행 하나에 지금 담아둔 사진들이 모두 쓰이는 것이 명확하므로(장소가
+  몇 곳인지 gate할 필요가 없음) 여러 장이면 평균, 이미 값이 있으면
+  덮어쓰지 않음. 대조할 주소가 아직 없으므로 항상 "대조할 장소
+  주소가 없어 사진의 위치 정보만 사용합니다"를 `infoMessage`로 안내.
+- **C (`Views/MapScreenshotImportSheet.swift`)**: `imageData: Data`는
+  갖고 있었지만(`MediaStore.saveImage`, AI 분석에 사용) `PhotoMetadata
+  .extractLocation`을 전혀 호출하지 않아 `card.coordinates`가 이 흐름에서
+  절대 채워지지 않았음. 지도 앱 스크린샷 자체는 보통 GPS가 없지만
+  (iOS 스크린샷은 위치 메타데이터가 없음), 같은 경로로 공유된 일반
+  사진이었을 가능성까지 고려해 추출을 추가 — 카드에 좌표가 아직
+  없고 AI가 장소를 정확히 1곳으로 판단했을 때만(다른 필드들과 같은
+  "모호하면 채우지 않음" 원칙), 사진 GPS를 AI가 읽은 주소(또는
+  카드의 기존 주소)와 대조해 `card.coordinates`를 채움. 이름 변경
+  확인 알럿 경로도 B와 동일하게 `pendingPhotoLocationCandidate`로
+  들고 감.
+- **F (`ViewModels/PlaceCardViewModel.swift`)**: `fetchGooglePhotoFallback`이
+  넘겨받은 좌표가 지오코딩된 주소에서 왔든 `photoLocationHint`(사진
+  GPS)에서 왔든 구분 없이 항상 `maxAddressMatchDistanceMeters`(100m)로
+  검증하고 있어서, `searchViaGoogle`이 같은 종류의 좌표에 적용하는
+  느슨한 500m(`maxPhotoLocationMatchDistanceMeters`)와 불일치했음.
+  `groundTruthRadius` 매개변수를 추가(기본값 100m, 기존 호출부는
+  그대로)하고, `createManualPlaceCard`가 좌표를 `photoLocationHint`에서
+  가져온 경우엔 500m를 넘기도록 수정.
+
+#### Changed
+- `Services/PlaceCardSorting.swift`: `PlaceCardViewModel`에만 있던
+  `averageCoordinate(_:)`를 `Coordinates.average(_:)`로 옮겨 이미
+  있던 `Coordinates` 확장에 합침 — B/C 구현에 같은 평균 로직이 다시
+  필요해져서 뷰모델에 갇혀 있던 것을 공용화.
+
 ### 2026-09-12 (137차) — Naver 경로 거리 검증 추가 + 사진 GPS 단독 사용 시 안내
 #### Added
 - `ViewModels/PlaceCardViewModel.swift`: `search(rowID:)`의 Naver

@@ -230,7 +230,10 @@ struct AddPlaceCardView: View {
                 }
             }
 
-            Button("+ 장소 추가".localized) { viewModel.addBlankRow() }
+            Button("+ 장소 추가".localized) {
+                viewModel.primePhotoLocationHintIfNeeded(rawImageDatas: pickedImageDatas)
+                viewModel.addBlankRow()
+            }
         } header: {
             Text("추가할 장소 (".localized + "\(viewModel.selectedRowCount)" + "개 선택)".localized)
         } footer: {

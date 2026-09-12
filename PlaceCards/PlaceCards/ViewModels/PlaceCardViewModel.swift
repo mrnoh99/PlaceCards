@@ -170,7 +170,7 @@ final class PlaceCardViewModel: ObservableObject {
             var notes: [String] = []
             if results.count == 1 {
                 let candidate = photoCoordinates.count > 1
-                    ? Self.averageCoordinate(photoCoordinates)
+                    ? Coordinates.average(photoCoordinates)
                     : photoCoordinates.first
                 if let candidate {
                     let (verified, note) = await verifiedPhotoLocationHint(candidate, placeAddress: results.first?.address)
@@ -221,20 +221,31 @@ final class PlaceCardViewModel: ObservableObject {
         return (nil, "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
     }
 
-    /// A plain arithmetic mean of latitude/longitude — accurate enough at
-    /// the scale this matters for (several photos of one place, taken at
-    /// most a couple hundred meters apart); the sphere's curvature only
-    /// meaningfully distorts a plain average over much larger distances
-    /// than that, so there's no need for a proper geodesic mean here.
-    private static func averageCoordinate(_ coordinates: [Coordinates]) -> Coordinates? {
-        guard !coordinates.isEmpty else { return nil }
-        let latitude = coordinates.map(\.latitude).reduce(0, +) / Double(coordinates.count)
-        let longitude = coordinates.map(\.longitude).reduce(0, +) / Double(coordinates.count)
-        return Coordinates(latitude: latitude, longitude: longitude)
-    }
-
     func addBlankRow() {
         candidateRows.append(PlaceCandidateRow(name: "", address: ""))
+    }
+
+    /// `photoLocationHint` is otherwise only ever computed inside
+    /// `analyzeImages()` — a user who picks photos and goes straight to
+    /// "+ 장소 추가" without ever running AI analysis would leave it `nil`
+    /// forever despite `rawImageDatas` holding EXIF-intact bytes. Called
+    /// from that same "+ 장소 추가" action instead, right before
+    /// `addBlankRow()`: at that point exactly one new row is being
+    /// created from the currently staged photos, so there's no AI result
+    /// count to gate on the way `analyzeImages()` has to — the photos are
+    /// unambiguously all meant for this one row. Never overwrites an
+    /// already-set hint (from an AI run earlier this batch), and averages
+    /// when there's more than one photo, same as the single-place case in
+    /// `analyzeImages()`. There's no place name/address yet to verify
+    /// against (the row is still blank), so this always surfaces as an
+    /// unverified, photo-GPS-only hint via `infoMessage`.
+    func primePhotoLocationHintIfNeeded(rawImageDatas: [Data]) {
+        guard photoLocationHint == nil else { return }
+        let photoCoordinates = rawImageDatas.compactMap(PhotoMetadata.extractLocation)
+        guard let candidate = photoCoordinates.count > 1 ? Coordinates.average(photoCoordinates) : photoCoordinates.first
+        else { return }
+        photoLocationHint = candidate
+        infoMessage = "대조할 장소 주소가 없어 사진의 위치 정보만 사용합니다.".localized
     }
 
     func removeRow(id: UUID) {
@@ -739,8 +750,16 @@ final class PlaceCardViewModel: ObservableObject {
     /// over having a photo doesn't mean it's a photo *of this place*.
     /// Silently skipped (returns `nil`) on any failure — no coordinates,
     /// no Google API key, no match, no photo on the match — same as
-    /// every other best-effort media step in this app.
-    private func fetchGooglePhotoFallback(name: String, address: String, coordinates: Coordinates?) async -> MediaItem? {
+    /// every other best-effort media step in this app. `groundTruthRadius`
+    /// defaults to the tight `maxAddressMatchDistanceMeters`, right for a
+    /// search result's or geocoded address's own coordinate; a caller
+    /// passing a `photoLocationHint`-derived coordinate instead should
+    /// pass `maxPhotoLocationMatchDistanceMeters`, same looser reasoning
+    /// `searchViaGoogle` already applies to that same kind of coordinate.
+    private func fetchGooglePhotoFallback(
+        name: String, address: String, coordinates: Coordinates?,
+        groundTruthRadius: CLLocationDistance = Self.maxAddressMatchDistanceMeters
+    ) async -> MediaItem? {
         guard let coordinates,
               let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }
         let googleService = GooglePlacesService(apiKey: apiKey)
@@ -753,7 +772,7 @@ final class PlaceCardViewModel: ObservableObject {
                 guard let candidateCoordinates = candidate.coordinates else { return false }
                 return groundTruth.distance(
                     from: CLLocation(latitude: candidateCoordinates.latitude, longitude: candidateCoordinates.longitude)
-                ) <= Self.maxAddressMatchDistanceMeters
+                ) <= groundTruthRadius
             }),
             let photoName = match.photoName
         else { return nil }
@@ -811,19 +830,22 @@ final class PlaceCardViewModel: ObservableObject {
         // No address to geocode (or it didn't resolve to anything) — a
         // photo's own EXIF GPS is real evidence of where it was taken,
         // not a guess, so it's worth keeping even when it's the *only*
-        // location info this card has. `photoLocationHint` is shared
-        // across every row a batch of photos produced (see its own
-        // property comment), so this can be wrong when several photos of
-        // different places were analyzed together and this particular
-        // row didn't come from the one photo the hint is actually from —
-        // a real but narrower risk than saving the card with no location
-        // at all.
+        // location info this card has. `photoLocationHint` is only ever
+        // set for a confirmed single-place batch (see its own property
+        // comment) — never left over from an ambiguous multi-place one —
+        // so unlike before this no longer risks attaching the wrong
+        // photo's GPS to this row.
+        var coordinatesFromPhotoHint = false
         if card.coordinates == nil, let photoLocationHint {
             card.coordinates = photoLocationHint
+            coordinatesFromPhotoHint = true
         }
 
         if card.media.allItems.isEmpty, let coordinates = card.coordinates,
-           let item = await fetchGooglePhotoFallback(name: name, address: address, coordinates: coordinates) {
+           let item = await fetchGooglePhotoFallback(
+               name: name, address: address, coordinates: coordinates,
+               groundTruthRadius: coordinatesFromPhotoHint ? Self.maxPhotoLocationMatchDistanceMeters : Self.maxAddressMatchDistanceMeters
+           ) {
             card.media.officialPhotos.append(item)
         }
 

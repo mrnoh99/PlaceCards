@@ -92,6 +92,18 @@ extension Array where Element == PlaceCard {
 }
 
 extension Coordinates {
+    /// A plain arithmetic mean of latitude/longitude — accurate enough at
+    /// the scale this matters for (several photos of one place, taken at
+    /// most a couple hundred meters apart); the sphere's curvature only
+    /// meaningfully distorts a plain average over much larger distances
+    /// than that, so there's no need for a proper geodesic mean here.
+    static func average(_ coordinates: [Coordinates]) -> Coordinates? {
+        guard !coordinates.isEmpty else { return nil }
+        let latitude = coordinates.map(\.latitude).reduce(0, +) / Double(coordinates.count)
+        let longitude = coordinates.map(\.longitude).reduce(0, +) / Double(coordinates.count)
+        return Coordinates(latitude: latitude, longitude: longitude)
+    }
+
     /// A short "250m"/"1.3km" label for the distance from `reference` to
     /// `coordinates`, shown next to a card once the list is sorted by
     /// distance — mirrors Peragra's `PlaceRowView.formattedDistance`

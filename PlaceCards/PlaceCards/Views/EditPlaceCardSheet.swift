@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import CoreLocation
 
 /// One editable row of `PlaceCard.hoursDetail` (a day and its hours text,
 /// e.g. "월요일" → "09:00-18:00") — that field is a plain `[String:
@@ -27,6 +28,12 @@ private struct HoursEntry: Identifiable {
 /// all, and a name that would actually change asks for confirmation
 /// first (see `handleAnalysisResults`).
 struct EditPlaceCardSheet: View {
+    /// Same radius/reasoning as `PlaceCardViewModel.maxPhotoLocationMatch
+    /// DistanceMeters` — a photo's own EXIF GPS reflects wherever the
+    /// phone was standing, not necessarily the place's own doorstep, so
+    /// this stays looser than an address-based match would need.
+    private static let maxPhotoLocationMatchDistanceMeters: CLLocationDistance = 500
+
     let card: PlaceCard
     var onSave: (PlaceCard) -> Void
 
@@ -65,10 +72,23 @@ struct EditPlaceCardSheet: View {
 
     @State private var photoPickerItems: [PhotosPickerItem] = []
     @State private var pickedImages: [UIImage] = []
+    /// The original, unmodified bytes for each of `pickedImages` (same
+    /// index) — kept alongside since EXIF (read for `analyzePickedPhotos()`'s
+    /// own photo-GPS auto-fill) doesn't survive being decoded into a
+    /// `UIImage`. Mirrors `AddPlaceCardView.pickedImageDatas`.
+    @State private var pickedImageDatas: [Data] = []
     @State private var isLoadingPhotos = false
     @State private var isAnalyzingPhotos = false
     @State private var photoAnalysisMessage: String?
     @State private var pendingExtractedPlace: AIAnalysisResult?
+    /// Whatever `analyzePickedPhotos()` verified as this batch's own photo
+    /// GPS (and its accompanying note, if any), carried alongside
+    /// `pendingExtractedPlace` across the name-change confirmation alert
+    /// since `applyExtractedPlace` (where they're actually used) only runs
+    /// once the user picks "변경" — see
+    /// `verifiedPhotoLocationCandidate(_:placeAddress:)`.
+    @State private var pendingPhotoLocationCandidate: Coordinates?
+    @State private var pendingPhotoLocationNote: String?
     @State private var isConfirmingNameChange = false
 
     @State private var isSearchingWeb = false
@@ -190,11 +210,20 @@ struct EditPlaceCardSheet: View {
             ) {
                 Button("변경".localized) {
                     if let pendingExtractedPlace {
-                        applyExtractedPlace(pendingExtractedPlace)
+                        applyExtractedPlace(
+                            pendingExtractedPlace,
+                            photoLocationCandidate: pendingPhotoLocationCandidate, photoLocationNote: pendingPhotoLocationNote
+                        )
                     }
                     pendingExtractedPlace = nil
+                    pendingPhotoLocationCandidate = nil
+                    pendingPhotoLocationNote = nil
                 }
-                Button("취소".localized, role: .cancel) { pendingExtractedPlace = nil }
+                Button("취소".localized, role: .cancel) {
+                    pendingExtractedPlace = nil
+                    pendingPhotoLocationCandidate = nil
+                    pendingPhotoLocationNote = nil
+                }
             } message: {
                 Text(nameChangeAlertMessage)
             }
@@ -503,6 +532,7 @@ struct EditPlaceCardSheet: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                                 Button {
                                     pickedImages.remove(at: index)
+                                    pickedImageDatas.remove(at: index)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .symbolRenderingMode(.palette)
@@ -628,6 +658,7 @@ struct EditPlaceCardSheet: View {
         for item in items {
             if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
                 pickedImages.append(image)
+                pickedImageDatas.append(data)
             }
         }
     }
@@ -649,10 +680,60 @@ struct EditPlaceCardSheet: View {
             let (results, provider, isFallback) = try await AIProviderChain.run {
                 try await $0.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
             }
-            handleAnalysisResults(results, answeredBy: isFallback ? provider : nil)
+            // Only ever computed for a confirmed single-place result — see
+            // `handleAnalysisResults`, which applies nothing at all when
+            // the batch resolves to several places, so there's no risk of
+            // this candidate being misattributed across different places'
+            // rows the way `PlaceCardViewModel.analyzeImages` had to guard
+            // against.
+            var photoLocationCandidate: Coordinates?
+            var photoLocationNote: String?
+            if results.count == 1 {
+                let photoCoordinates = pickedImageDatas.compactMap(PhotoMetadata.extractLocation)
+                let candidate = photoCoordinates.count > 1 ? Coordinates.average(photoCoordinates) : photoCoordinates.first
+                if let candidate {
+                    (photoLocationCandidate, photoLocationNote) = await verifiedPhotoLocationCandidate(
+                        candidate, placeAddress: results[0].address
+                    )
+                }
+            }
+            handleAnalysisResults(
+                results, answeredBy: isFallback ? provider : nil,
+                photoLocationCandidate: photoLocationCandidate, photoLocationNote: photoLocationNote
+            )
         } catch {
             photoAnalysisMessage = error.localizedDescription
         }
+    }
+
+    /// Cross-checks a candidate photo-GPS coordinate against the AI-
+    /// identified place's own address before trusting it for auto-fill —
+    /// mirrors `PlaceCardViewModel.verifiedPhotoLocationHint(_:
+    /// placeAddress:)`; kept as its own small copy here rather than shared
+    /// since this view has no `PlaceCardViewModel` of its own to call it
+    /// on. Returns `(candidate, nil)` on agreement; `(candidate, note)`
+    /// when there's no address to check against or it fails to geocode
+    /// (nothing to contradict the photo, so it's still trusted, but the
+    /// note tells the user this rests on the photo's GPS alone); and
+    /// `(nil, note)` when the two disagree by more than
+    /// `maxPhotoLocationMatchDistanceMeters`.
+    private func verifiedPhotoLocationCandidate(
+        _ candidate: Coordinates, placeAddress: String?
+    ) async -> (coordinates: Coordinates?, note: String?) {
+        let trimmedAddress = (placeAddress ?? address).trimmingCharacters(in: .whitespaces)
+        guard !trimmedAddress.isEmpty,
+            let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty,
+            let addressLocation = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(trimmedAddress)
+        else {
+            return (candidate, "대조할 장소 주소가 없어 사진의 위치 정보만 사용합니다.".localized)
+        }
+
+        let distance = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
+            .distance(from: CLLocation(latitude: candidate.latitude, longitude: candidate.longitude))
+        if distance <= Self.maxPhotoLocationMatchDistanceMeters {
+            return (candidate, nil)
+        }
+        return (nil, "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
     }
 
     /// Unlike `AddPlaceCardView` (where several places found in one photo
@@ -664,7 +745,10 @@ struct EditPlaceCardSheet: View {
     /// existing name is a real behavior change; everything else (filling
     /// a blank name/address) applies immediately, matching how every
     /// other "fill in" action elsewhere in this app already behaves.
-    private func handleAnalysisResults(_ results: [AIAnalysisResult], answeredBy fallbackProvider: AIProviderType? = nil) {
+    private func handleAnalysisResults(
+        _ results: [AIAnalysisResult], answeredBy fallbackProvider: AIProviderType? = nil,
+        photoLocationCandidate: Coordinates? = nil, photoLocationNote: String? = nil
+    ) {
         guard !results.isEmpty else {
             photoAnalysisMessage = "사진에서 장소 정보를 찾지 못했습니다.".localized
             return
@@ -682,11 +766,18 @@ struct EditPlaceCardSheet: View {
             // The name-change confirmation happens on a later tap (the
             // alert's own button), by which point this call's fallback
             // note would be stale context to carry along — skipped here,
-            // same as every other detail this branch already defers.
+            // same as every other detail this branch already defers. The
+            // photo location candidate/note are carried along instead,
+            // since `applyExtractedPlace` still needs them once confirmed.
             pendingExtractedPlace = result
+            pendingPhotoLocationCandidate = photoLocationCandidate
+            pendingPhotoLocationNote = photoLocationNote
             isConfirmingNameChange = true
         } else {
-            applyExtractedPlace(result, answeredBy: fallbackProvider)
+            applyExtractedPlace(
+                result, answeredBy: fallbackProvider,
+                photoLocationCandidate: photoLocationCandidate, photoLocationNote: photoLocationNote
+            )
         }
     }
 
@@ -696,7 +787,10 @@ struct EditPlaceCardSheet: View {
     /// fields a Google Maps screenshot's own info card routinely shows)
     /// instead of a generic "정보를 채웠습니다.", the same reasoning
     /// `applyWebDetails` below already follows for a web search's result.
-    private func applyExtractedPlace(_ result: AIAnalysisResult, answeredBy fallbackProvider: AIProviderType? = nil) {
+    private func applyExtractedPlace(
+        _ result: AIAnalysisResult, answeredBy fallbackProvider: AIProviderType? = nil,
+        photoLocationCandidate: Coordinates? = nil, photoLocationNote: String? = nil
+    ) {
         var filledFields: [String] = []
 
         let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
@@ -713,6 +807,13 @@ struct EditPlaceCardSheet: View {
             filledFields.append(contentsOf: fillBlankFields(from: details))
             stageSuggestedTags(from: details.tags)
         }
+        if latitudeText.trimmingCharacters(in: .whitespaces).isEmpty,
+           longitudeText.trimmingCharacters(in: .whitespaces).isEmpty,
+           let photoLocationCandidate {
+            latitudeText = String(photoLocationCandidate.latitude)
+            longitudeText = String(photoLocationCandidate.longitude)
+            filledFields.append("좌표".localized)
+        }
         if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: result.description), combined != memoText {
             memoText = combined
             filledFields.append("메모".localized)
@@ -723,6 +824,9 @@ struct EditPlaceCardSheet: View {
             : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
         if let fallbackProvider {
             photoAnalysisMessage? += fallbackProvider.fallbackNoteSuffix
+        }
+        if let photoLocationNote {
+            photoAnalysisMessage = [photoAnalysisMessage, photoLocationNote].compactMap { $0 }.joined(separator: "\n")
         }
     }
 
