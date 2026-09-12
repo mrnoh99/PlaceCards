@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (129차) — 공유로 받은 사진의 GPS 위치 추정이 조용히 실패하던 버그 수정
+#### Fixed
+- `PlaceCardsShare/ShareViewController.swift`: 공유 시트로 사진을
+  넘길 때 `handleImageAttachment`가 `loadItem`으로 받았는데, 이게
+  돌려주는 타입이 `URL`/`Data`/`UIImage` 중 무엇일지는 보내는 앱·iOS
+  버전에 달려 있어 이 코드가 통제할 수 없었음. `UIImage`로 넘어오는
+  경우 유일한 선택지인 `jpegData(compressionQuality:)` 재인코딩이
+  EXIF(GPS 포함)를 전부 버려서, 그렇게 넘어온 사진은
+  `PhotoMetadata.extractLocation(from:)`이 늘 아무것도 못 찾았음 —
+  앱 안에서 `PhotosPicker`로 직접 고른 사진은 `loadTransferable`이라
+  멀쩡했던 것과 대비됨. `loadDataRepresentation`으로 바꿔서 항상 원본
+  바이트를 직접 받도록 함 — `UIImage` 디코딩을 아예 거치지 않아 EXIF가
+  보존되고, 보안 스코프 처리도 내부에서 알아서 함.
+
 ### 2026-09-12 (128차) — 텍스트만으로 만든(수동) 카드도 좌표·사진 채우기
 #### Fixed
 - `ViewModels/PlaceCardViewModel.swift`: "장소 추가"에서 검색 결과를

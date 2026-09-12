@@ -113,34 +113,35 @@ final class ShareViewController: UIViewController {
         dispatch(attachments: attachments)
     }
 
+    /// Uses `loadDataRepresentation` rather than `loadItem` — `loadItem`
+    /// for an image attachment can come back as a `URL` (the common case
+    /// for a Photos-library photo), a `Data`, *or* an already-decoded
+    /// `UIImage`, and which one the system picks is up to the sending
+    /// app/OS version, not something this code controls. The `UIImage`
+    /// case was a real, silent bug: re-encoding it via
+    /// `jpegData(compressionQuality:)` (the only option once it's already
+    /// a `UIImage`) throws away its EXIF GPS entirely — this shared
+    /// image's own `PhotoMetadata.extractLocation(from:)` (used for
+    /// `PlaceCardViewModel.photoLocationHint`) would then always find
+    /// nothing, for any share the OS happened to hand back this way,
+    /// while the exact same photo picked in-app via `PhotosPicker`
+    /// (`AddPlaceCardView.loadPhotos`, `item.loadTransferable(type:
+    /// Data.self)`) kept its EXIF fine. `loadDataRepresentation` asks for
+    /// this attachment's actual on-disk bytes for the image UTI
+    /// directly — it never routes through `UIImage` decoding, so EXIF
+    /// survives the same way the in-app picker's `Data` load already
+    /// does, and it handles any security-scoping itself (unlike a raw
+    /// `URL` from `loadItem`, which needed `startAccessingSecurityScoped
+    /// Resource()` called by hand).
     private func handleImageAttachment(_ provider: NSItemProvider) {
-        provider.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { [weak self] loadedItem, error in
+        provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { [weak self] data, error in
             if let error {
-                SharedImportStore.recordDebugStatus("loadItem 실패: \(error.localizedDescription)")
+                SharedImportStore.recordDebugStatus("loadDataRepresentation 실패: \(error.localizedDescription)")
                 self?.finish(success: false, message: "이미지를 불러오지 못했습니다")
                 return
             }
-
-            let data: Data?
-            switch loadedItem {
-            case let url as URL:
-                // A URL handed back for a Photos-library-backed image (a
-                // screenshot, say, since those save straight to Photos) is
-                // commonly security-scoped — reading it without this call
-                // fails silently (Data(contentsOf:) just returns nil via
-                // try?), so nothing gets sent and there's no error to see.
-                let didStartAccessing = url.startAccessingSecurityScopedResource()
-                defer { if didStartAccessing { url.stopAccessingSecurityScopedResource() } }
-                data = try? Data(contentsOf: url)
-            case let image as UIImage:
-                data = image.jpegData(compressionQuality: 0.9)
-            case let imageData as Data:
-                data = imageData
-            default:
-                data = nil
-            }
             guard let data else {
-                SharedImportStore.recordDebugStatus("이미지 데이터를 읽지 못함 (전달된 타입: \(String(describing: loadedItem.map { type(of: $0) })))")
+                SharedImportStore.recordDebugStatus("이미지 데이터를 읽지 못함")
                 self?.finish(success: false, message: "이미지를 읽지 못했습니다")
                 return
             }
