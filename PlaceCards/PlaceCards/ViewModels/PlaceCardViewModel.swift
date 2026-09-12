@@ -472,7 +472,7 @@ final class PlaceCardViewModel: ObservableObject {
                     created.append(card)
                 }
             } else {
-                let card = createManualPlaceCard(
+                let card = await createManualPlaceCard(
                     name: row.name, address: row.address, images: selectedImages, source: source,
                     note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails, tags: row.tags,
                     externalLinks: links
@@ -591,13 +591,16 @@ final class PlaceCardViewModel: ObservableObject {
         return try? await googleService.details(placeId: placeId).hoursDetail
     }
 
-    /// Naver's local search API returns no photos at all
-    /// (`NaverLocalItem.toSearchResult()` always sets `photoName: nil`),
-    /// so a Naver-verified card never gets anything from
-    /// `fetchOfficialPhoto(googlePhotoName:)` above — this looks the same
-    /// place up on Google Places by name+address instead, as a fallback.
-    /// Only ever called when the card has no photo of its own yet (never
-    /// overrides a real photo the user picked), and only trusts a Google
+    /// Used by two callers that would otherwise end up with no photo at
+    /// all: a Naver-verified card (Naver's local search API returns no
+    /// photos — `NaverLocalItem.toSearchResult()` always sets
+    /// `photoName: nil`, so `fetchOfficialPhoto(googlePhotoName:)` above
+    /// never finds anything for it) and a manually-entered card
+    /// (`createManualPlaceCard`, which never went through any search at
+    /// all). Both look the same place up on Google Places by name+address
+    /// instead, as a fallback. Only ever called when the card has no
+    /// photo of its own yet (never overrides a real photo the user
+    /// picked), and only trusts a Google
     /// result that's actually within `maxAddressMatchDistanceMeters` of
     /// the card's own coordinates — the same ground-truth check
     /// `searchViaGoogle` uses, since a same-named place a few blocks
@@ -628,21 +631,31 @@ final class PlaceCardViewModel: ObservableObject {
         return MediaItem(localPath: fileName, source: .googleDirectLookup)
     }
 
-    /// Manually-entered places have no coordinates at all — unlike a card
-    /// created from a chosen Google Places result, there's no automatic
-    /// geocoding fallback here; picking "Google에서 검색" is how a manual
-    /// entry gets coordinates. `note` is the AI scan's leftover context
-    /// (`PlaceCandidateRow.scannedNote`), same as `createPlaceCard(from:)`.
-    /// `website` is only ever set this way for a row resolved from a plain
-    /// business-homepage link (`PlaceCandidateRow.scannedWebsite`).
-    /// `details` is the rest of what the AI scan could read off the
-    /// screenshot (phone/category/hours/amenities), same as
-    /// `createPlaceCard(from:)`.
+    /// A manually-entered place never went through `search(rowID:)`'s own
+    /// Google/Naver verification, so unlike `createPlaceCard(from:)` it
+    /// starts with no coordinates and no chance at an official photo —
+    /// this makes a best effort at both anyway, entirely non-AI: an
+    /// address geocodes to coordinates the same way
+    /// `searchViaGoogle`/`GooglePlacesService.geocodeAddress(_:)` already
+    /// do elsewhere, and those coordinates then feed the same
+    /// distance-verified `fetchGooglePhotoFallback(name:address:
+    /// coordinates:)` a Naver-origin card uses (see its own comment) —
+    /// name+address alone found a same-named place a town over often
+    /// enough that skipping the coordinate check wasn't worth the risk of
+    /// attaching the wrong place's photo. Both best-effort: no address,
+    /// no Google API key, no geocode match, or no photo on the match all
+    /// just leave the card exactly as it was before this. `note` is the
+    /// AI scan's leftover context (`PlaceCandidateRow.scannedNote`), same
+    /// as `createPlaceCard(from:)`. `website` is only ever set this way
+    /// for a row resolved from a plain business-homepage link
+    /// (`PlaceCandidateRow.scannedWebsite`). `details` is the rest of
+    /// what the AI scan could read off the screenshot (phone/category/
+    /// hours/amenities), same as `createPlaceCard(from:)`.
     func createManualPlaceCard(
         name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput,
         note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = [],
         externalLinks: [ExternalLink] = []
-    ) -> PlaceCard {
+    ) async -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId, name: name, address: address, website: website, externalLinks: externalLinks,
             tags: tags, memo: PlaceCard.combinedMemo(nil, appending: note)
@@ -654,6 +667,16 @@ final class PlaceCardViewModel: ObservableObject {
             if let fileName = try? MediaStore.saveImage(image) {
                 card.media.onsitePhotos.append(MediaItem(localPath: fileName, source: source))
             }
+        }
+
+        let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
+        if !trimmedAddress.isEmpty, let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty {
+            card.coordinates = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(trimmedAddress)
+        }
+
+        if card.media.allItems.isEmpty, let coordinates = card.coordinates,
+           let item = await fetchGooglePhotoFallback(name: name, address: address, coordinates: coordinates) {
+            card.media.officialPhotos.append(item)
         }
 
         storageService.save(card)
