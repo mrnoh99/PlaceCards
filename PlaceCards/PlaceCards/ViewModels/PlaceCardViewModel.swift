@@ -496,7 +496,11 @@ final class PlaceCardViewModel: ObservableObject {
     /// AI-sourced, when the row came from a photo scan or web search; a
     /// Google-verified result with no AI involved at all still gets its
     /// hours filled non-AI, straight from Google's own place-details
-    /// lookup (`fetchGoogleHoursDetail(placeId:)` below).
+    /// lookup (`fetchGoogleHoursDetail(placeId:)` below). Similarly, a
+    /// Naver-verified result that ends up with no photo at all (Naver's
+    /// search API returns none) gets a best-effort Google Places lookup
+    /// for one instead (`fetchGooglePhotoFallback(name:address:
+    /// coordinates:)` below).
     func createPlaceCard(
         from result: PlaceSearchResult, images: [UIImage], source: SourceType,
         note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = [],
@@ -544,6 +548,9 @@ final class PlaceCardViewModel: ObservableObject {
 
         if let item = await fetchOfficialPhoto(googlePhotoName: result.photoName) {
             card.media.officialPhotos.append(item)
+        } else if card.media.allItems.isEmpty, !result.isFromGooglePlaces,
+                  let item = await fetchGooglePhotoFallback(name: result.name, address: result.address, coordinates: card.coordinates) {
+            card.media.officialPhotos.append(item)
         }
 
         card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
@@ -582,6 +589,43 @@ final class PlaceCardViewModel: ObservableObject {
         guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }
         let googleService = GooglePlacesService(apiKey: apiKey)
         return try? await googleService.details(placeId: placeId).hoursDetail
+    }
+
+    /// Naver's local search API returns no photos at all
+    /// (`NaverLocalItem.toSearchResult()` always sets `photoName: nil`),
+    /// so a Naver-verified card never gets anything from
+    /// `fetchOfficialPhoto(googlePhotoName:)` above — this looks the same
+    /// place up on Google Places by name+address instead, as a fallback.
+    /// Only ever called when the card has no photo of its own yet (never
+    /// overrides a real photo the user picked), and only trusts a Google
+    /// result that's actually within `maxAddressMatchDistanceMeters` of
+    /// the card's own coordinates — the same ground-truth check
+    /// `searchViaGoogle` uses, since a same-named place a few blocks
+    /// over having a photo doesn't mean it's a photo *of this place*.
+    /// Silently skipped (returns `nil`) on any failure — no coordinates,
+    /// no Google API key, no match, no photo on the match — same as
+    /// every other best-effort media step in this app.
+    private func fetchGooglePhotoFallback(name: String, address: String, coordinates: Coordinates?) async -> MediaItem? {
+        guard let coordinates,
+              let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }
+        let googleService = GooglePlacesService(apiKey: apiKey)
+        let query = address.isEmpty ? name : "\(name) \(address)"
+        guard let results = try? await googleService.search(query: query, coordinates: coordinates) else { return nil }
+
+        let groundTruth = CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude)
+        guard
+            let match = results.first(where: { candidate in
+                guard let candidateCoordinates = candidate.coordinates else { return false }
+                return groundTruth.distance(
+                    from: CLLocation(latitude: candidateCoordinates.latitude, longitude: candidateCoordinates.longitude)
+                ) <= Self.maxAddressMatchDistanceMeters
+            }),
+            let photoName = match.photoName
+        else { return nil }
+
+        guard let data = try? await googleService.photoData(photoName: photoName),
+              let fileName = try? MediaStore.saveImage(data: data) else { return nil }
+        return MediaItem(localPath: fileName, source: .googleDirectLookup)
     }
 
     /// Manually-entered places have no coordinates at all — unlike a card

@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (126차) — Naver 검증 카드에 사진이 없으면 Google에서 대신 가져오기
+#### Added
+- `ViewModels/PlaceCardViewModel.swift`: `fetchGooglePhotoFallback(name:
+  address:coordinates:)` 추가 — Naver 검색 API는 사진을 아예 반환하지
+  않아(`NaverLocalItem.toSearchResult()`의 `photoName`은 항상 `nil`)
+  Naver로 검증한 카드는 지금까지 사용자가 직접 사진을 넣지 않으면
+  카드에 사진이 하나도 없었음. 이제 사용자 사진도 없고 Naver 검증
+  결과라 Google 사진도 못 받은 카드는, 이름+주소로 Google Places를
+  한 번 더 검색해 같은 장소로 보이면(카드 좌표에서
+  `maxAddressMatchDistanceMeters`=100m 이내 — `searchViaGoogle`이 쓰는
+  것과 같은 검증 기준) 그 결과의 공식 사진을 대신 가져옴. 좌표가 없거나
+  Google API 키가 없거나 일치하는 결과가 없거나 그 결과에 사진이 없으면
+  조용히 건너뜀(다른 best-effort 미디어 단계들과 동일). `createPlaceCard
+  (from:...)`에서 기존 `fetchOfficialPhoto`가 실패했을 때(Naver 결과는
+  항상 실패)만 시도.
+
 ### 2026-09-12 (125차) — AI 없이 할 수 있는 작업 정리 + Google Places 새로고침(비-AI) 추가
 #### Investigated
 - 코드 전수 조사 결과: 장소를 새로 만들고(수동 입력, Google/Naver
