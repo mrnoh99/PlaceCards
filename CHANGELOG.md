@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (135차) — 장소 수가 확정되기 전(AI 미설정·실패 포함)에도 사진 GPS가 새어 나가던 잔여 구멍 수정
+#### Fixed
+- `ViewModels/PlaceCardViewModel.swift`: 134차에서 `results.count > 1`일
+  때만 `photoLocationHint`를 nil로 비웠는데, 그 이전에
+  `photoLocationHint = photoCoordinates.first`로 먼저 채워두는
+  코드가 남아 있어서 AI 분석이 아예 실행되지 못한 경우(이미지 인코딩
+  실패, AI 미설정, AI 호출 자체가 예외로 실패)엔 장소가 몇 곳인지
+  전혀 확인되지 않았는데도 첫 사진의 GPS가 그대로 남아 있었음 — "사진
+  GPS는 한 곳의 사진일 때만 의미 있다"는 원칙에 어긋남. 이제
+  `analyzeImages()` 시작 시 `photoLocationHint`를 일단 nil로 두고,
+  AI가 정확히 1곳(`results.count == 1`)으로 판단했을 때만(사진이
+  여러 장이면 평균, 한 장이면 그 좌표) 채우도록 수정 — AI 미설정/
+  실패/이미지 없음 등 장소 수를 확정할 수 없는 모든 경로에서 그대로
+  nil로 남음.
+
 ### 2026-09-12 (134차) — 장소가 여러 곳으로 나뉘면 사진 GPS를 아예 사용하지 않도록 수정
 #### Fixed
 - `ViewModels/PlaceCardViewModel.swift`: `analyzeImages()`가 AI 스캔

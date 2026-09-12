@@ -133,7 +133,10 @@ final class PlaceCardViewModel: ObservableObject {
 
         selectedImages = images
         let photoCoordinates = rawImageDatas.compactMap(PhotoMetadata.extractLocation)
-        photoLocationHint = photoCoordinates.first
+        // Left nil until AI confirms the batch is exactly one place (below)
+        // — until then we don't know whether these photos even belong to
+        // the same place, so no photo's GPS is safe to use for anything.
+        photoLocationHint = nil
         guard !images.isEmpty else { return }
 
         let imageDatas = images.compactMap { $0.jpegData(compressionQuality: 0.8) }
@@ -156,16 +159,18 @@ final class PlaceCardViewModel: ObservableObject {
                     name: $0.placeName, address: $0.address ?? "", scannedNote: $0.description, scannedDetails: $0.details
                 )
             }
-            // Every photo in this batch is of the one same place — safe
-            // to average their GPS instead of just trusting the first.
-            if results.count == 1, photoCoordinates.count > 1 {
-                photoLocationHint = Self.averageCoordinate(photoCoordinates)
-            } else if results.count > 1 {
-                // Multiple places found: rows may each come from a different
-                // photo, so no single photo's GPS can stand in as a shared
-                // hint/ground-truth for all of them. Rely on the AI's
-                // per-photo name/text recognition alone.
-                photoLocationHint = nil
+            // Only a confirmed single-place batch gets a photoLocationHint:
+            // every photo in it is of the one same place, so averaging
+            // their GPS (when there's more than one) is safe. A batch that
+            // resolved to several places leaves it nil (set above) — rows
+            // may each come from a different photo, so no single photo's
+            // GPS can stand in as a shared hint/ground-truth for all of
+            // them; those rows rely on the AI's per-photo name/text
+            // recognition alone.
+            if results.count == 1 {
+                photoLocationHint = photoCoordinates.count > 1
+                    ? Self.averageCoordinate(photoCoordinates)
+                    : photoCoordinates.first
             }
             if candidateRows.isEmpty {
                 errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요.".localized
