@@ -11,21 +11,12 @@ import CoreLocation
 /// (`SharedPhotoBoardPickerSheet`). See `MapOpenContext` for how the card
 /// is identified.
 struct MapScreenshotImportSheet: View {
-    /// Same radius/reasoning as `PlaceCardViewModel.maxPhotoLocationMatch
-    /// DistanceMeters`/`EditPlaceCardSheet.maxPhotoLocationMatchDistance
-    /// Meters` — a photo's own EXIF GPS reflects wherever the phone was
-    /// standing, not necessarily the place's own doorstep, so this stays
-    /// looser than an address-based match would need. A map app's own
-    /// screenshot rarely carries GPS at all (iOS screenshots normally
-    /// have none), but a photo shared through this same path could.
-    private static let maxPhotoLocationMatchDistanceMeters: CLLocationDistance = 500
-
-    /// Tighter than `maxPhotoLocationMatchDistanceMeters` — used only for
-    /// `warnIfNotOnsitePhoto`, where the card's own name+address are
-    /// already established (not a first guess this app is trying to
-    /// confirm), so a photo held against them deserves the same tight
-    /// standard `PlaceCardViewModel.maxAddressMatchDistanceMeters` uses
-    /// for an address match elsewhere.
+    /// Used only by `warnIfNotOnsitePhoto` — the card's own name+address
+    /// are already established there (not a first guess this app is
+    /// trying to confirm), so a photo held against them deserves the same
+    /// tight standard `PlaceCardViewModel.maxAddressMatchDistanceMeters`
+    /// uses for an address match elsewhere, rather than the looser radius
+    /// this app uses for an unconfirmed photo-GPS hint.
     private static let maxAddressMatchDistanceMeters: CLLocationDistance = 100
 
     @State private var card: PlaceCard
@@ -39,11 +30,15 @@ struct MapScreenshotImportSheet: View {
     @State private var didProcess = false
     @State private var statusMessage: String?
     @State private var pendingResult: AIAnalysisResult?
-    /// Carried alongside `pendingResult` across the name-change
-    /// confirmation alert — see `EditPlaceCardSheet`'s identical pattern.
-    @State private var pendingPhotoLocationCandidate: Coordinates?
-    @State private var pendingPhotoLocationNote: String?
     @State private var isConfirmingNameChange = false
+    /// A shared-in photo's own EXIF GPS, staged for the confirmation
+    /// alert below rather than applied outright — unlike every other
+    /// field this sheet fills in, a coordinate is trusted evidence about
+    /// where the photo itself was taken, not about what the AI read off
+    /// it, so this is asked about directly instead of silently applied
+    /// or silently discarded (see `process()`).
+    @State private var pendingPhotoCoordinate: Coordinates?
+    @State private var isConfirmingPhotoCoordinate = false
     /// Staged, not applied outright — same "confirm before applying" rule
     /// `EditPlaceCardSheet`'s own tag suggestions follow (see
     /// `PlaceWebDetails.tags`'s own doc comment for why).
@@ -120,25 +115,15 @@ struct MapScreenshotImportSheet: View {
             ) {
                 Button("변경".localized) {
                     if let pendingResult {
-                        applyExtracted(
-                            pendingResult, applyName: true,
-                            photoLocationCandidate: pendingPhotoLocationCandidate, photoLocationNote: pendingPhotoLocationNote
-                        )
+                        applyExtracted(pendingResult, applyName: true)
                     }
                     pendingResult = nil
-                    pendingPhotoLocationCandidate = nil
-                    pendingPhotoLocationNote = nil
                 }
                 Button("이름은 유지".localized, role: .cancel) {
                     if let pendingResult {
-                        applyExtracted(
-                            pendingResult, applyName: false,
-                            photoLocationCandidate: pendingPhotoLocationCandidate, photoLocationNote: pendingPhotoLocationNote
-                        )
+                        applyExtracted(pendingResult, applyName: false)
                     }
                     pendingResult = nil
-                    pendingPhotoLocationCandidate = nil
-                    pendingPhotoLocationNote = nil
                 }
             } message: {
                 Text(nameChangeAlertMessage)
@@ -159,6 +144,22 @@ struct MapScreenshotImportSheet: View {
             } message: {
                 Text(pendingSuggestedTags.joined(separator: ", "))
             }
+            .alert(
+                "사진의 위치 정보".localized,
+                isPresented: $isConfirmingPhotoCoordinate
+            ) {
+                Button("이 위치로 저장".localized) {
+                    if let pendingPhotoCoordinate {
+                        card.coordinates = pendingPhotoCoordinate
+                        storageService.save(card)
+                        onApplied(card)
+                    }
+                    pendingPhotoCoordinate = nil
+                }
+                Button("사용 안 함".localized, role: .cancel) { pendingPhotoCoordinate = nil }
+            } message: {
+                Text(photoCoordinateAlertMessage)
+            }
         }
     }
 
@@ -172,6 +173,12 @@ struct MapScreenshotImportSheet: View {
         let middle = "\"(으)로 보이는데, 현재 이름 \"".localized
         let suffix = "\"과 다릅니다. 이름을 바꿀까요?".localized
         return prefix + extractedName + middle + card.name + suffix
+    }
+
+    private var photoCoordinateAlertMessage: String {
+        let prefix = "사진에 위치 정보(GPS)가 있습니다. 이 위치를 \"".localized
+        let suffix = "\"의 좌표로 저장할까요?".localized
+        return prefix + card.name + suffix
     }
 
     /// Always saves the photo itself first (that part never fails or
@@ -192,9 +199,20 @@ struct MapScreenshotImportSheet: View {
         onApplied(card)
 
         // Checked right away, independent of whether AI analysis below
-        // ever runs — appended to whatever `statusMessage` that path ends
-        // up setting, at every exit from this function.
-        let onsiteWarning = await warnIfNotOnsitePhoto(PhotoMetadata.extractLocation(from: imageData))
+        // ever runs. A missing coordinate is asked about directly (see
+        // `pendingPhotoCoordinate`'s own comment) rather than silently
+        // filled or silently discarded; an already-set one is instead
+        // sanity-checked and only reported via `statusMessage`, appended
+        // at every exit from this function, since nothing needs deciding
+        // there.
+        let photoCoordinate = PhotoMetadata.extractLocation(from: imageData)
+        var onsiteWarning: String?
+        if card.coordinates == nil, let photoCoordinate {
+            pendingPhotoCoordinate = photoCoordinate
+            isConfirmingPhotoCoordinate = true
+        } else {
+            onsiteWarning = warnIfNotOnsitePhoto(photoCoordinate)
+        }
         defer {
             if let onsiteWarning {
                 statusMessage = [statusMessage, onsiteWarning].compactMap { $0 }.joined(separator: "\n")
@@ -215,85 +233,27 @@ struct MapScreenshotImportSheet: View {
             let (results, provider, isFallback) = try await AIProviderChain.run {
                 try await $0.analyzePlaces(imageDatas: [jpegData], prompt: defaultPlaceAnalysisPrompt())
             }
-            // Only worth checking when the card has no coordinates yet and
-            // the photo resolved to exactly one place — same "too
-            // ambiguous otherwise" gate `handleAnalysisResults` already
-            // applies to every other field below.
-            var photoLocationCandidate: Coordinates?
-            var photoLocationNote: String?
-            if card.coordinates == nil, results.count == 1, let photoCoordinate = PhotoMetadata.extractLocation(from: imageData) {
-                (photoLocationCandidate, photoLocationNote) = await verifiedPhotoLocationCandidate(
-                    photoCoordinate, placeAddress: results[0].address
-                )
-            }
-            handleAnalysisResults(
-                results, answeredBy: isFallback ? provider : nil,
-                photoLocationCandidate: photoLocationCandidate, photoLocationNote: photoLocationNote
-            )
+            handleAnalysisResults(results, answeredBy: isFallback ? provider : nil)
         } catch {
             statusMessage = "사진을 카드에 추가했습니다. (정보 읽기 실패: ".localized + error.localizedDescription + ")"
         }
     }
 
-    /// Cross-checks a candidate photo-GPS coordinate against the AI-
-    /// identified place's own address before trusting it for auto-fill —
-    /// same small, self-contained copy `EditPlaceCardSheet` and
-    /// `PlaceCardViewModel` each keep, since none of these three share a
-    /// common owner to call a single implementation on. Returns
-    /// `(candidate, nil)` on agreement; `(candidate, note)` when there's
-    /// no address to check against or it fails to geocode (nothing to
-    /// contradict the photo, so it's still trusted, but the note tells
-    /// the user this rests on the photo's GPS alone); and `(nil, note)`
-    /// when the two disagree by more than `maxPhotoLocationMatchDistance
-    /// Meters`.
-    private func verifiedPhotoLocationCandidate(
-        _ candidate: Coordinates, placeAddress: String?
-    ) async -> (coordinates: Coordinates?, note: String?) {
-        let trimmedAddress = (placeAddress ?? card.address).trimmingCharacters(in: .whitespaces)
-        guard !trimmedAddress.isEmpty,
-            let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty,
-            let addressLocation = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(trimmedAddress)
-        else {
-            return (candidate, "대조할 장소 주소가 없어 사진의 위치 정보만 사용합니다.".localized)
-        }
-
-        let distance = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
-            .distance(from: CLLocation(latitude: candidate.latitude, longitude: candidate.longitude))
-        if distance <= Self.maxPhotoLocationMatchDistanceMeters {
-            return (candidate, nil)
-        }
-        return (nil, "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
-    }
-
-    /// Distinct from `verifiedPhotoLocationCandidate` above — that one
-    /// only ever runs to help *fill in* a still-missing coordinate, gated
-    /// on the card having none yet. This one is a sanity check that runs
-    /// whenever the card already has both a name and an address (an
-    /// established place, not one still being identified) — a newly
-    /// added photo whose own EXIF GPS lands far from that address is
-    /// likely not actually a photo taken there at all (saved from
-    /// elsewhere, someone else's photo, a mislabeled screenshot), so it's
-    /// worth flagging even though the card's location data itself is
-    /// left untouched. Prefers the card's own coordinates as ground
-    /// truth when it already has them (the strongest evidence available)
-    /// and only geocodes the address as a fallback. `nil` when there's
-    /// nothing to flag — no photo GPS, no established name+address, no
-    /// ground truth available, or the photo is close enough.
-    private func warnIfNotOnsitePhoto(_ photoCoordinate: Coordinates?) async -> String? {
-        guard let photoCoordinate else { return nil }
+    /// Called only when this card already has coordinates — `process()`
+    /// asks about a missing one instead (see `pendingPhotoCoordinate`), so
+    /// this is purely a sanity check on an already-established location: a
+    /// newly added photo whose own EXIF GPS lands far from the card's
+    /// coordinates is likely not actually a photo taken there at all
+    /// (saved from elsewhere, someone else's photo, a mislabeled
+    /// screenshot), worth flagging even though the card's location data
+    /// itself is left untouched. `nil` when there's nothing to flag — no
+    /// photo GPS, no established name+address, or the photo is close
+    /// enough.
+    private func warnIfNotOnsitePhoto(_ photoCoordinate: Coordinates?) -> String? {
+        guard let photoCoordinate, let groundTruth = card.coordinates else { return nil }
         let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
         let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty, !trimmedAddress.isEmpty else { return nil }
-
-        let groundTruth: Coordinates?
-        if let coordinates = card.coordinates {
-            groundTruth = coordinates
-        } else if let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty {
-            groundTruth = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(trimmedAddress)
-        } else {
-            groundTruth = nil
-        }
-        guard let groundTruth else { return nil }
 
         let distance = CLLocation(latitude: groundTruth.latitude, longitude: groundTruth.longitude)
             .distance(from: CLLocation(latitude: photoCoordinate.latitude, longitude: photoCoordinate.longitude))
@@ -301,10 +261,7 @@ struct MapScreenshotImportSheet: View {
         return "추가한 사진이 이 장소에서 촬영된 것 같지 않습니다 (사진 GPS가 주소에서 100m 이상 떨어져 있습니다).".localized
     }
 
-    private func handleAnalysisResults(
-        _ results: [AIAnalysisResult], answeredBy fallbackProvider: AIProviderType? = nil,
-        photoLocationCandidate: Coordinates? = nil, photoLocationNote: String? = nil
-    ) {
+    private func handleAnalysisResults(_ results: [AIAnalysisResult], answeredBy fallbackProvider: AIProviderType? = nil) {
         guard !results.isEmpty else {
             statusMessage = "사진을 카드에 추가했습니다. (장소 정보는 찾지 못했습니다.)".localized
             return
@@ -321,25 +278,15 @@ struct MapScreenshotImportSheet: View {
         if !extractedName.isEmpty, !currentName.isEmpty, extractedName != currentName {
             // Same scope cut as `EditPlaceCardSheet`: the confirm alert's
             // own button applies the result later, by which point this
-            // call's fallback note is stale context — skipped here. The
-            // photo location candidate/note are carried along instead,
-            // since `applyExtracted` still needs them once confirmed.
+            // call's fallback note is stale context — skipped here.
             pendingResult = result
-            pendingPhotoLocationCandidate = photoLocationCandidate
-            pendingPhotoLocationNote = photoLocationNote
             isConfirmingNameChange = true
         } else {
-            applyExtracted(
-                result, applyName: true, answeredBy: fallbackProvider,
-                photoLocationCandidate: photoLocationCandidate, photoLocationNote: photoLocationNote
-            )
+            applyExtracted(result, applyName: true, answeredBy: fallbackProvider)
         }
     }
 
-    private func applyExtracted(
-        _ result: AIAnalysisResult, applyName: Bool, answeredBy fallbackProvider: AIProviderType? = nil,
-        photoLocationCandidate: Coordinates? = nil, photoLocationNote: String? = nil
-    ) {
+    private func applyExtracted(_ result: AIAnalysisResult, applyName: Bool, answeredBy fallbackProvider: AIProviderType? = nil) {
         if applyName {
             let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
             if !extractedName.isEmpty {
@@ -349,9 +296,6 @@ struct MapScreenshotImportSheet: View {
         if card.address.trimmingCharacters(in: .whitespaces).isEmpty,
            let extractedAddress = result.address?.trimmingCharacters(in: .whitespaces), !extractedAddress.isEmpty {
             card.address = extractedAddress
-        }
-        if card.coordinates == nil, let photoLocationCandidate {
-            card.coordinates = photoLocationCandidate
         }
         card.memo = PlaceCard.combinedMemo(card.memo, appending: result.description)
         // Phone/category/hours/closing time/holidays/amenities/reservation
@@ -364,9 +308,6 @@ struct MapScreenshotImportSheet: View {
         statusMessage = "AI가 읽은 정보를 채웠습니다.".localized
         if let fallbackProvider {
             statusMessage? += fallbackProvider.fallbackNoteSuffix
-        }
-        if let photoLocationNote {
-            statusMessage = [statusMessage, photoLocationNote].compactMap { $0 }.joined(separator: "\n")
         }
 
         if let tags = result.details?.tags, !tags.isEmpty {
