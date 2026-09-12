@@ -31,14 +31,11 @@ struct MapScreenshotImportSheet: View {
     @State private var statusMessage: String?
     @State private var pendingResult: AIAnalysisResult?
     @State private var isConfirmingNameChange = false
-    /// A shared-in photo's own EXIF GPS, staged for the confirmation
-    /// alert below rather than applied outright — unlike every other
-    /// field this sheet fills in, a coordinate is trusted evidence about
-    /// where the photo itself was taken, not about what the AI read off
-    /// it, so this is asked about directly instead of silently applied
-    /// or silently discarded (see `process()`).
-    @State private var pendingPhotoCoordinate: Coordinates?
-    @State private var isConfirmingPhotoCoordinate = false
+    /// Off by default — a coordinate is trusted evidence about where the
+    /// photo itself was taken, not about what the AI read off it, so
+    /// this app only acts on a shared-in photo's GPS at all once the
+    /// user opts in here. See `applyOrWarnPhotoCoordinate(_:)`.
+    @State private var usePhotoGPSForLocation = false
     /// Staged, not applied outright — same "confirm before applying" rule
     /// `EditPlaceCardSheet`'s own tag suggestions follow (see
     /// `PlaceWebDetails.tags`'s own doc comment for why).
@@ -83,6 +80,12 @@ struct MapScreenshotImportSheet: View {
                     } else {
                         Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가합니다. (AI 제공자가 등록되어 있지 않아 정보는 자동으로 읽지 않습니다 — 설정에서 등록하면 이용할 수 있습니다.)".localized)
                     }
+                }
+
+                Section {
+                    Toggle("위치정보에 사진 GPS 사용".localized, isOn: $usePhotoGPSForLocation)
+                } footer: {
+                    Text("켜두면 카드에 아직 좌표가 없을 때 이 사진의 GPS를 좌표로 저장합니다(주소와 100m 이상 차이 나면 저장하지 않고 알려드립니다). 카드에 이미 좌표가 있으면 이 사진이 그 위치에서 찍힌 게 맞는지만 확인합니다.".localized)
                 }
 
                 if let statusMessage {
@@ -144,22 +147,6 @@ struct MapScreenshotImportSheet: View {
             } message: {
                 Text(pendingSuggestedTags.joined(separator: ", "))
             }
-            .alert(
-                "사진의 위치 정보".localized,
-                isPresented: $isConfirmingPhotoCoordinate
-            ) {
-                Button("이 위치로 저장".localized) {
-                    if let pendingPhotoCoordinate {
-                        card.coordinates = pendingPhotoCoordinate
-                        storageService.save(card)
-                        onApplied(card)
-                    }
-                    pendingPhotoCoordinate = nil
-                }
-                Button("사용 안 함".localized, role: .cancel) { pendingPhotoCoordinate = nil }
-            } message: {
-                Text(photoCoordinateAlertMessage)
-            }
         }
     }
 
@@ -173,12 +160,6 @@ struct MapScreenshotImportSheet: View {
         let middle = "\"(으)로 보이는데, 현재 이름 \"".localized
         let suffix = "\"과 다릅니다. 이름을 바꿀까요?".localized
         return prefix + extractedName + middle + card.name + suffix
-    }
-
-    private var photoCoordinateAlertMessage: String {
-        let prefix = "사진에 위치 정보(GPS)가 있습니다. 이 위치를 \"".localized
-        let suffix = "\"의 좌표로 저장할까요?".localized
-        return prefix + card.name + suffix
     }
 
     /// Always saves the photo itself first (that part never fails or
@@ -199,23 +180,13 @@ struct MapScreenshotImportSheet: View {
         onApplied(card)
 
         // Checked right away, independent of whether AI analysis below
-        // ever runs. A missing coordinate is asked about directly (see
-        // `pendingPhotoCoordinate`'s own comment) rather than silently
-        // filled or silently discarded; an already-set one is instead
-        // sanity-checked and only reported via `statusMessage`, appended
-        // at every exit from this function, since nothing needs deciding
-        // there.
+        // ever runs — appended to whatever `statusMessage` that path ends
+        // up setting, at every exit from this function.
         let photoCoordinate = PhotoMetadata.extractLocation(from: imageData)
-        var onsiteWarning: String?
-        if card.coordinates == nil, let photoCoordinate {
-            pendingPhotoCoordinate = photoCoordinate
-            isConfirmingPhotoCoordinate = true
-        } else {
-            onsiteWarning = warnIfNotOnsitePhoto(photoCoordinate)
-        }
+        let locationNote = await applyOrWarnPhotoCoordinate(photoCoordinate)
         defer {
-            if let onsiteWarning {
-                statusMessage = [statusMessage, onsiteWarning].compactMap { $0 }.joined(separator: "\n")
+            if let locationNote {
+                statusMessage = [statusMessage, locationNote].compactMap { $0 }.joined(separator: "\n")
             }
         }
 
@@ -239,21 +210,48 @@ struct MapScreenshotImportSheet: View {
         }
     }
 
-    /// Called only when this card already has coordinates — `process()`
-    /// asks about a missing one instead (see `pendingPhotoCoordinate`), so
-    /// this is purely a sanity check on an already-established location: a
+    /// Only ever does anything when `usePhotoGPSForLocation` is checked —
+    /// otherwise this app doesn't act on a shared-in photo's GPS for
+    /// location purposes at all, and this returns `nil` immediately.
+    ///
+    /// When the card has no coordinates yet, this is the one thing that
+    /// actually sets them: cross-checked against the card's own address
+    /// (geocoded) when there is one — a match within `maxAddressMatch
+    /// DistanceMeters` applies it; disagreeing warns and leaves the card
+    /// exactly as it was rather than trusting a photo that might not even
+    /// be of this place. No address to check against at all still
+    /// applies it (nothing to contradict it), with a note that it rests
+    /// on the photo's GPS alone. When the card already has coordinates,
+    /// nothing is applied — this instead becomes a pure sanity check: a
     /// newly added photo whose own EXIF GPS lands far from the card's
-    /// coordinates is likely not actually a photo taken there at all
-    /// (saved from elsewhere, someone else's photo, a mislabeled
-    /// screenshot), worth flagging even though the card's location data
-    /// itself is left untouched. `nil` when there's nothing to flag — no
-    /// photo GPS, no established name+address, or the photo is close
-    /// enough.
-    private func warnIfNotOnsitePhoto(_ photoCoordinate: Coordinates?) -> String? {
-        guard let photoCoordinate, let groundTruth = card.coordinates else { return nil }
-        let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
-        let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
-        guard !trimmedName.isEmpty, !trimmedAddress.isEmpty else { return nil }
+    /// existing coordinates is likely not actually a photo taken there
+    /// at all (saved from elsewhere, someone else's photo, a mislabeled
+    /// screenshot), worth flagging even though nothing is changed.
+    private func applyOrWarnPhotoCoordinate(_ photoCoordinate: Coordinates?) async -> String? {
+        guard usePhotoGPSForLocation, let photoCoordinate else { return nil }
+
+        guard let groundTruth = card.coordinates else {
+            let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
+            guard !trimmedAddress.isEmpty,
+                let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty,
+                let addressLocation = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(trimmedAddress)
+            else {
+                card.coordinates = photoCoordinate
+                storageService.save(card)
+                onApplied(card)
+                return "대조할 장소 주소가 없어 사진의 위치 정보만 사용합니다.".localized
+            }
+
+            let distance = CLLocation(latitude: addressLocation.latitude, longitude: addressLocation.longitude)
+                .distance(from: CLLocation(latitude: photoCoordinate.latitude, longitude: photoCoordinate.longitude))
+            guard distance <= Self.maxAddressMatchDistanceMeters else {
+                return "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized
+            }
+            card.coordinates = photoCoordinate
+            storageService.save(card)
+            onApplied(card)
+            return "사진의 위치 정보로 좌표를 저장했습니다.".localized
+        }
 
         let distance = CLLocation(latitude: groundTruth.latitude, longitude: groundTruth.longitude)
             .distance(from: CLLocation(latitude: photoCoordinate.latitude, longitude: photoCoordinate.longitude))

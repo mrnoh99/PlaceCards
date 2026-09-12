@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (141차) — "위치정보에 사진 GPS 사용" 체크박스로 통일: 알럿 대신 명시적 옵트인 + 불일치 시 중단
+140차에서 만든 확인 알럿을 걷어내고, 사용자가 명시적으로 켜야만
+동작하는 체크박스 방식으로 교체 — 켜져 있는데 사진 GPS가 주소/기존
+좌표와 많이 차이 나면 경고하고 좌표 적용은 하지 않음(중단). 두
+화면(EditPlaceCardSheet, MapScreenshotImportSheet) 모두 동일한
+패턴 적용.
+#### Changed
+- `Views/MapScreenshotImportSheet.swift`: "사진의 위치 정보" 확인
+  알럿(140차)과 `pendingPhotoCoordinate`/`isConfirmingPhotoCoordinate`를
+  제거하고, 첫 Section에 "위치정보에 사진 GPS 사용" `Toggle`(기본
+  꺼짐)을 추가. 새 `applyOrWarnPhotoCoordinate(_:)`가 이 토글이 켜져
+  있을 때만 동작 — 카드에 좌표가 없으면 주소를 지오코딩해 사진 GPS와
+  대조(500m 이내 일치 또는 대조할 주소 없음 → 적용, 500m 초과 →
+  경고하고 미적용), 카드에 좌표가 이미 있으면 100m 기준으로 "현지
+  사진인지" 사실 확인만 하고 좌표는 건드리지 않음(139차 로직 유지,
+  토글 뒤로 이동).
+- `Views/EditPlaceCardSheet.swift`: `coordinatesSection`에 동일한
+  "위치정보에 사진 GPS 사용" `Toggle` 추가. 기존에 서로 다른 진입점·
+  다른 반경 기준으로 나뉘어 있던 `warnIfNotOnsitePhoto`(사진 추가
+  즉시, 100m)와 `verifiedPhotoLocationCandidate`(AI 분석 후, 500m)를
+  `applyOrWarnPhotoLocation(_:placeAddress:)` 하나로 합침 — 위도·경도
+  필드가 이미 채워져 있으면 100m 기준 사실 확인만(기존 `warnIfNot
+  OnsitePhoto`와 동일 반경 유지), 비어 있으면 주소 지오코딩 후 500m
+  기준으로 채우거나 경고(기존 `verifiedPhotoLocationCandidate`와 동일
+  반경 유지) — 사진 픽업 직후(`loadPhotos`)와 AI 분석 후
+  (`analyzePickedPhotos`) 양쪽에서 모두 이 함수 하나를 재사용. 좌표
+  필드는 이제 이름 변경 확인 알럿과 무관하게 즉시 채워지므로
+  `pendingPhotoLocationCandidate`는 제거하고 `pendingPhotoLocationNote`
+  (알림 문구만) 그대로 유지.
+
 ### 2026-09-12 (140차) — 공유받은 사진의 GPS로 장소 좌표를 채울 땐 조용히 처리하지 않고 직접 묻기
 139차에서 만든 "좌표가 이미 있으면 현지 사진인지 경고"는 유지하되,
 "좌표가 아직 없으면" 쪽은 136/138차부터 이어온 AI-주소-대조 기반
