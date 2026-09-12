@@ -53,10 +53,14 @@ struct EditPlaceCardSheet: View {
     @State private var holidays: String
     @State private var reservationInfo: String
     @State private var recommendedMenu: String
+    @State private var suggestedDuration: String
+    @State private var admissionFee: String
     @State private var hoursEntries: [HoursEntry]
     @State private var externalLinkEntries: [ExternalLink]
     @State private var tagsText: String
     @State private var amenitiesText: String
+    @State private var awardsText: String
+    @State private var dietaryOptionsText: String
     @State private var memoText: String
 
     @State private var photoPickerItems: [PhotosPickerItem] = []
@@ -104,10 +108,14 @@ struct EditPlaceCardSheet: View {
         _holidays = State(initialValue: card.holidays ?? "")
         _reservationInfo = State(initialValue: card.reservationInfo ?? "")
         _recommendedMenu = State(initialValue: card.recommendedMenu ?? "")
+        _suggestedDuration = State(initialValue: card.suggestedDuration ?? "")
+        _admissionFee = State(initialValue: card.admissionFee ?? "")
         _hoursEntries = State(initialValue: (card.hoursDetail ?? [:]).sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) })
         _externalLinkEntries = State(initialValue: card.externalLinks)
         _tagsText = State(initialValue: card.tags.joined(separator: ", "))
         _amenitiesText = State(initialValue: card.amenities.joined(separator: ", "))
+        _awardsText = State(initialValue: card.awards.joined(separator: ", "))
+        _dietaryOptionsText = State(initialValue: card.dietaryOptions.joined(separator: ", "))
         _memoText = State(initialValue: card.memo ?? "")
     }
 
@@ -143,6 +151,11 @@ struct EditPlaceCardSheet: View {
                     visitDatesSection
                     businessHoursSection
                     recommendedMenuSection
+                    attractionInfoSection
+                }
+                Group {
+                    awardsSection
+                    dietaryOptionsSection
                     tagsSection
                     amenitiesSection
                     memoSection
@@ -371,6 +384,40 @@ struct EditPlaceCardSheet: View {
             TextField("추천 메뉴".localized, text: $recommendedMenu, axis: .vertical)
         } header: {
             Text("추천 메뉴".localized)
+        }
+    }
+
+    /// Both fields here mainly matter for attractions/museums (not
+    /// restaurants), same reasoning as `PlaceCard.suggestedDuration`'s
+    /// own doc comment — grouped into one small section rather than two,
+    /// since each is a single short line.
+    @ViewBuilder
+    private var attractionInfoSection: some View {
+        Section {
+            TextField("추천 소요 시간 (예: 1~2시간)".localized, text: $suggestedDuration)
+            TextField("입장료 (예: 성인 15,000원)".localized, text: $admissionFee)
+        } header: {
+            Text("관광 정보".localized)
+        }
+    }
+
+    @ViewBuilder
+    private var awardsSection: some View {
+        Section {
+            TextField("쉼표로 구분".localized, text: $awardsText, axis: .vertical)
+        } header: {
+            Text("수상/인증".localized)
+        } footer: {
+            Text("미쉐린 별점, TripAdvisor Travelers' Choice, 블루리본서베이 등 제3자가 부여한 인증을 적어둡니다.".localized)
+        }
+    }
+
+    @ViewBuilder
+    private var dietaryOptionsSection: some View {
+        Section {
+            TextField("쉼표로 구분".localized, text: $dietaryOptionsText, axis: .vertical)
+        } header: {
+            Text("식이 옵션".localized)
         }
     }
 
@@ -747,15 +794,25 @@ struct EditPlaceCardSheet: View {
             recommendedMenu = value
             filledFields.append("추천 메뉴".localized)
         }
-        if !details.amenities.isEmpty {
-            let existing = Set(amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
-            let newOnes = details.amenities.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !existing.contains($0) }
-            if !newOnes.isEmpty {
-                amenitiesText = amenitiesText.trimmingCharacters(in: .whitespaces).isEmpty
-                    ? newOnes.joined(separator: ", ")
-                    : amenitiesText + ", " + newOnes.joined(separator: ", ")
-                filledFields.append("편의시설".localized)
-            }
+        if suggestedDuration.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.suggestedDuration, !value.isEmpty {
+            suggestedDuration = value
+            filledFields.append("추천 소요 시간".localized)
+        }
+        if admissionFee.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.admissionFee, !value.isEmpty {
+            admissionFee = value
+            filledFields.append("입장료".localized)
+        }
+        if let merged = mergeCommaList(details.amenities, into: amenitiesText) {
+            amenitiesText = merged
+            filledFields.append("편의시설".localized)
+        }
+        if let merged = mergeCommaList(details.awards, into: awardsText) {
+            awardsText = merged
+            filledFields.append("수상/인증".localized)
+        }
+        if let merged = mergeCommaList(details.dietaryOptions, into: dietaryOptionsText) {
+            dietaryOptionsText = merged
+            filledFields.append("식이 옵션".localized)
         }
 
         return filledFields
@@ -790,18 +847,28 @@ struct EditPlaceCardSheet: View {
             hoursEntries = hoursDetail.sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) }
             filledFields.append("영업시간".localized)
         }
-        if !details.amenities.isEmpty {
-            let existing = Set(amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
-            let newOnes = details.amenities.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !existing.contains($0) }
-            if !newOnes.isEmpty {
-                amenitiesText = amenitiesText.trimmingCharacters(in: .whitespaces).isEmpty
-                    ? newOnes.joined(separator: ", ")
-                    : amenitiesText + ", " + newOnes.joined(separator: ", ")
-                filledFields.append("편의시설".localized)
-            }
+        if let merged = mergeCommaList(details.amenities, into: amenitiesText) {
+            amenitiesText = merged
+            filledFields.append("편의시설".localized)
         }
 
         return filledFields
+    }
+
+    /// Merges `newValues` into a comma-separated text field, keeping
+    /// whatever's already there and skipping anything already present —
+    /// shared by every comma-list field (amenities/awards/dietary
+    /// options) both `fillBlankFields` overloads above fill the same way.
+    /// Returns `nil` when there's nothing new to add, so a caller can
+    /// tell "merged" apart from "no-op" without re-checking itself.
+    private func mergeCommaList(_ newValues: [String], into text: String) -> String? {
+        guard !newValues.isEmpty else { return nil }
+        let existing = Set(text.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+        let newOnes = newValues.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !existing.contains($0) }
+        guard !newOnes.isEmpty else { return nil }
+        return text.trimmingCharacters(in: .whitespaces).isEmpty
+            ? newOnes.joined(separator: ", ")
+            : text + ", " + newOnes.joined(separator: ", ")
     }
 
     /// Never overwrites a value the user (or another source) already set —
@@ -891,6 +958,10 @@ struct EditPlaceCardSheet: View {
         updated.reservationInfo = trimmedReservationInfo.isEmpty ? nil : trimmedReservationInfo
         let trimmedRecommendedMenu = recommendedMenu.trimmingCharacters(in: .whitespaces)
         updated.recommendedMenu = trimmedRecommendedMenu.isEmpty ? nil : trimmedRecommendedMenu
+        let trimmedSuggestedDuration = suggestedDuration.trimmingCharacters(in: .whitespaces)
+        updated.suggestedDuration = trimmedSuggestedDuration.isEmpty ? nil : trimmedSuggestedDuration
+        let trimmedAdmissionFee = admissionFee.trimmingCharacters(in: .whitespaces)
+        updated.admissionFee = trimmedAdmissionFee.isEmpty ? nil : trimmedAdmissionFee
 
         var hoursDetail: [String: String] = [:]
         for entry in hoursEntries {
@@ -910,6 +981,8 @@ struct EditPlaceCardSheet: View {
 
         updated.tags = tagsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         updated.amenities = amenitiesText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        updated.awards = awardsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        updated.dietaryOptions = dietaryOptionsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 
         let trimmedMemo = memoText.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.memo = trimmedMemo.isEmpty ? nil : trimmedMemo

@@ -148,6 +148,16 @@ struct PlaceWebDetails {
     let reservationInfo: String?
     /// What to order — e.g. "시그니처 라떼, 크로플".
     let recommendedMenu: String?
+    /// Third-party recognition — Michelin stars/Bib Gourmand, TripAdvisor
+    /// "Travelers' Choice", 블루리본서베이, and the like.
+    let awards: [String]
+    /// Expected visit length, e.g. "1~2시간" — mainly relevant for
+    /// attractions/museums, not restaurants.
+    let suggestedDuration: String?
+    /// Entry ticket pricing, e.g. "성인 15,000원 / 청소년 10,000원".
+    let admissionFee: String?
+    /// Dietary accommodations, e.g. "비건 옵션", "글루텐프리", "할랄".
+    let dietaryOptions: [String]
     /// Short folksonomy-style tags the AI thinks fit this place (e.g.
     /// "혼밥가능", "데이트코스", "가성비") — unlike every other field on
     /// this struct, `EditPlaceCardSheet` deliberately does NOT auto-apply
@@ -239,8 +249,9 @@ func defaultPlaceAnalysisPrompt() -> String {
     확실하지 않은 장소명은 추측해서 만들어내지 말고 제외하세요.
     스캔의 목적은 이 장소에 대한 정보를 최대한 모으는 것입니다 — 이름·주소 외에도 이미지에 함께 적힌, 나중에 참고할 만한 내용(해시태그, 한줄평·추천 이유·특이사항 등, 예: "#한끼식사됨")이 있으면 description에 그대로 담아주세요. 그런 내용이 없으면 null로 답하세요.
     지도 앱 스크린샷의 정보 카드에 전화번호·웹사이트·업종/카테고리·영업시간·라스트오더(마감 시간)·정기 휴무일·편의시설(예: 주차, 반려동물 동반, 포장 등)·예약 방법(예: 캐치테이블 예약, 테이블링 예약, 전화 예약만 가능)·추천 메뉴(리뷰나 게시물에 언급된 대표 메뉴/추천 메뉴) 중 실제로 보이는 값이 있으면 아래 해당 필드에 채워주세요. 이미지에 없는 값은 추측하지 말고 null(또는 빈 배열)로 답하세요.
+    화면에 수상/인증(미쉐린 별점·빕구르망, TripAdvisor Travelers' Choice, 블루리본서베이 등)·추천 소요 시간(관광지/박물관류에서 흔함)·입장료·식이 옵션(비건, 글루텐프리, 할랄 등)이 보이면 각각 awards/suggestedDuration/admissionFee/dietaryOptions에 채워주세요. 안 보이면 추측하지 말고 null(또는 빈 배열)로 답하세요.
     이 장소를 짧게 분류할 만한 태그도 몇 개(0~5개) 제안해주세요(예: "혼밥가능", "데이트코스", "가성비", "야외석") — 이미지 내용에 근거해서만, 근거 없이 지어내지 마세요.
-    {"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "이름/주소로 담기지 않는, 메모로 남길 만한 내용 또는 null", "confidence": 0.0에서 1.0 사이 숫자, "phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼 또는 null", "recommendedMenu": "추천 메뉴 또는 null", "tags": ["태그", ...] 또는 빈 배열}]}
+    {"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "이름/주소로 담기지 않는, 메모로 남길 만한 내용 또는 null", "confidence": 0.0에서 1.0 사이 숫자, "phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼 또는 null", "recommendedMenu": "추천 메뉴 또는 null", "awards": ["수상/인증", ...] 또는 빈 배열, "suggestedDuration": "추천 소요 시간 또는 null", "admissionFee": "입장료 또는 null", "dietaryOptions": ["식이 옵션", ...] 또는 빈 배열, "tags": ["태그", ...] 또는 빈 배열}]}
     장소를 하나도 찾지 못했으면 {"places": []}로 답하세요.
     """
     guard let instruction = ScanResultLanguage.current().promptInstruction else { return base }
@@ -287,6 +298,10 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
         let amenities: [String]?
         let reservationInfo: String?
         let recommendedMenu: String?
+        let awards: [String]?
+        let suggestedDuration: String?
+        let admissionFee: String?
+        let dietaryOptions: [String]?
         let tags: [String]?
     }
     struct ExtractedPlacesResponse: Decodable {
@@ -312,6 +327,10 @@ private func parsePlaceAnalysisResults(from text: String) throws -> [AIAnalysisR
                 amenities: place.amenities ?? [],
                 reservationInfo: place.reservationInfo,
                 recommendedMenu: place.recommendedMenu,
+                awards: place.awards ?? [],
+                suggestedDuration: place.suggestedDuration,
+                admissionFee: place.admissionFee,
+                dietaryOptions: place.dietaryOptions ?? [],
                 tags: place.tags ?? [],
                 note: nil
             )
@@ -336,9 +355,10 @@ private func webDetailsSearchPrompt(for query: String, knownLinks: [String]) -> 
     }
     base += """
     검색할 때는 Google Maps, Naver Map, TripAdvisor, Yelp, OpenTable, Resy, TheFork, Tabelog, Zomato 같은 지도·리뷰·예약 플랫폼에 등록된 정보를 먼저 확인하고, 그래도 부족하면 그 외 웹 페이지도 검색하세요 — 이런 플랫폼의 정보가 업체 홈페이지보다 최신이고 정확한 경우가 많습니다.
-    확실하지 않은 값은 추측해서 만들어내지 말고 null로 답하세요.
+    특히 이런 플랫폼에 있는 수상/인증(미쉐린 별점·빕구르망, TripAdvisor Travelers' Choice, 블루리본서베이 등), 추천 소요 시간(관광지/박물관류에서 흔함), 입장료, 식이 옵션(비건, 글루텐프리, 할랄 등) 정보도 확인해서 awards/suggestedDuration/admissionFee/dietaryOptions에 채워주세요.
+    확실하지 않은 값은 추측해서 만들어내지 말고 null(또는 빈 배열)로 답하세요.
     이 장소를 짧게 분류할 만한 태그도 몇 개(0~5개) 제안해주세요(예: "혼밥가능", "데이트코스", "가성비", "야외석") — 검색으로 실제 확인되는 내용에 근거해서만, 근거 없이 지어내지 마세요.
-    {"phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼(예: 캐치테이블 예약, 전화 예약만 가능) 또는 null", "recommendedMenu": "추천 메뉴/시그니처 메뉴 또는 null", "tags": ["태그", ...] 또는 빈 배열, "note": "그 외 참고할 만한 정보(메모로 남길 만한 것) 또는 null"}
+    {"phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼(예: 캐치테이블 예약, 전화 예약만 가능) 또는 null", "recommendedMenu": "추천 메뉴/시그니처 메뉴 또는 null", "awards": ["수상/인증", ...] 또는 빈 배열, "suggestedDuration": "추천 소요 시간 또는 null", "admissionFee": "입장료 또는 null", "dietaryOptions": ["식이 옵션", ...] 또는 빈 배열, "tags": ["태그", ...] 또는 빈 배열, "note": "그 외 참고할 만한 정보(메모로 남길 만한 것) 또는 null"}
     """
     guard let instruction = ScanResultLanguage.current().promptInstruction else { return base }
     return base + "\n" + instruction
@@ -357,6 +377,10 @@ private func parseWebDetails(from text: String) throws -> PlaceWebDetails {
         let amenities: [String]?
         let reservationInfo: String?
         let recommendedMenu: String?
+        let awards: [String]?
+        let suggestedDuration: String?
+        let admissionFee: String?
+        let dietaryOptions: [String]?
         let tags: [String]?
         let note: String?
     }
@@ -374,6 +398,10 @@ private func parseWebDetails(from text: String) throws -> PlaceWebDetails {
         amenities: parsed.amenities ?? [],
         reservationInfo: parsed.reservationInfo,
         recommendedMenu: parsed.recommendedMenu,
+        awards: parsed.awards ?? [],
+        suggestedDuration: parsed.suggestedDuration,
+        admissionFee: parsed.admissionFee,
+        dietaryOptions: parsed.dietaryOptions ?? [],
         tags: parsed.tags ?? [],
         note: parsed.note
     )

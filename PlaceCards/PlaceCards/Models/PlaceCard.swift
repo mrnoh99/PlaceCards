@@ -140,6 +140,28 @@ struct PlaceCard: Identifiable, Codable {
     /// 크로플" — filled by hand, or by an AI photo scan/web search the
     /// same way phone/hours are.
     var recommendedMenu: String?
+    /// Third-party recognition — Michelin stars/Bib Gourmand, TripAdvisor
+    /// "Travelers' Choice", 블루리본서베이, and the like (e.g. "미쉐린
+    /// 1스타", "TripAdvisor Travelers' Choice 2026"). Deliberately
+    /// separate from `tags`: a tag is the user's own personal
+    /// categorization, an award is a specific third party's own
+    /// recognition — conflating the two would lose which is which.
+    var awards: [String] = []
+    /// How long a visit here is expected to take, e.g. "1~2시간" —
+    /// mainly meaningful for attractions/museums (TripAdvisor and
+    /// similar sites routinely show this), not really for restaurants.
+    var suggestedDuration: String?
+    /// Entry ticket pricing, e.g. "성인 15,000원 / 청소년 10,000원" — free
+    /// text since fee structures vary too much for a single number.
+    /// Distinct from `priceLevel` (a restaurant's rough $-tier), which
+    /// says nothing about an admission fee.
+    var admissionFee: String?
+    /// Dietary accommodations, e.g. "비건 옵션", "글루텐프리", "할랄" —
+    /// kept separate from `amenities` (parking, pet-friendly, takeout,
+    /// ...) since these two answer different questions ("can I eat
+    /// here at all" vs. "what's convenient about this place"), even
+    /// though both are free-text lists filled the same way.
+    var dietaryOptions: [String] = []
 
     var amenities: [String] = []
     var tags: [String] = []
@@ -234,8 +256,9 @@ extension PlaceCard {
             .map(String.init)
         guard !words.isEmpty else { return true }
         let searchableFields: [String?] = [
-            name, address, category, memo, phone, recommendedMenu,
-            tags.joined(separator: " "), amenities.joined(separator: " ")
+            name, address, category, memo, phone, recommendedMenu, suggestedDuration, admissionFee,
+            tags.joined(separator: " "), amenities.joined(separator: " "),
+            awards.joined(separator: " "), dietaryOptions.joined(separator: " ")
         ]
         let haystack = searchableFields.compactMap { $0 }.joined(separator: " ")
         return words.contains { haystack.localizedCaseInsensitiveContains($0) }
@@ -261,8 +284,12 @@ extension PlaceCard {
         card.holidays = holidays?.strippingInvisibleFormatCharacters()
         card.reservationInfo = reservationInfo?.strippingInvisibleFormatCharacters()
         card.recommendedMenu = recommendedMenu?.strippingInvisibleFormatCharacters()
+        card.suggestedDuration = suggestedDuration?.strippingInvisibleFormatCharacters()
+        card.admissionFee = admissionFee?.strippingInvisibleFormatCharacters()
         card.tags = tags.map { $0.strippingInvisibleFormatCharacters() }
         card.amenities = amenities.map { $0.strippingInvisibleFormatCharacters() }
+        card.awards = awards.map { $0.strippingInvisibleFormatCharacters() }
+        card.dietaryOptions = dietaryOptions.map { $0.strippingInvisibleFormatCharacters() }
         card.externalLinks = externalLinks.map {
             ExternalLink(
                 id: $0.id,
@@ -305,6 +332,15 @@ extension PlaceCard {
         if amenities.isEmpty, !details.amenities.isEmpty { amenities = details.amenities }
         if reservationInfo == nil, let value = details.reservationInfo, !value.isEmpty { reservationInfo = value }
         if recommendedMenu == nil, let value = details.recommendedMenu, !value.isEmpty { recommendedMenu = value }
+        if suggestedDuration == nil, let value = details.suggestedDuration, !value.isEmpty { suggestedDuration = value }
+        if admissionFee == nil, let value = details.admissionFee, !value.isEmpty { admissionFee = value }
+        // Unlike `tags` above, `awards`/`dietaryOptions` are objective
+        // third-party facts (Michelin either gave a star or didn't; a
+        // menu either has a vegan option or doesn't) rather than
+        // personal categorization, so — same as `amenities` — these
+        // apply directly instead of staging for confirmation.
+        if awards.isEmpty, !details.awards.isEmpty { awards = details.awards }
+        if dietaryOptions.isEmpty, !details.dietaryOptions.isEmpty { dietaryOptions = details.dietaryOptions }
     }
 
     /// Fills in anything only a duplicate had, folding its media and tags

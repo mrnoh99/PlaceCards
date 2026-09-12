@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### 2026-09-12 (127차) — 수상/인증·추천 소요 시간·입장료·식이 옵션 필드 추가 + AI 웹 검색이 우선 채움
+#### Added
+- `Models/PlaceCard.swift`: 새 필드 4개 — `awards: [String]`(미쉐린
+  별점/빕구르망, TripAdvisor Travelers' Choice, 블루리본서베이 등
+  제3자 인증 — `tags`와 달리 사용자 개인 분류가 아니라 객관적 사실이라
+  `amenities`처럼 확인 없이 바로 채워짐), `suggestedDuration: String?`
+  (추천 소요 시간, 관광지/박물관류), `admissionFee: String?`(입장료,
+  `priceLevel`과 별개 개념), `dietaryOptions: [String]`(비건/글루텐
+  프리/할랄 등 — `amenities`와 질문이 달라 별도 필드).
+- `Services/AIProvider.swift`: `PlaceWebDetails`에 위 4개 필드 추가 —
+  사진 스캔·웹 검색 프롬프트/파서 양쪽 다 반영. 웹 검색 프롬프트는
+  기존에 우선 확인하도록 되어 있던 Google Maps/Naver Map/TripAdvisor
+  /Yelp 등 플랫폼에서 이 4가지 정보도 함께 확인하도록 명시 — 별도
+  스크래퍼를 새로 만드는 게 아니라, AI가 이미 쓰는 호스티드 웹 검색
+  도구(Claude/OpenAI/Gemini 각자의 web_search)가 그 사이트들을 검색해
+  읽어오는 경로를 그대로 확장한 것.
+- `Views/EditPlaceCardSheet.swift`: 4개 필드 모두 수동 입력 UI 추가
+  ("관광 정보" 섹션에 추천 소요 시간/입장료, "수상/인증"·"식이 옵션"
+  섹션에 쉼표 구분 목록) — AI가 우선 채우고, 그래도 비어 있거나
+  틀렸을 때 고칠 수 있는 대안으로 유지. `amenities`/`awards`/
+  `dietaryOptions`의 쉼표-리스트 병합 로직이 3번 반복되던 걸
+  `mergeCommaList(_:into:)` 하나로 정리.
+- `Views/PlaceCardDetailView.swift`: 상세보기에 수상/인증·식이
+  옵션(편의시설과 같은 칩 형태), 추천 소요 시간·입장료(영업 정보
+  섹션에 라벨로) 표시 추가.
+
 ### 2026-09-12 (126차) — Naver 검증 카드에 사진이 없으면 Google에서 대신 가져오기
 #### Added
 - `ViewModels/PlaceCardViewModel.swift`: `fetchGooglePhotoFallback(name:

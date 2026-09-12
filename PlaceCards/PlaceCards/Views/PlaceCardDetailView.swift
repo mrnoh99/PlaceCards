@@ -135,10 +135,22 @@ struct PlaceCardDetailView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
+                        if !card.awards.isEmpty {
+                            Text("수상/인증".localized)
+                                .font(.headline)
+                            WrapTagsView(tags: card.awards)
+                        }
+
                         if !card.amenities.isEmpty {
                             Text("편의시설".localized)
                                 .font(.headline)
                             WrapTagsView(tags: card.amenities)
+                        }
+
+                        if !card.dietaryOptions.isEmpty {
+                            Text("식이 옵션".localized)
+                                .font(.headline)
+                            WrapTagsView(tags: card.dietaryOptions)
                         }
 
                         if !card.visitDates.isEmpty {
@@ -324,6 +336,7 @@ struct PlaceCardDetailView: View {
     private var hasHoursInfo: Bool {
         card.hoursDetail?.isEmpty == false || card.closingTime?.isEmpty == false || card.holidays?.isEmpty == false
             || card.reservationInfo?.isEmpty == false || card.recommendedMenu?.isEmpty == false
+            || card.suggestedDuration?.isEmpty == false || card.admissionFee?.isEmpty == false
     }
 
     @ViewBuilder
@@ -358,6 +371,16 @@ struct PlaceCardDetailView: View {
             }
             if let recommendedMenu = card.recommendedMenu, !recommendedMenu.isEmpty {
                 Label("추천 메뉴 ".localized + recommendedMenu, systemImage: "fork.knife")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            if let suggestedDuration = card.suggestedDuration, !suggestedDuration.isEmpty {
+                Label("추천 소요 시간 ".localized + suggestedDuration, systemImage: "clock.badge.checkmark")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            if let admissionFee = card.admissionFee, !admissionFee.isEmpty {
+                Label("입장료 ".localized + admissionFee, systemImage: "ticket")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
