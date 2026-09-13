@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-09-13 (146차) — 장소 추가 화면에 사진 찍은 위치를 바로 지도에서 볼 수 있는 버튼 추가
+#### Added
+- `Views/AddPlaceCardView.swift`: `photosSection`의 "AI로 장소 분석하기"
+  버튼 아래에 "지도에서 찾기" 메뉴 추가 — AI 분석을 돌리기 전(또는
+  아예 돌리지 않고)에도 방금 고른 사진들의 GPS 위치를 Google Maps/
+  Naver Map에서 바로 확인할 수 있음. 이 시점엔 아직 이름·주소가
+  전혀 없어 이름 기반 검색은 성립하지 않으므로 좌표 기반 열기만
+  제공. `viewModel.photoLocationHint`는 AI 분석이 실제로 실행된
+  뒤에만 채워져 이 시점엔 쓸 수 없으므로, 새 `pickedPhotoCoordinate`
+  계산 프로퍼티로 `pickedImageDatas`에서 바로 추출(사진이 여러 장이면
+  평균) — 후보 행(candidateRowView)의 기존 "지도에서 찾기" 메뉴와
+  같은 UI 패턴·기존 로컬라이제이션 키를 재사용.
+
 ### 2026-09-13 (145차) — AIProviderChain.swift가 애초에 Xcode 프로젝트에 등록된 적이 없었음
 144차 수정 후에도 CI가 여전히 실패 — `EditPlaceCardSheet.swift`,
 `MapScreenshotImportSheet.swift`에서 `AIProviderChain`을 "cannot find

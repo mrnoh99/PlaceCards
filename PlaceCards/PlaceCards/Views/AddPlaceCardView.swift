@@ -215,8 +215,41 @@ struct AddPlaceCardView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+
+                // AI 분석 없이도(또는 그 전에 먼저) 사진이 찍힌 위치를
+                // 지도에서 직접 확인할 수 있도록 — 아직 이름/주소가 전혀
+                // 없는 단계라 이름 기반 검색은 성립하지 않고, 사진 GPS로
+                // 좌표를 직접 여는 것만 가능함. `viewModel.photoLocationHint`
+                // 는 AI 분석이 실제로 실행된 뒤에만 채워지므로 여기서는
+                // 쓸 수 없어 `pickedImageDatas`에서 바로 계산.
+                Menu {
+                    if let coordinate = pickedPhotoCoordinate {
+                        Button("사진 위치로 보기 (Google)".localized) {
+                            GoogleMapsOpener.open(coordinates: coordinate, using: openURL)
+                        }
+                        if let url = NaverMapOpener.mapURL(coordinates: coordinate) {
+                            Button("사진 위치로 보기 (Naver)".localized) {
+                                openURL(url)
+                            }
+                        }
+                    }
+                } label: {
+                    Label("지도에서 찾기".localized, systemImage: "map")
+                }
+                .disabled(pickedPhotoCoordinate == nil)
             }
         }
+    }
+
+    /// The currently picked batch's own photo GPS — computed fresh here,
+    /// independent of `viewModel.photoLocationHint` (which is only set
+    /// once AI analysis actually runs), so "지도에서 찾기" above works
+    /// even before tapping "AI로 장소 분석하기". Averages when more than
+    /// one photo has GPS, same reasoning as `PlaceCardViewModel
+    /// .analyzeImages`'s single-place case.
+    private var pickedPhotoCoordinate: Coordinates? {
+        let coordinates = pickedImageDatas.compactMap(PhotoMetadata.extractLocation)
+        return coordinates.count > 1 ? Coordinates.average(coordinates) : coordinates.first
     }
 
     private var candidatesSection: some View {
