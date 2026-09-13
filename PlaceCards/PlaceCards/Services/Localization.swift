@@ -134,6 +134,7 @@ enum Localization {
         "API 키 저장 방식": "How API keys are stored",
         "API 키는 내 것만": "Only your own API keys",
         "Apple 지도": "Apple Maps",
+        "GPS로 촬영위치찾기": "Find Location by Photo GPS",
         "Google API 키가 저장되었습니다.": "Google API key saved.",
         "Google API 키가 필요합니다": "A Google API key is required",
         "Google Maps에서 열기": "Open in Google Maps",

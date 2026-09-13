@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-13 (147차) — "GPS로 촬영위치찾기": 사진들의 GPS가 서로 다른 곳이면 dim out
+146차에서 추가한 버튼을 정교화 — 사진에 GPS 정보가 없거나, 여러 장의
+GPS가 서로 다른 곳(다른 장소 사진들이 섞여 있음)을 가리키면 선택할
+수 없게 함.
+#### Changed
+- `Views/AddPlaceCardView.swift`: 버튼 이름을 "지도에서 찾기" →
+  "GPS로 촬영위치찾기"로 바꾸고, `pickedPhotoCoordinate`가 무조건
+  평균을 내던 것을 — 사진에 GPS가 하나도 없으면(`nil`) 그대로 dim
+  out, 여러 장이면 평균 좌표와 각 사진의 거리를 확인해 전부
+  `maxPhotoLocationMatchDistanceMeters`(500m, `PlaceCardViewModel`의
+  같은 이름 상수와 동일 반경/근거) 이내로 일치할 때만 평균 좌표를
+  반환하고, 하나라도 벗어나면 `nil`을 반환해 자동으로 dim out되도록
+  수정. 사진이 0장 또는 1장이면 비교할 대상이 없어 항상 통과(공허하게
+  참).
+
 ### 2026-09-13 (146차) — 장소 추가 화면에 사진 찍은 위치를 바로 지도에서 볼 수 있는 버튼 추가
 #### Added
 - `Views/AddPlaceCardView.swift`: `photosSection`의 "AI로 장소 분석하기"

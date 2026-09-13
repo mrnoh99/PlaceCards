@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import CoreLocation
 
 /// Add-place flow: pick one or more screenshots, run them through AI in a
 /// single request, and review the resulting list of places — a screenshot
@@ -22,6 +23,12 @@ struct AddPlaceCardView: View {
     /// to pick a bucket nobody ever sees again wasn't worth the extra
     /// step, so this just picks one value for every save instead.
     private static let defaultSource: SourceType = .onsitePhoto
+
+    /// Same radius/reasoning as `PlaceCardViewModel.maxPhotoLocationMatch
+    /// DistanceMeters` — used here to check that every picked photo's own
+    /// EXIF GPS agrees with the others (see `pickedPhotoCoordinate`),
+    /// rather than a photo's GPS against a separately-sourced address.
+    private static let maxPhotoLocationMatchDistanceMeters: CLLocationDistance = 500
 
     @StateObject private var viewModel: PlaceCardViewModel
     @EnvironmentObject private var navigation: AppNavigation
@@ -221,7 +228,12 @@ struct AddPlaceCardView: View {
                 // 없는 단계라 이름 기반 검색은 성립하지 않고, 사진 GPS로
                 // 좌표를 직접 여는 것만 가능함. `viewModel.photoLocationHint`
                 // 는 AI 분석이 실제로 실행된 뒤에만 채워지므로 여기서는
-                // 쓸 수 없어 `pickedImageDatas`에서 바로 계산.
+                // 쓸 수 없어 `pickedImageDatas`에서 바로 계산. GPS 정보가
+                // 없거나(사진에 위치 정보 없음) 여러 장의 GPS가 서로
+                // 다른 곳을 가리키면(다른 장소 사진들이 섞여 있음)
+                // `pickedPhotoCoordinate`가 nil이 되어 자동으로 dim
+                // out됨 — 신뢰할 수 없는 위치를 여는 것보다 못 여는 게
+                // 안전함.
                 Menu {
                     if let coordinate = pickedPhotoCoordinate {
                         Button("사진 위치로 보기 (Google)".localized) {
@@ -234,7 +246,7 @@ struct AddPlaceCardView: View {
                         }
                     }
                 } label: {
-                    Label("지도에서 찾기".localized, systemImage: "map")
+                    Label("GPS로 촬영위치찾기".localized, systemImage: "location.viewfinder")
                 }
                 .disabled(pickedPhotoCoordinate == nil)
             }
@@ -243,13 +255,25 @@ struct AddPlaceCardView: View {
 
     /// The currently picked batch's own photo GPS — computed fresh here,
     /// independent of `viewModel.photoLocationHint` (which is only set
-    /// once AI analysis actually runs), so "지도에서 찾기" above works
-    /// even before tapping "AI로 장소 분석하기". Averages when more than
-    /// one photo has GPS, same reasoning as `PlaceCardViewModel
-    /// .analyzeImages`'s single-place case.
+    /// once AI analysis actually runs), so "GPS로 촬영위치찾기" above
+    /// works even before tapping "AI로 장소 분석하기". `nil` (dimming out
+    /// the button) whenever there's nothing to go on (no photo has GPS)
+    /// *or* the ones that do disagree by more than `maxPhotoLocationMatch
+    /// DistanceMeters` — several photos of different places would
+    /// average into a meaningless point rather than a real location, so
+    /// this only ever offers a coordinate once every photo with GPS
+    /// agrees it's the same place (trivially true with zero or one such
+    /// photo). Averages when more than one photo has GPS, same reasoning
+    /// as `PlaceCardViewModel.analyzeImages`'s single-place case.
     private var pickedPhotoCoordinate: Coordinates? {
         let coordinates = pickedImageDatas.compactMap(PhotoMetadata.extractLocation)
-        return coordinates.count > 1 ? Coordinates.average(coordinates) : coordinates.first
+        guard let average = Coordinates.average(coordinates) else { return nil }
+        let averageLocation = CLLocation(latitude: average.latitude, longitude: average.longitude)
+        let allAgree = coordinates.allSatisfy { coordinate in
+            averageLocation.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+                <= Self.maxPhotoLocationMatchDistanceMeters
+        }
+        return allAgree ? average : nil
     }
 
     private var candidatesSection: some View {
