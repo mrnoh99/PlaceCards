@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-09-13 (142차) — GitHub Actions CI 빌드 워크플로 추가
+#### Added
+- `.github/workflows/ci.yml`: push(main/master)·PR마다 macOS 러너에서
+  `xcodebuild build`를 실행. 이 프로젝트엔 테스트 타겟이 없어
+  `test`가 아닌 `build`만 수행. 시뮬레이터용으로 빌드하되 특정 기기가
+  아닌 `generic/platform=iOS Simulator`를 대상으로 해서 러너 이미지에
+  어떤 시뮬레이터 런타임이 설치돼 있는지와 무관하게 동작하도록 함.
+  이 저장소엔 CI용 서명 인증서/프로비저닝 프로파일이 없으므로
+  `CODE_SIGNING_ALLOWED=NO`/`CODE_SIGNING_REQUIRED=NO`로 서명 없이
+  빌드 — 아카이브가 아닌 일반 빌드는 서명이 필요 없음. `PlaceCards`
+  스킴 하나만 빌드하면 `PlaceCardsShare`(Share Extension 타겟)도
+  임베디드 의존성으로 함께 빌드됨.
+
 ### 2026-09-12 (141차) — "위치정보에 사진 GPS 사용" 체크박스로 통일: 알럿 대신 명시적 옵트인 + 불일치 시 중단
 140차에서 만든 확인 알럿을 걷어내고, 사용자가 명시적으로 켜야만
 동작하는 체크박스 방식으로 교체 — 켜져 있는데 사진 GPS가 주소/기존

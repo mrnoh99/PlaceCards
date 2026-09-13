@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build:
+    name: Build (PlaceCards scheme)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Show available destinations
+        run: |
+          xcodebuild -showdestinations \
+            -project PlaceCards/PlaceCards.xcodeproj \
+            -scheme PlaceCards
+
+      # Builds for "generic/platform=iOS Simulator" instead of a concrete
+      # device so it doesn't depend on which specific simulator runtimes
+      # the runner image happens to have installed. Code signing is
+      # disabled since this repo carries no CI signing identity/
+      # provisioning profile — a plain build (not archive) doesn't need
+      # one. The PlaceCardsShare app-extension target is built
+      # transitively as an embedded dependency of the PlaceCards scheme.
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project PlaceCards/PlaceCards.xcodeproj \
+            -scheme PlaceCards \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
