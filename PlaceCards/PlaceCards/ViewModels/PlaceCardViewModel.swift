@@ -758,7 +758,7 @@ final class PlaceCardViewModel: ObservableObject {
     /// `searchViaGoogle` already applies to that same kind of coordinate.
     private func fetchGooglePhotoFallback(
         name: String, address: String, coordinates: Coordinates?,
-        groundTruthRadius: CLLocationDistance = Self.maxAddressMatchDistanceMeters
+        groundTruthRadius: CLLocationDistance = PlaceCardViewModel.maxAddressMatchDistanceMeters
     ) async -> MediaItem? {
         guard let coordinates,
               let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }

@@ -2,6 +2,45 @@
 
 ## [Unreleased]
 
+### 2026-09-13 (145차) — AIProviderChain.swift가 애초에 Xcode 프로젝트에 등록된 적이 없었음
+144차 수정 후에도 CI가 여전히 실패 — `EditPlaceCardSheet.swift`,
+`MapScreenshotImportSheet.swift`에서 `AIProviderChain`을 "cannot find
+in scope"라며 못 찾음. 디스크의 모든 `.swift` 파일을 `project.pbxproj`의
+참조와 대조해보니 `Services/AIProviderChain.swift` 단 하나만
+`PBXBuildFile`/`PBXFileReference`/그룹 멤버십/`PBXSourcesBuildPhase`
+어디에도 등록돼 있지 않았음 — git에는 커밋돼 있었지만 Xcode 프로젝트
+파일엔 한 번도 추가된 적이 없어서, 이 세션이 시작되기 전부터(123차
+경) 지금까지 이 파일이 로컬 빌드에서도 실제로는 컴파일된 적이
+없었다는 뜻. 이 세션의 검증 파이프라인은 괄호 균형만 확인했지 실제
+컴파일러를 돌린 적이 없어서 지금까지 전혀 잡히지 않았던 문제 —
+방금 만든 CI가 처음으로 실제 컴파일을 돌려서 드러남.
+#### Fixed
+- `PlaceCards.xcodeproj/project.pbxproj`: `AIProvider.swift`(같은
+  Services 그룹의 이웃 파일) 항목을 템플릿 삼아 `AIProviderChain.swift`의
+  `PBXBuildFile`/`PBXFileReference`/그룹 멤버십/`PlaceCards` 타겟의
+  `PBXSourcesBuildPhase` 4곳에 모두 등록.
+
+### 2026-09-13 (144차) — CI가 잡아낸 실제 컴파일 에러 수정: 기본 인자에 Self 참조 불가
+143차 PR의 CI(`xcodebuild build`)가 첫 실행에서 바로 실패 —
+`PlaceCardViewModel.swift:761`의 `groundTruthRadius: CLLocationDistance
+= Self.maxAddressMatchDistanceMeters`(138차, Gap F 수정에서 추가)가
+"covariant 'Self' type cannot be referenced from a default argument
+expression" 컴파일 에러. Swift는 기본 인자 표현식이 인스턴스 컨텍스트
+밖에서 평가되기 때문에 `Self`(공변 타입)를 그 안에서 참조하는 것을
+금지함 — 함수 본문 안에서 `Self.xxx`를 쓰는 것과는 다른 문제. `Self`를
+구체 타입 이름 `PlaceCardViewModel`로 바꿔 해결(final class라 의미상
+동일). 같은 패턴(기본 인자 값에 `Self.` 참조)이 다른 곳에도 있는지
+전체 검색했고, 이 한 곳뿐이었음 — 이 환경엔 Swift 툴체인이 없어 여태
+brace/paren 균형 검사로만 검증해왔는데, 이런 타입 체크 수준의 에러는
+그 검사로 잡을 수 없었던 것 — 실제 컴파일러가 도는 CI를 만든 이유가
+바로 이런 걸 잡기 위함이었음.
+
+### 2026-09-13 (143차) — main 브랜치 신설 + CI 워크플로 첫 PR로 검증
+저장소에 `main` 브랜치가 없어(그동안 `claude/placecards-ios-app-xf1oj2`
+하나만 존재) 142차의 CI를 실제 PR로 검증할 대상이 없었음. 현재
+지점에서 `main`을 새로 만들고, 이 브랜치(`ci-test`)에서 `main`으로
+첫 PR을 열어 142차 워크플로가 실제로 macOS 러너에서 도는지 확인.
+
 ### 2026-09-13 (142차) — GitHub Actions CI 빌드 워크플로 추가
 #### Added
 - `.github/workflows/ci.yml`: push(main/master)·PR마다 macOS 러너에서
