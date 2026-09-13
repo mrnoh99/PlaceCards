@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 2026-09-13 (143차) — main 브랜치 신설 + CI 워크플로 첫 PR로 검증
+저장소에 `main` 브랜치가 없어(그동안 `claude/placecards-ios-app-xf1oj2`
+하나만 존재) 142차의 CI를 실제 PR로 검증할 대상이 없었음. 현재
+지점에서 `main`을 새로 만들고, 이 브랜치(`ci-test`)에서 `main`으로
+첫 PR을 열어 142차 워크플로가 실제로 macOS 러너에서 도는지 확인.
+
 ### 2026-09-13 (142차) — GitHub Actions CI 빌드 워크플로 추가
 #### Added
 - `.github/workflows/ci.yml`: push(main/master)·PR마다 macOS 러너에서
