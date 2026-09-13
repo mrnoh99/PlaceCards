@@ -22,6 +22,7 @@
 		7887C1C9178ABED6AFF9E51A /* MediaStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB7B3336DBCBFE8321EE4F85 /* MediaStore.swift */; };
 		404E194DDA73796570A42772 /* PlaceSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */; };
 		5BE90970A2B6B311A437C394 /* AIProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A292915AAE28BAB7E1F58622 /* AIProvider.swift */; };
+		A36D3DC59B467677BB4CB17E /* AIProviderChain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57270A97CD030961D2214763 /* AIProviderChain.swift */; };
 		106636699A667B5CEEE9A1CA /* PlaceCardsError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4A4FAE3C761D47BC7BDCFC2 /* PlaceCardsError.swift */; };
 		DCC2EE6496283552FC792620 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 113089F6849C738C1EA5C244 /* SettingsViewModel.swift */; };
 		EB80FD51C5AD09B8635D0577 /* PlaceCardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C3D2059C9496FBD3A2694EE /* PlaceCardViewModel.swift */; };
@@ -89,6 +90,7 @@
 		FB7B3336DBCBFE8321EE4F85 /* MediaStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaStore.swift; sourceTree = "<group>"; };
 		3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceSearchService.swift; sourceTree = "<group>"; };
 		A292915AAE28BAB7E1F58622 /* AIProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProvider.swift; sourceTree = "<group>"; };
+		57270A97CD030961D2214763 /* AIProviderChain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProviderChain.swift; sourceTree = "<group>"; };
 		B4A4FAE3C761D47BC7BDCFC2 /* PlaceCardsError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardsError.swift; sourceTree = "<group>"; };
 		113089F6849C738C1EA5C244 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		4C3D2059C9496FBD3A2694EE /* PlaceCardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardViewModel.swift; sourceTree = "<group>"; };
@@ -227,6 +229,7 @@
 				3116C7D60BEF706F915085B8 /* PlaceSearchService.swift */,
 				3A560B6E414978F9BC02CB4C /* NaverPlaceSearchService.swift */,
 				A292915AAE28BAB7E1F58622 /* AIProvider.swift */,
+				57270A97CD030961D2214763 /* AIProviderChain.swift */,
 				B4A4FAE3C761D47BC7BDCFC2 /* PlaceCardsError.swift */,
 				06AFCF5C8D9B6F9363EAD4E5 /* LinkMetadataFetcher.swift */,
 				F4C9BA465AB6FD5074AB6DD6 /* SharedLinkParser.swift */,
@@ -427,6 +430,7 @@
 				7887C1C9178ABED6AFF9E51A /* MediaStore.swift in Sources */,
 				404E194DDA73796570A42772 /* PlaceSearchService.swift in Sources */,
 				5BE90970A2B6B311A437C394 /* AIProvider.swift in Sources */,
+				A36D3DC59B467677BB4CB17E /* AIProviderChain.swift in Sources */,
 				106636699A667B5CEEE9A1CA /* PlaceCardsError.swift in Sources */,
 				DCC2EE6496283552FC792620 /* SettingsViewModel.swift in Sources */,
 				EB80FD51C5AD09B8635D0577 /* PlaceCardViewModel.swift in Sources */,

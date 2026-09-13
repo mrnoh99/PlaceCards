@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### 2026-09-13 (145차) — AIProviderChain.swift가 애초에 Xcode 프로젝트에 등록된 적이 없었음
+144차 수정 후에도 CI가 여전히 실패 — `EditPlaceCardSheet.swift`,
+`MapScreenshotImportSheet.swift`에서 `AIProviderChain`을 "cannot find
+in scope"라며 못 찾음. 디스크의 모든 `.swift` 파일을 `project.pbxproj`의
+참조와 대조해보니 `Services/AIProviderChain.swift` 단 하나만
+`PBXBuildFile`/`PBXFileReference`/그룹 멤버십/`PBXSourcesBuildPhase`
+어디에도 등록돼 있지 않았음 — git에는 커밋돼 있었지만 Xcode 프로젝트
+파일엔 한 번도 추가된 적이 없어서, 이 세션이 시작되기 전부터(123차
+경) 지금까지 이 파일이 로컬 빌드에서도 실제로는 컴파일된 적이
+없었다는 뜻. 이 세션의 검증 파이프라인은 괄호 균형만 확인했지 실제
+컴파일러를 돌린 적이 없어서 지금까지 전혀 잡히지 않았던 문제 —
+방금 만든 CI가 처음으로 실제 컴파일을 돌려서 드러남.
+#### Fixed
+- `PlaceCards.xcodeproj/project.pbxproj`: `AIProvider.swift`(같은
+  Services 그룹의 이웃 파일) 항목을 템플릿 삼아 `AIProviderChain.swift`의
+  `PBXBuildFile`/`PBXFileReference`/그룹 멤버십/`PlaceCards` 타겟의
+  `PBXSourcesBuildPhase` 4곳에 모두 등록.
+
 ### 2026-09-13 (144차) — CI가 잡아낸 실제 컴파일 에러 수정: 기본 인자에 Self 참조 불가
 143차 PR의 CI(`xcodebuild build`)가 첫 실행에서 바로 실패 —
 `PlaceCardViewModel.swift:761`의 `groundTruthRadius: CLLocationDistance
