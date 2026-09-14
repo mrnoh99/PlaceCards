@@ -84,6 +84,11 @@ struct PlaceCardDetailView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
+                        if card.googlePlaceId != nil {
+                            Label("장소확정".localized, systemImage: "checkmark.seal.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(.green)
+                        }
                         if !card.address.isEmpty {
                             Text(card.address)
                                 .font(.body)
