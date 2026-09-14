@@ -157,12 +157,25 @@ struct SettingsView: View {
                     }
 
                     if provider == .gateway {
+                        // `.menu`, explicitly — this row already needs
+                        // `.buttonStyle(.borderless)` below to keep "저장"
+                        // (right underneath) reliably tappable on its own
+                        // (same fix `aiProviderPrioritySection`'s up/down
+                        // buttons already use — sharing one custom `VStack`
+                        // row with another interactive control leaves the
+                        // row's own tap gesture ambiguous otherwise, and
+                        // was observed resolving to the Picker even when
+                        // the tap landed on "저장"). Pinning the style
+                        // outright also avoids relying on whatever
+                        // `.automatic` happens to resolve to inside a
+                        // `Form` across iOS versions.
                         Picker("모델".localized, selection: $gatewayModelSelection) {
                             ForEach(GatewayModels.all) { model in
                                 Text(model.label).tag(model.id)
                             }
                             Text("직접 입력…".localized).tag(Self.customModelTag)
                         }
+                        .pickerStyle(.menu)
                         if gatewayModelSelection == Self.customModelTag {
                             TextField("model-id", text: $gatewayCustomModelInput)
                                 .textInputAutocapitalization(.never)
@@ -178,6 +191,7 @@ struct SettingsView: View {
                         }
                         viewModel.saveProviderAPIKey(provider)
                     }
+                    .buttonStyle(.borderless)
                     .font(.caption)
                 }
                 .padding(.vertical, 4)

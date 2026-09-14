@@ -67,6 +67,22 @@
   지점이라, 근본 원인을 여기서 한 번만 고치면 모든 화면에 동시에
   반영됨.
 
+### 2026-09-14 (153차) — 설정의 Gateway "저장" 버튼이 안 눌리던 버그 수정
+사용자 제보: 설정에서 Gateway 제공자의 "저장" 버튼을 터치하면
+저장되지 않고 모델 Picker가 대신 뜸.
+#### Fixed
+- `Views/SettingsView.swift`: `aiProviderKeysSection`의 Gateway 행만
+  유일하게 Picker와 Button이 같은 커스텀 `VStack`(Form의 한 행) 안에
+  나란히 있었음 — `Section`의 직계 자식으로 두면 Form이 각각을
+  자동으로 별도 행으로 분리해주지만, 이렇게 한 VStack으로 묶인
+  행에서는 탭 제스처가 모호해져 "저장" 위치를 눌러도 바로 위
+  Picker로 판정되는 현상이 있었음(정확히 `aiProviderPrioritySection`
+  의 위/아래 버튼이 이미 `.buttonStyle(.borderless)`로 우회하고 있던
+  것과 같은 종류의 문제). Gateway Picker에 `.pickerStyle(.menu)`를
+  명시하고(Form 안에서 `.automatic`이 iOS 버전별로 다르게 해석되는
+  것에 기대지 않도록) "저장" 버튼에 `.buttonStyle(.borderless)`를
+  추가해 각 컨트롤이 자기 몫의 탭만 받도록 수정.
+
 ### 2026-09-14 (150차) — 장소 추가 화면의 "+ 장소 추가" 버튼 제거
 사진 선택/AI 분석 여부와 무관하게, "추가할 장소" 리스트 맨 아래에
 있던 "+ 장소 추가"(빈 행 추가) 버튼을 삭제.
