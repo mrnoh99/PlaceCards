@@ -109,6 +109,9 @@ struct EditPlaceCardSheet: View {
     @State private var isRefreshingGoogleDetails = false
     @State private var googleRefreshMessage: String?
 
+    @State private var isRefreshingNaverDetails = false
+    @State private var naverRefreshMessage: String?
+
     /// Starts as `card.googlePlaceId` but can be set by `placeConfirmSection`
     /// below — a plain `let card` has no way to reflect that until `save()`
     /// actually runs, so this stands in for it everywhere a still-unsaved
@@ -194,6 +197,7 @@ struct EditPlaceCardSheet: View {
                     basicInfoSection
                     webSearchSection
                     googleRefreshSection
+                    naverRefreshSection
                     placeConfirmSection
                     coordinatesSection
                     contactSection
@@ -680,6 +684,44 @@ struct EditPlaceCardSheet: View {
         }
     }
 
+    /// The `googleRefreshSection` counterpart for a card confirmed only
+    /// against Naver (`confirmedNaverVerified` but no `confirmedGoogle
+    /// PlaceId` — showing both at once would be redundant, since a card
+    /// with a Google match should just use that). Naver's local search API
+    /// has no stable place ID to re-fetch by like Google's `placeId` (see
+    /// `PlaceCard.naverVerified`'s own doc comment), so this re-runs a
+    /// plain name+address search and picks the closest/best-named match
+    /// (`closestNaverMatch(among:)`) rather than pinning to one place —
+    /// and that same API has no rating/review count/hours/photo fields at
+    /// all (see `NaverPlaceSearchService`'s own doc comments), so it can
+    /// only ever blank-fill phone/website/category/coordinates, never the
+    /// fuller set `googleRefreshSection` can.
+    @ViewBuilder
+    private var naverRefreshSection: some View {
+        if confirmedNaverVerified && confirmedGooglePlaceId == nil {
+            Section {
+                Button {
+                    Task { await refreshFromNaverPlaceDetails() }
+                } label: {
+                    if isRefreshingNaverDetails {
+                        ProgressView()
+                    } else {
+                        Label("Naver에서 새로고침".localized, systemImage: "arrow.clockwise")
+                    }
+                }
+                .disabled(isRefreshingNaverDetails || name.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                if let naverRefreshMessage {
+                    Text(naverRefreshMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } footer: {
+                Text("AI 없이 Naver 지역검색 API로 이 장소의 전화번호·웹사이트·카테고리 등 비어 있는 항목만 다시 확인합니다. 평점·영업시간·사진은 Naver 지역검색이 제공하지 않아 채워지지 않습니다.".localized)
+            }
+        }
+    }
+
     /// A card saved without ever being matched against Google Places
     /// (`card.googlePlaceId == nil` — created manually, or verified only
     /// against Naver) has no way to get verified rating/phone/website/
@@ -729,7 +771,7 @@ struct EditPlaceCardSheet: View {
             } header: {
                 Text("장소 확정".localized)
             } footer: {
-                Text("이 카드는 아직 Google/Naver로 확정되지 않았습니다. 이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google에서 새로고침\"도 쓸 수 있게 됩니다.".localized)
+                Text("이 카드는 아직 Google/Naver로 확정되지 않았습니다. 이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google/Naver에서 새로고침\"도 쓸 수 있게 됩니다.".localized)
             }
         }
     }
@@ -1066,16 +1108,79 @@ struct EditPlaceCardSheet: View {
         }
     }
 
+    /// The `refreshFromGooglePlaceDetails()` counterpart for a card
+    /// confirmed only against Naver — see `naverRefreshSection`'s own
+    /// comment for why this re-searches by name+address instead of
+    /// re-fetching a stable ID, and why it can only ever fill phone/
+    /// website/category/coordinates.
+    private func refreshFromNaverPlaceDetails() async {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+        isRefreshingNaverDetails = true
+        naverRefreshMessage = nil
+        defer { isRefreshingNaverDetails = false }
+
+        guard let credentials = SettingsViewModel.currentNaverSearchCredentials() else {
+            naverRefreshMessage = PlaceCardsError.apiKeyMissing.localizedDescription
+            return
+        }
+
+        let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
+        let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName) \(trimmedAddress)"
+
+        do {
+            let results = try await NaverPlaceSearchService.search(
+                query: query, clientId: credentials.clientId, clientSecret: credentials.clientSecret
+            )
+            guard let match = closestNaverMatch(among: results) else {
+                naverRefreshMessage = PlaceCardsError.noResults.localizedDescription
+                return
+            }
+            let filledFields = fillBlankFields(from: match)
+            naverRefreshMessage = filledFields.isEmpty
+                ? "Naver에서 새로 채울 정보를 찾지 못했습니다.".localized
+                : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
+        } catch {
+            naverRefreshMessage = error.localizedDescription
+        }
+    }
+
+    /// Picks the result that's actually this same place, not just a
+    /// same-named one elsewhere — same reasoning as `MapLinkImportSheet
+    /// .enrichFromGooglePlaces()`'s own matching. Prefers the closest
+    /// result within `maxAddressMatchDistanceMeters` of the card's
+    /// existing coordinate; falls back to an exact (trimmed,
+    /// case-insensitive) name match when the card has no coordinate yet,
+    /// since unlike Google's `placeId` there's no stable ID here to pin to.
+    private func closestNaverMatch(among results: [PlaceSearchResult]) -> PlaceSearchResult? {
+        if let latitude = Double(latitudeText), let longitude = Double(longitudeText) {
+            let cardLocation = CLLocation(latitude: latitude, longitude: longitude)
+            return results
+                .compactMap { result -> (PlaceSearchResult, CLLocationDistance)? in
+                    guard let coordinates = result.coordinates else { return nil }
+                    let distance = cardLocation.distance(
+                        from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude)
+                    )
+                    return distance <= Self.maxAddressMatchDistanceMeters ? (result, distance) : nil
+                }
+                .min { $0.1 < $1.1 }?
+                .0
+        }
+        let trimmedName = name.trimmingCharacters(in: .whitespaces).lowercased()
+        return results.first { $0.name.trimmingCharacters(in: .whitespaces).lowercased() == trimmedName }
+    }
+
     /// Re-derives coordinates from whatever's currently in the 주소
     /// field, entirely non-AI — the same `geocodeAddress(_:)` call
     /// `createManualPlaceCard`/`searchViaGoogle` already use elsewhere,
     /// just triggered by hand here instead of automatically at creation
-    /// time. The one way to give a card coordinates after the fact when
-    /// it has no `googlePlaceId` to refresh from (`refreshFromGooglePlace
-    /// Details()` above needs one) — meant to follow up on manually
-    /// confirming the real address via `PlaceCardDetailView`'s "지도에서
-    /// 열기" (Google Maps opens off name/address text alone, no
-    /// coordinate needed, so it's reachable even before this ever runs).
+    /// time. Useful even alongside `refreshFromGooglePlaceDetails()`/
+    /// `refreshFromNaverPlaceDetails()` above (both blank-fill coordinates
+    /// too) when the card has no `googlePlaceId`/Naver match to refresh
+    /// from at all — meant to follow up on manually confirming the real
+    /// address via `PlaceCardDetailView`'s "지도에서 열기" (Google Maps
+    /// opens off name/address text alone, no coordinate needed, so it's
+    /// reachable even before this ever runs).
     private func geocodeFromAddress() async {
         let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
         guard !trimmedAddress.isEmpty else { return }
@@ -1224,10 +1329,41 @@ struct EditPlaceCardSheet: View {
         return filledFields
     }
 
+    /// The `PlaceSearchResult` counterpart to the two `fillBlankFields`
+    /// overloads above, for `refreshFromNaverPlaceDetails()` — Naver's
+    /// local search API has no rating/review count/hours/photo fields at
+    /// all (see `NaverPlaceSearchService`'s own doc comments), so only
+    /// phone/website/category/coordinates are ever worth checking here.
+    private func fillBlankFields(from result: PlaceSearchResult) -> [String] {
+        var filledFields: [String] = []
+
+        if phone.trimmingCharacters(in: .whitespaces).isEmpty, let value = result.phone, !value.isEmpty {
+            phone = value
+            filledFields.append("전화번호".localized)
+        }
+        if website.trimmingCharacters(in: .whitespaces).isEmpty, let value = result.website, !value.isEmpty {
+            website = value
+            filledFields.append("웹사이트".localized)
+        }
+        if category.trimmingCharacters(in: .whitespaces).isEmpty, let value = result.category, !value.isEmpty {
+            category = value
+            filledFields.append("카테고리".localized)
+        }
+        if latitudeText.trimmingCharacters(in: .whitespaces).isEmpty,
+           longitudeText.trimmingCharacters(in: .whitespaces).isEmpty,
+           let coordinates = result.coordinates {
+            latitudeText = String(coordinates.latitude)
+            longitudeText = String(coordinates.longitude)
+            filledFields.append("좌표".localized)
+        }
+
+        return filledFields
+    }
+
     /// Merges `newValues` into a comma-separated text field, keeping
     /// whatever's already there and skipping anything already present —
     /// shared by every comma-list field (amenities/awards/dietary
-    /// options) both `fillBlankFields` overloads above fill the same way.
+    /// options) the `fillBlankFields` overloads above fill the same way.
     /// Returns `nil` when there's nothing new to add, so a caller can
     /// tell "merged" apart from "no-op" without re-checking itself.
     private func mergeCommaList(_ newValues: [String], into text: String) -> String? {
