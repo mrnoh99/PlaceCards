@@ -103,9 +103,6 @@ struct EditPlaceCardSheet: View {
     /// user opts in here. See `applyOrWarnPhotoLocation(_:placeAddress:)`.
     @State private var usePhotoGPSForLocation = false
 
-    @State private var isSearchingWeb = false
-    @State private var webSearchMessage: String?
-
     @State private var isRefreshingGoogleDetails = false
     @State private var googleRefreshMessage: String?
 
@@ -131,7 +128,7 @@ struct EditPlaceCardSheet: View {
     @State private var isGeocodingAddress = false
     @State private var geocodeMessage: String?
 
-    /// Tags the AI (photo scan or web search) suggested that aren't
+    /// Tags the AI (photo scan) suggested that aren't
     /// already in `tagsText` — staged here rather than applied straight
     /// away (see `PlaceWebDetails.tags`'s own doc comment for why tags
     /// specifically get this treatment) and shown as one batch to accept
@@ -195,7 +192,6 @@ struct EditPlaceCardSheet: View {
                 Group {
                     photoImportSection
                     basicInfoSection
-                    webSearchSection
                     googleRefreshSection
                     naverRefreshSection
                     placeConfirmSection
@@ -285,7 +281,7 @@ struct EditPlaceCardSheet: View {
     }
 
     /// Each of these used to be inline in `body`'s `Form { ... }` — split
-    /// out (same pattern `photoImportSection`/`webSearchSection` already
+    /// out (same pattern `photoImportSection`/`googleRefreshSection` already
     /// used) because the Swift compiler couldn't type-check `body` as one
     /// single expression once nearly every literal in it became a
     /// non-literal `String` via `.localized` ("unable to type-check this
@@ -614,41 +610,6 @@ struct EditPlaceCardSheet: View {
             Text("사진 추가".localized)
         } footer: {
             Text("사진은 저장 시 카드에 추가됩니다. \"AI로 정보 읽어오기\"는 비어 있는 이름·주소를 채우는데, 사진에서 여러 장소가 발견되면 적용하지 않고 알려드리고, 이름이 바뀌는 경우엔 확인 후 적용됩니다.".localized)
-        }
-    }
-
-    /// Fills in whatever's still blank — phone, website, category, hours,
-    /// amenities, and anything else worth a memo note — by having AI
-    /// search the web for this place, instead of reading a photo. Not
-    /// every AI provider supports this (see `AIProvider
-    /// .searchWebForDetails`'s doc comment); unsupported providers show
-    /// that method's own "not supported" error rather than this section
-    /// pretending the button isn't there.
-    @ViewBuilder
-    private var webSearchSection: some View {
-        Section {
-            Button {
-                Task { await searchWebForDetails() }
-            } label: {
-                if isSearchingWeb {
-                    ProgressView()
-                } else {
-                    Label("웹 검색으로 채우기".localized, systemImage: "magnifyingglass")
-                }
-            }
-            .disabled(isSearchingWeb || name.trimmingCharacters(in: .whitespaces).isEmpty || !AIProviderChain.hasAnyConfiguredProvider())
-
-            if !AIProviderChain.hasAnyConfiguredProvider() {
-                Text(AIProviderChain.unconfiguredHint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else if let webSearchMessage {
-                Text(webSearchMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        } footer: {
-            Text("이름·주소로 AI가 웹을 검색해 전화번호·웹사이트·영업시간 등 비어 있는 항목만 채웁니다. 이미 값이 있는 항목은 바뀌지 않습니다.".localized)
         }
     }
 
@@ -1024,8 +985,7 @@ struct EditPlaceCardSheet: View {
     /// plus whatever `fillBlankFields(from:)` picked up from `result
     /// .details` — phone/website/category/hours/amenities, the same
     /// fields a Google Maps screenshot's own info card routinely shows)
-    /// instead of a generic "정보를 채웠습니다.", the same reasoning
-    /// `applyWebDetails` below already follows for a web search's result.
+    /// instead of a generic "정보를 채웠습니다."
     private func applyExtractedPlace(
         _ result: AIAnalysisResult, answeredBy fallbackProvider: AIProviderType? = nil, photoLocationNote: String? = nil
     ) {
@@ -1061,28 +1021,7 @@ struct EditPlaceCardSheet: View {
         }
     }
 
-    private func searchWebForDetails() async {
-        isSearchingWeb = true
-        webSearchMessage = nil
-        defer { isSearchingWeb = false }
-
-        guard AIProviderChain.hasAnyConfiguredProvider() else {
-            webSearchMessage = PlaceCardsError.apiKeyMissing.localizedDescription
-            return
-        }
-
-        do {
-            let (details, provider, isFallback) = try await AIProviderChain.run {
-                try await $0.searchWebForDetails(name: name, address: address, knownLinks: knownLinks)
-            }
-            applyWebDetails(details, answeredBy: isFallback ? provider : nil)
-        } catch {
-            webSearchMessage = error.localizedDescription
-        }
-    }
-
-    /// The non-AI counterpart to `searchWebForDetails()` above — re-fetches
-    /// this exact place's own Google Places details (only possible when
+    /// Re-fetches this exact place's own Google Places details (only possible when
     /// `card.googlePlaceId` is set — see `googleRefreshSection`) and fills
     /// whatever's still blank, same "never overwrite" rule as every other
     /// fill-in action here.
@@ -1206,23 +1145,10 @@ struct EditPlaceCardSheet: View {
         }
     }
 
-    /// This card's own `externalLinks`, formatted as `"<platform>:
-    /// <url>"` for `AIProvider.searchWebForDetails` to check first —
-    /// blank rows (still being typed in, or never filled in) are dropped
-    /// rather than sent as noise.
-    private var knownLinks: [String] {
-        externalLinkEntries.compactMap { entry in
-            let platform = entry.platform.trimmingCharacters(in: .whitespaces)
-            let url = entry.url.trimmingCharacters(in: .whitespaces)
-            guard !platform.isEmpty, !url.isEmpty else { return nil }
-            return "\(platform): \(url)"
-        }
-    }
-
     /// Fills only whatever's currently blank from `details` — phone/
     /// website/category/hours/amenities — and returns the localized names
-    /// of exactly which fields got filled. Shared by `applyWebDetails`
-    /// (from a web search) and `applyExtractedPlace` (from a photo scan —
+    /// of exactly which fields got filled. Shared by `refreshFromGooglePlace
+    /// Details` and `applyExtractedPlace` (from a photo scan —
     /// `AIAnalysisResult.details` is the exact same shape), so both report
     /// precisely what changed instead of a generic "정보를 채웠습니다."
     /// that says nothing about what actually happened.
@@ -1374,29 +1300,6 @@ struct EditPlaceCardSheet: View {
         return text.trimmingCharacters(in: .whitespaces).isEmpty
             ? newOnes.joined(separator: ", ")
             : text + ", " + newOnes.joined(separator: ", ")
-    }
-
-    /// Never overwrites a value the user (or another source) already set —
-    /// and reports back exactly which fields it touched, since a silent
-    /// "done" wouldn't say whether anything actually changed. `answeredBy`
-    /// is set only when a higher-priority provider failed first and this
-    /// result came from a fallback (`AIProviderChain.run(_:)`'s
-    /// `isFallback`) — appended as a visible note rather than switching
-    /// providers silently under the user.
-    private func applyWebDetails(_ details: PlaceWebDetails, answeredBy fallbackProvider: AIProviderType? = nil) {
-        var filledFields = fillBlankFields(from: details)
-        stageSuggestedTags(from: details.tags)
-        if let combined = PlaceCard.combinedMemo(memoText.isEmpty ? nil : memoText, appending: details.note), combined != memoText {
-            memoText = combined
-            filledFields.append("메모".localized)
-        }
-
-        webSearchMessage = filledFields.isEmpty
-            ? "웹 검색에서 새로 채울 정보를 찾지 못했습니다.".localized
-            : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
-        if let fallbackProvider {
-            webSearchMessage? += fallbackProvider.fallbackNoteSuffix
-        }
     }
 
     /// Narrows `suggested` down to tags not already in `tagsText`, and — if
