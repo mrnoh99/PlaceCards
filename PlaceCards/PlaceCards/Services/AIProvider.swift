@@ -410,8 +410,21 @@ private func parseWebDetails(from text: String) throws -> PlaceWebDetails {
 /// Maps a failed HTTP response to a typed error the same way across every
 /// provider — 401 and 429 are common enough (a bad key, a burst of
 /// requests) to deserve their own messages rather than a generic one.
+///
+/// 403 deliberately falls through to the generic `.apiError` branch below
+/// instead of also being treated as `.apiKeyInvalid` — 401 means "this key
+/// didn't authenticate at all" (genuinely wrong/revoked), but 403 means
+/// "this key authenticated fine, it just isn't allowed to do *this specific
+/// request*" (a different problem with a different fix: e.g. the same
+/// Claude key that works for `analyzePlaces` can come back 403 on
+/// `searchWebForDetails` specifically if the account/key isn't entitled to
+/// the web-search tool, even though the key itself is perfectly valid).
+/// Showing "유효하지 않은 API 키입니다" for that case sends the user
+/// re-typing a key that was never the problem; surfacing the provider's
+/// own 403 message instead (via `.apiError`) actually tells them what's
+/// wrong.
 private func mapHTTPError(statusCode: Int, data: Data, serviceLabel: String) -> PlaceCardsError {
-    if statusCode == 401 || statusCode == 403 { return .apiKeyInvalid }
+    if statusCode == 401 { return .apiKeyInvalid }
     if statusCode == 429 { return .rateLimited(serviceLabel) }
     let message = String(data: data, encoding: .utf8) ?? "알 수 없는 오류"
     return .apiError(message, statusCode: statusCode)
