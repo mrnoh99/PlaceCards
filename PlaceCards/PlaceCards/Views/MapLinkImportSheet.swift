@@ -88,12 +88,14 @@ struct MapLinkImportSheet: View {
                 Button("변경".localized) {
                     if let pendingParsed {
                         applyParsed(pendingParsed, applyName: true)
+                        Task { await enrichFromGooglePlaces() }
                     }
                     pendingParsed = nil
                 }
                 Button("이름은 유지".localized, role: .cancel) {
                     if let pendingParsed {
                         applyParsed(pendingParsed, applyName: false)
+                        Task { await enrichFromGooglePlaces() }
                     }
                     pendingParsed = nil
                 }
@@ -146,6 +148,7 @@ struct MapLinkImportSheet: View {
             isConfirmingNameChange = true
         } else {
             applyParsed(parsed, applyName: true)
+            await enrichFromGooglePlaces()
         }
     }
 
@@ -174,6 +177,91 @@ struct MapLinkImportSheet: View {
         statusMessage = [
             "공유한 지도 정보를 카드에 채웠습니다.".localized, coordinateNote
         ].compactMap { $0 }.joined(separator: "\n")
+    }
+
+    /// The URL itself only ever carries a name and (for a full Google Maps
+    /// link) coordinates — everything else worth having on a card
+    /// (rating, phone, website, category, hours, a photo) needs an actual
+    /// Google Places lookup, same as `EditPlaceCardSheet`'s "장소 확정"
+    /// section. Runs automatically right after `applyParsed(_:applyName:)`
+    /// so a share-link merge ends up as fully filled in as a normal
+    /// "장소 확정" would, not just the bare name/address/coordinate the
+    /// URL alone decodes to. Skipped outright once the card is already
+    /// confirmed (`isPlaceConfirmed`) — nothing here would still be blank,
+    /// and `googleRefreshSection`/`placeConfirmSection` already cover
+    /// refreshing an already-confirmed card. Narrows Google's text-search
+    /// results to the one within `maxAddressMatchDistanceMeters` of the
+    /// card's own (URL-exact) coordinate, so a same-named place elsewhere
+    /// is never mistaken for this one. Best-effort throughout — silently
+    /// does nothing on a missing API key, no match, or any network
+    /// failure, since the share-link merge itself already succeeded
+    /// without this.
+    private func enrichFromGooglePlaces() async {
+        guard !card.isPlaceConfirmed else { return }
+        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return }
+        let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+        let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
+        let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName) \(trimmedAddress)"
+
+        let googleService = GooglePlacesService(apiKey: apiKey)
+        guard let results = try? await googleService.search(query: query, coordinates: card.coordinates),
+              !results.isEmpty else { return }
+
+        let match: PlaceSearchResult
+        if let cardCoordinate = card.coordinates {
+            let cardLocation = CLLocation(latitude: cardCoordinate.latitude, longitude: cardCoordinate.longitude)
+            guard let closest = results.first(where: { result in
+                guard let coordinates = result.coordinates else { return false }
+                return cardLocation.distance(from: CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude))
+                    <= Self.maxAddressMatchDistanceMeters
+            }) else { return }
+            match = closest
+        } else {
+            match = results[0]
+        }
+
+        var filledFields: [String] = []
+        card.googlePlaceId = match.id
+        if card.rating == nil, let value = match.rating {
+            card.rating = value
+            filledFields.append("평점".localized)
+        }
+        if card.reviewCount == nil, let value = match.reviewCount {
+            card.reviewCount = value
+            filledFields.append("리뷰 수".localized)
+        }
+        if card.phone == nil, let value = match.phone, !value.isEmpty {
+            card.phone = value
+            filledFields.append("전화번호".localized)
+        }
+        if card.website == nil, let value = match.website, !value.isEmpty {
+            card.website = value
+            filledFields.append("웹사이트".localized)
+        }
+        if card.category == nil, let value = match.category, !value.isEmpty {
+            card.category = value
+            filledFields.append("카테고리".localized)
+        }
+        if card.hoursDetail?.isEmpty ?? true,
+           let details = try? await googleService.details(placeId: match.id),
+           let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
+            card.hoursDetail = hoursDetail
+            filledFields.append("영업시간".localized)
+        }
+        if card.media.allItems.isEmpty, let photoName = match.photoName,
+           let photoData = try? await googleService.photoData(photoName: photoName),
+           let fileName = try? MediaStore.saveImage(data: photoData) {
+            card.media.officialPhotos.append(MediaItem(localPath: fileName, source: .googleDirectLookup))
+            filledFields.append("사진".localized)
+        }
+
+        storageService.save(card)
+        onApplied(card)
+
+        guard !filledFields.isEmpty else { return }
+        let note = filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
+        statusMessage = [statusMessage, note].compactMap { $0 }.joined(separator: "\n")
     }
 
     /// Same "fill when blank, sanity-check when already set" shape as
