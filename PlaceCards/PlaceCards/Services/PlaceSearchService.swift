@@ -44,6 +44,10 @@ struct PlaceDetails {
     /// 새로고침" fills it in the same "only if blank" way as every other
     /// field on this struct.
     var coordinates: Coordinates?
+    /// Same resource-name shape as `PlaceSearchResult.photoName` — pass to
+    /// `GooglePlacesService.photoData(photoName:)` to fetch the actual
+    /// image bytes. `nil` when Google has no photo for this place.
+    var photoName: String?
 }
 
 protocol PlaceSearchService {
@@ -136,7 +140,7 @@ final class GooglePlacesService: PlaceSearchService {
         request.httpMethod = "GET"
         request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.setValue(
-            "rating,userRatingCount,regularOpeningHours,websiteUri,internationalPhoneNumber,location",
+            "rating,userRatingCount,regularOpeningHours,websiteUri,internationalPhoneNumber,location,photos",
             forHTTPHeaderField: "X-Goog-FieldMask"
         )
 
@@ -241,6 +245,7 @@ private struct GooglePlaceDetail: Decodable {
         let weekdayDescriptions: [String]?
     }
     struct Location: Decodable { let latitude: Double; let longitude: Double }
+    struct Photo: Decodable { let name: String }
 
     let rating: Double?
     let userRatingCount: Int?
@@ -248,6 +253,7 @@ private struct GooglePlaceDetail: Decodable {
     let websiteUri: String?
     let internationalPhoneNumber: String?
     let location: Location?
+    let photos: [Photo]?
 
     func toPlaceDetails() -> PlaceDetails {
         var hours: [String: String]?
@@ -268,7 +274,8 @@ private struct GooglePlaceDetail: Decodable {
             amenities: [],
             website: websiteUri,
             phone: internationalPhoneNumber,
-            coordinates: location.map { Coordinates(latitude: $0.latitude, longitude: $0.longitude) }
+            coordinates: location.map { Coordinates(latitude: $0.latitude, longitude: $0.longitude) },
+            photoName: photos?.first?.name
         )
     }
 }
