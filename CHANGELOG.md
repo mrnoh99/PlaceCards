@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### 2026-09-14 (149차) — Google로 확정된 카드에 초록색 "장소확정" 배지 표시
+`card.googlePlaceId != nil`(148차 "장소 확정" 섹션 등으로 실제
+Google Places 결과와 매칭된 카드)인 경우, 카드가 보이는 주요 화면
+세 곳 모두에 초록색 체크 배지를 추가 — AddPlaceCardView의 후보 행이
+검증 직후 보여주던 "Google/Naver 지도에서 확인됨" 배지(초록,
+checkmark.seal 아이콘)와 같은 시각 언어를 저장된 카드 자체에도
+적용.
+#### Added
+- `Views/PlaceCardDetailView.swift`: 이름/카테고리 아래에
+  `Label("장소확정", systemImage: "checkmark.seal.fill")`을 초록색으로
+  표시.
+- `Views/PlaceCardListRow.swift`: 카테고리·거리 라인 맨 앞에 같은
+  배지 추가(게시판 목록 화면).
+- `Views/GalleryView.swift` (`PlaceCardGridCell`): 이름 아래에 같은
+  배지 추가(갤러리 탭 그리드 셀).
+- `Services/Localization.swift`: "장소확정" 키 추가(148차의 "장소
+  확정" 섹션 제목과는 별개 — 그쪽은 공백이 있는 풀 문장, 이쪽은
+  좁은 공간용 짧은 배지 라벨).
+
 ### 2026-09-14 (148차) — AI 자동 검증, 장소 확정(사후), 지도 링크 공유 확정, 공유 후 블랙스크린 완화
 사용자가 한 번에 요청한 4가지를 모두 구현.
 1. AI가 사진에서 이름+주소를 함께 읽은 후보는, Google Places 검색

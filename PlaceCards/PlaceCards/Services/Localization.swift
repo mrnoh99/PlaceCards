@@ -385,6 +385,7 @@ enum Localization {
         "장소 확정": "Confirm Place",
         "장소명": "Place name",
         "장소를 확정했습니다.": "Place confirmed.",
+        "장소확정": "Confirmed",
         "저장": "Save",
         "저장 실패 (코드 ": "Save failed (code ",
         "저장 실패: ": "Save failed: ",
