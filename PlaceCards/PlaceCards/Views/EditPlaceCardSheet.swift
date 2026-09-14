@@ -109,6 +109,17 @@ struct EditPlaceCardSheet: View {
     @State private var isRefreshingGoogleDetails = false
     @State private var googleRefreshMessage: String?
 
+    /// Starts as `card.googlePlaceId` but can be set by `placeConfirmSection`
+    /// below — a plain `let card` has no way to reflect that until `save()`
+    /// actually runs, so this stands in for it everywhere a still-unsaved
+    /// confirmation needs to unlock the rest of this screen (`googleRefresh
+    /// Section` showing up right away, `refreshFromGooglePlaceDetails()`
+    /// having a `placeId` to call).
+    @State private var confirmedGooglePlaceId: String?
+    @State private var isConfirmingPlace = false
+    @State private var placeConfirmResults: [PlaceSearchResult] = []
+    @State private var placeConfirmMessage: String?
+
     @State private var isGeocodingAddress = false
     @State private var geocodeMessage: String?
 
@@ -152,6 +163,7 @@ struct EditPlaceCardSheet: View {
         _awardsText = State(initialValue: card.awards.joined(separator: ", "))
         _dietaryOptionsText = State(initialValue: card.dietaryOptions.joined(separator: ", "))
         _memoText = State(initialValue: card.memo ?? "")
+        _confirmedGooglePlaceId = State(initialValue: card.googlePlaceId)
     }
 
     /// Other categories already used in this card's board — offered as
@@ -176,6 +188,7 @@ struct EditPlaceCardSheet: View {
                     basicInfoSection
                     webSearchSection
                     googleRefreshSection
+                    placeConfirmSection
                     coordinatesSection
                     contactSection
                     externalLinksSection
@@ -637,7 +650,7 @@ struct EditPlaceCardSheet: View {
     /// 만든 카드)에는 아예 표시하지 않는다.
     @ViewBuilder
     private var googleRefreshSection: some View {
-        if card.googlePlaceId != nil {
+        if confirmedGooglePlaceId != nil {
             Section {
                 Button {
                     Task { await refreshFromGooglePlaceDetails() }
@@ -659,6 +672,145 @@ struct EditPlaceCardSheet: View {
                 Text("AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다.".localized)
             }
         }
+    }
+
+    /// A card saved without ever being matched against Google Places
+    /// (`card.googlePlaceId == nil` — created manually, or verified only
+    /// against Naver) has no way to get verified rating/phone/website/
+    /// coordinates other than typing them in by hand, until now: searches
+    /// Google Places by this card's current name+address, falling back to
+    /// Naver's local search (when its credentials are configured) whenever
+    /// Google itself has no API key set or turns up nothing — the same
+    /// Korea-specific fallback `PlaceCardViewModel.search(rowID:)` already
+    /// uses for a Naver-origin share. Picking a result from the list below
+    /// applies it via `applyConfirmedPlace(_:)`.
+    @ViewBuilder
+    private var placeConfirmSection: some View {
+        if confirmedGooglePlaceId == nil {
+            Section {
+                Button {
+                    Task { await confirmPlace() }
+                } label: {
+                    if isConfirmingPlace {
+                        ProgressView()
+                    } else {
+                        Label("Google/Naver에서 장소 확정".localized, systemImage: "checkmark.seal")
+                    }
+                }
+                .disabled(isConfirmingPlace || name.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                ForEach(placeConfirmResults) { result in
+                    Button {
+                        applyConfirmedPlace(result)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(result.name)
+                            if !result.address.isEmpty {
+                                Text(result.address)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                }
+
+                if let placeConfirmMessage {
+                    Text(placeConfirmMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("장소 확정".localized)
+            } footer: {
+                Text("이 카드는 아직 Google/Naver로 확정되지 않았습니다. 이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google에서 새로고침\"도 쓸 수 있게 됩니다.".localized)
+            }
+        }
+    }
+
+    /// Tries Google Places first (when an API key is registered); only
+    /// falls back to Naver's local search when Google has no key set or
+    /// its own search came back with zero results — a real Google error
+    /// (rate limit, bad key) is shown as-is rather than silently masked by
+    /// a Naver retry the user might not expect.
+    private func confirmPlace() async {
+        isConfirmingPlace = true
+        placeConfirmMessage = nil
+        placeConfirmResults = []
+        defer { isConfirmingPlace = false }
+
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+        let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
+        let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName) \(trimmedAddress)"
+
+        if let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty {
+            do {
+                let results = try await GooglePlacesService(apiKey: apiKey).search(query: query)
+                if !results.isEmpty {
+                    placeConfirmResults = results
+                    return
+                }
+            } catch {
+                placeConfirmMessage = error.localizedDescription
+            }
+        }
+
+        guard let credentials = SettingsViewModel.currentNaverSearchCredentials() else {
+            if placeConfirmMessage == nil {
+                placeConfirmMessage = PlaceCardsError.apiKeyMissing.localizedDescription
+            } else if placeConfirmResults.isEmpty {
+                placeConfirmMessage = PlaceCardsError.noResults.localizedDescription
+            }
+            return
+        }
+        do {
+            let results = try await NaverPlaceSearchService.search(
+                query: query, clientId: credentials.clientId, clientSecret: credentials.clientSecret
+            )
+            placeConfirmResults = results
+            placeConfirmMessage = results.isEmpty ? PlaceCardsError.noResults.localizedDescription : nil
+        } catch {
+            placeConfirmMessage = error.localizedDescription
+        }
+    }
+
+    /// Overwrites name/address (confirm semantics, same as `PlaceCardView
+    /// Model.chooseResult`) and applies coordinates outright, but only
+    /// blank-fills rating/review count/phone/website/category — this card
+    /// may already carry a user-edited value in any of those, which a
+    /// verified match shouldn't silently discard. Setting `confirmed
+    /// GooglePlaceId` (Google results only — a Naver-origin `id` isn't a
+    /// real Google Places ID) is what unlocks `googleRefreshSection` for
+    /// the rest of this editing session, ahead of `save()` actually
+    /// writing it to the card.
+    private func applyConfirmedPlace(_ result: PlaceSearchResult) {
+        name = result.name
+        address = result.address
+        if let coordinates = result.coordinates {
+            latitudeText = String(coordinates.latitude)
+            longitudeText = String(coordinates.longitude)
+        }
+        if result.isFromGooglePlaces {
+            confirmedGooglePlaceId = result.id
+        }
+        if ratingText.trimmingCharacters(in: .whitespaces).isEmpty, let rating = result.rating {
+            ratingText = String(rating)
+        }
+        if reviewCountText.trimmingCharacters(in: .whitespaces).isEmpty, let reviewCount = result.reviewCount {
+            reviewCountText = String(reviewCount)
+        }
+        if phone.trimmingCharacters(in: .whitespaces).isEmpty, let value = result.phone, !value.isEmpty {
+            phone = value
+        }
+        if website.trimmingCharacters(in: .whitespaces).isEmpty, let value = result.website, !value.isEmpty {
+            website = value
+        }
+        if category.trimmingCharacters(in: .whitespaces).isEmpty, let value = result.category, !value.isEmpty {
+            category = value
+        }
+        placeConfirmResults = []
+        placeConfirmMessage = "장소를 확정했습니다.".localized
     }
 
     private func loadPhotos(_ items: [PhotosPickerItem]) async {
@@ -877,7 +1029,7 @@ struct EditPlaceCardSheet: View {
     /// whatever's still blank, same "never overwrite" rule as every other
     /// fill-in action here.
     private func refreshFromGooglePlaceDetails() async {
-        guard let placeId = card.googlePlaceId else { return }
+        guard let placeId = confirmedGooglePlaceId else { return }
         isRefreshingGoogleDetails = true
         googleRefreshMessage = nil
         defer { isRefreshingGoogleDetails = false }
@@ -1118,6 +1270,7 @@ struct EditPlaceCardSheet: View {
 
     private func save() {
         var updated = card
+        updated.googlePlaceId = confirmedGooglePlaceId
         updated.name = name.trimmingCharacters(in: .whitespaces)
         let trimmedCategory = category.trimmingCharacters(in: .whitespaces)
         updated.category = trimmedCategory.isEmpty ? nil : trimmedCategory
