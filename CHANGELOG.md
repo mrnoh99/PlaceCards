@@ -2,6 +2,52 @@
 
 ## [Unreleased]
 
+### 2026-09-14 (151차) — 구글 지도 공유 이름 불일치 버그 수정, "장소확정"에 Naver 포함, 미확정 카드에 "지도에서 장소 확인" 버튼
+사용자가 세 가지를 순서대로 요청 — (1) 구글 지도에서 공유한 이름이
+카드 이름과 실제로는 같은데 "이름이 다릅니다" 알럿이 뜨는 버그,
+(2) "장소확정" 배지의 정의를 "구글이나 네이버 지도에서 장소가
+특정된 경우"로 넓히기, (3) 미확정 카드에서 바로 구글 지도로 가서
+확인할 수 있는 버튼 추가.
+#### Fixed
+- `Services/SharedLinkParser.swift`: `parseGoogleMapsURLPath`가 URL
+  경로에서 디코딩한 장소 이름에 `strippingInvisibleFormatCharacters()`
+  를 빠뜨리고 있었음 — 구글은 한글+영문/숫자가 섞인 이름에 보이지
+  않는 bidi 방향 제어 문자를 흔히 끼워 넣는데(다른 모든 소스,
+  그리고 저장된 카드 자체는 로드 시 이미 이 처리를 거침), 이 경로만
+  빠져 있어서 구글 지도에서 공유한 이름이 카드에 저장된(이미 정리된)
+  이름과 육안으로는 똑같은데도 문자열 비교에서 "다르다"고 판정되어
+  "이름이 다릅니다" 알럿이 떴던 것. 근본 원인을 여기서 고치고,
+  `EditPlaceCardSheet`/`MapScreenshotImportSheet`/`MapLinkImportSheet`
+  세 곳의 이름 비교 지점에도 같은 처리를 추가해(AI가 읽은 이름,
+  goo.gl 단축링크의 페이지 제목 등 다른 경로로 들어오는 이름도) 같은
+  종류의 오탐이 재발하지 않도록 방어.
+#### Changed
+- `Models/PlaceCard.swift`: 새 `naverVerified: Bool?` 필드 추가(이
+  구조체의 원래 출시 이후 추가되는 필드는 반드시 Optional이어야
+  하는 기존 규칙을 따름 — `memo` 필드의 주석 참고. 논옵셔널 `=
+  false` 기본값은 synthesized `Decodable`이 이미 저장된 카드의
+  누락된 키에 적용해주지 않음). `googlePlaceId != nil || naverVerified`
+  를 묶은 새 계산 프로퍼티 `isPlaceConfirmed`를 추가하고, 149차에서
+  `googlePlaceId != nil`로만 게이팅했던 "장소확정" 배지(상세보기/
+  목록/갤러리 그리드 셀 세 곳)를 전부 `isPlaceConfirmed`로 교체 —
+  Naver로만 검증된 카드도 이제 배지가 뜸.
+- `ViewModels/PlaceCardViewModel.swift`: `createPlaceCard(from:)`가
+  `naverVerified: !result.isFromGooglePlaces`를 채우도록 추가.
+- `Views/EditPlaceCardSheet.swift`: "장소 확정" 섹션에서 Naver 결과를
+  고르면(`applyConfirmedPlace`) 새 `confirmedNaverVerified` 상태를
+  켜서 `googlePlaceId`가 없어도 저장 시 `naverVerified`가 반영되도록
+  함(패턴은 `confirmedGooglePlaceId`와 동일).
+#### Added
+- `Views/PlaceCardDetailView.swift`: 카드가 아직 확정되지 않은 경우
+  (`!card.isPlaceConfirmed`), "장소확정" 배지 자리에 대신 "지도에서
+  장소 확인" 버튼을 표시 — 탭하면 `MapOpenContext.recordMapOpen`을
+  기록한 뒤 바로 Google Maps를 엶(항상 이름/주소 텍스트 검색으로
+  열림, 좌표 불필요). 기존 "지도에서 열기" 메뉴(여러 지도 앱 중
+  선택, 확정 여부 무관하게 항상 표시)와 달리, 이 버튼은 확정 전
+  카드에서만 보이며 구글 지도로 바로 연결해 사용자가 정확한 장소를
+  찾아 공유로 돌아왔을 때 `MapLinkImportSheet`/`MapScreenshotImportSheet`
+  로 이 카드에 바로 반영되도록 유도.
+
 ### 2026-09-14 (152차) — 사진 GPS가 (0,0)인 경우 "위치 정보 없음"으로 처리
 사용자 제보: 위도·경도가 정확히 0,0인 사진인데도 "지도에서 찾기"/
 "GPS로 촬영위치찾기" 버튼이 활성화되어 있었음.
@@ -118,6 +164,21 @@ checkmark.seal 아이콘)와 같은 시각 언어를 저장된 카드 자체에�
 - PR #3(147차, "GPS로 촬영위치찾기" dim out)은 이전 요약과 달리 아직
   병합되지 않고 열려 있는 상태로 확인됨 — 이번 148차 작업은 그와
   무관하게 현재 main 기준으로 진행.
+
+### 2026-09-13 (147차) — "GPS로 촬영위치찾기": 사진들의 GPS가 서로 다른 곳이면 dim out
+146차에서 추가한 버튼을 정교화 — 사진에 GPS 정보가 없거나, 여러 장의
+GPS가 서로 다른 곳(다른 장소 사진들이 섞여 있음)을 가리키면 선택할
+수 없게 함.
+#### Changed
+- `Views/AddPlaceCardView.swift`: 버튼 이름을 "지도에서 찾기" →
+  "GPS로 촬영위치찾기"로 바꾸고, `pickedPhotoCoordinate`가 무조건
+  평균을 내던 것을 — 사진에 GPS가 하나도 없으면(`nil`) 그대로 dim
+  out, 여러 장이면 평균 좌표와 각 사진의 거리를 확인해 전부
+  `maxPhotoLocationMatchDistanceMeters`(500m, `PlaceCardViewModel`의
+  같은 이름 상수와 동일 반경/근거) 이내로 일치할 때만 평균 좌표를
+  반환하고, 하나라도 벗어나면 `nil`을 반환해 자동으로 dim out되도록
+  수정. 사진이 0장 또는 1장이면 비교할 대상이 없어 항상 통과(공허하게
+  참).
 
 ### 2026-09-13 (146차) — 장소 추가 화면에 사진 찍은 위치를 바로 지도에서 볼 수 있는 버튼 추가
 #### Added

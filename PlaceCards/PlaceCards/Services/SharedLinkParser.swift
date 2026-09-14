@@ -139,9 +139,21 @@ enum SharedLinkParser {
             // (e.g. ".../place/@37.5,127.0,14z/") puts the "@lat,lng,zoom"
             // segment right where a name would be — not a real name.
             if !nameSegment.hasPrefix("@") {
+                // Google is known to embed invisible bidi direction-control
+                // marks in a mixed-script (Korean + Latin/numeric) place
+                // name — harmless in a browser, but left in here it makes
+                // this name compare as different from the same place's
+                // name elsewhere in the app (every other source of a name/
+                // address, and every already-saved card on load, already
+                // strips these — see `String.strippingInvisibleFormat
+                // Characters()`'s own comment). Missing this stripping
+                // here specifically is exactly why sharing a place back
+                // from the Google Maps app could trigger "이름이 다릅니다"
+                // even when the two names were visually identical.
                 let decoded = String(nameSegment)
                     .replacingOccurrences(of: "+", with: " ")
-                    .removingPercentEncoding
+                    .removingPercentEncoding?
+                    .strippingInvisibleFormatCharacters()
                 name = (decoded?.isEmpty == false) ? decoded : nil
             }
         }

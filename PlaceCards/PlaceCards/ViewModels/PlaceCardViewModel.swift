@@ -669,6 +669,7 @@ final class PlaceCardViewModel: ObservableObject {
             address: result.address,
             coordinates: result.coordinates,
             googlePlaceId: result.isFromGooglePlaces ? result.id : nil,
+            naverVerified: !result.isFromGooglePlaces,
             rating: result.rating,
             reviewCount: result.reviewCount,
             priceLevel: result.priceLevel,

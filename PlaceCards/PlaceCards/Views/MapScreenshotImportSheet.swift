@@ -271,7 +271,10 @@ struct MapScreenshotImportSheet: View {
         }
 
         let result = results[0]
-        let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
+        // See `EditPlaceCardSheet.handleAnalysisResults`'s own comment —
+        // stripped so an AI-echoed invisible bidi mark doesn't make this
+        // compare as "different" from the already-stripped current name.
+        let extractedName = result.placeName.trimmingCharacters(in: .whitespaces).strippingInvisibleFormatCharacters()
         let currentName = card.name.trimmingCharacters(in: .whitespaces)
         if !extractedName.isEmpty, !currentName.isEmpty, extractedName != currentName {
             // Same scope cut as `EditPlaceCardSheet`: the confirm alert's

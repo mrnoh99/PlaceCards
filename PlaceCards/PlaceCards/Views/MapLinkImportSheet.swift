@@ -127,10 +127,15 @@ struct MapLinkImportSheet: View {
             statusMessage = "공유한 링크에서 장소 정보를 찾지 못했습니다.".localized
             return
         }
+        // A page's own <title>/og:title (for a shortened goo.gl link) can
+        // carry stray formatting the same way a Google Maps URL's own
+        // name segment can — stripped for the same reason
+        // `SharedLinkParser.parseGoogleMapsURLPath` strips its own.
         if parsed.name == nil, let url = parsed.url, let title = await LinkMetadataFetcher.fetchTitle(for: url) {
-            parsed.name = title
+            parsed.name = title.strippingInvisibleFormatCharacters()
         }
-        guard let extractedName = parsed.name?.trimmingCharacters(in: .whitespaces), !extractedName.isEmpty else {
+        guard let extractedName = parsed.name?.trimmingCharacters(in: .whitespaces).strippingInvisibleFormatCharacters(),
+              !extractedName.isEmpty else {
             statusMessage = "공유한 링크에서 장소 이름을 찾지 못했습니다.".localized
             return
         }
