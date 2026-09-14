@@ -73,15 +73,4 @@ extension AIProviderType {
     var fallbackNoteSuffix: String {
         " " + displayName + "로 대체해 가져왔습니다.".localized
     }
-
-    /// Whether this provider's `searchWebForDetails` is actually
-    /// implemented — mirrors which `AIProvider` conformances override it
-    /// (`ClaudeProvider`/`OpenAIProvider`/`GeminiProvider`) versus which
-    /// fall through to the "not supported" default (`GatewayProvider` —
-    /// see its own comment for why it has none of its own). Surfaced in
-    /// `SettingsView` so this is visible up front rather than only after
-    /// a failed "웹 검색으로 채우기" attempt.
-    var supportsWebSearch: Bool {
-        self != .gateway
-    }
 }
