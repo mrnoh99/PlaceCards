@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### 2026-09-14 (159차) — 앱 내에서 Apple 지도로 열면 엉뚱한 곳이 중심에 뜨던 버그 수정
+사용자 제보: "앱내에서 애플 맵을 열면 장소가 보이지 않는다. 구글맵은
+장소가 보이고 네이버 맵도 장소가 모인 것이 보이는데 애플맵은
+엉뚱한곳이 중심에 있다". 점검 결과 `AppleMapsOpener`가 저장된
+좌표 자체는 정확하게 넘기고 있었음 — 원인은 `mapItem.openInMaps()`를
+launchOptions 없이 호출한 것: Maps 앱이 이미 실행 중이면 이 호출이
+그 카드의 위치로 강제 이동시키지 않고, Maps가 마지막에 보고 있던
+지역을 그대로 유지하는 경우가 있음(Google/Naver는 각자의 URL
+스킴에 좌표를 실어 보내 대상 앱이 매번 새로 파싱하므로 이 문제가
+없음).
+#### Fixed
+- `Services/MapOpeners.swift`: `AppleMapsOpener.open(for:)`가
+  `mapItem.openInMaps()`를 옵션 없이 호출하던 것을,
+  `MKLaunchOptionsMapCenterKey`/`MKLaunchOptionsMapSpanKey`로
+  카드의 좌표와 거리 축척(`NaverMapOpener.mapURL`의 zoom 17과
+  같은 목표의 street-level span)을 명시해서 호출하도록 수정 —
+  Maps가 항상 이 좌표로 강제 이동하도록 함.
+
 ### 2026-09-14 (160차) — "장소 확정"이 Google 매치면 "Google에서 새로고침"도 자동 실행
 사용자 요청: 장소확정과 구글에서 새로고침은 확정과 동시에 자동진행해라.
 지금까지는 `EditPlaceCardSheet`에서 "Google/Naver에서 장소 확정"으로

@@ -139,12 +139,30 @@ enum GoogleMapsOpener {
 /// `GoogleMapsOpener`, which can fall back to a plain name/address text
 /// search), since that's how `MKMapItem`/`MKPlacemark` locate a place.
 enum AppleMapsOpener {
+    /// Roughly street level — same target `NaverMapOpener.mapURL`'s own
+    /// `zoom: Int = 17` aims for, just expressed as MapKit's degrees-wide
+    /// span instead of Naver's zoom-level integer.
+    private static let defaultSpan = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+
     static func open(for card: PlaceCard) {
         guard let coordinates = card.coordinates else { return }
-        let placemark = MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude))
+        let coordinate = CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude)
+        let placemark = MKPlacemark(coordinate: coordinate)
         let mapItem = MKMapItem(placemark: placemark)
         mapItem.name = card.name
-        mapItem.openInMaps()
+        // Calling `openInMaps()` with no launch options leaves the actual
+        // centering up to Maps' own undocumented default — reported as
+        // "엉뚱한곳이 중심에 있다": an already-running Maps app can keep
+        // showing whatever region it had before instead of jumping to this
+        // placemark, even though `coordinate` itself is correct (Google/
+        // Naver don't hit this, since their own URL schemes hand the target
+        // app a coordinate to parse fresh rather than relying on a "show
+        // this item" API call). Passing the center/span explicitly forces
+        // Maps to always jump here.
+        mapItem.openInMaps(launchOptions: [
+            MKLaunchOptionsMapCenterKey: NSValue(mkCoordinate: coordinate),
+            MKLaunchOptionsMapSpanKey: NSValue(mkCoordinateSpan: defaultSpan)
+        ])
     }
 }
 
