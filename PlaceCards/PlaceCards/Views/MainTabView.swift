@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct MainTabView: View {
     @EnvironmentObject private var storageService: StorageService
@@ -21,13 +22,16 @@ struct MainTabView: View {
 
     /// Same hand-off as `pendingSharedImageData`, for a shared link/text
     /// instead of a photo (e.g. the "share this page" prompt iOS offers
-    /// for maps.google.com, or Naver Map's own share). Always goes
-    /// through the board picker rather than `MapOpenContext` like the
-    /// photo flow does — a link resolves to a place *name*, which is what
-    /// creating a new card needs, not a field an existing card has to
-    /// receive it in.
+    /// for maps.google.com, or Naver Map's own share).
     @State private var pendingLinkText: String?
     @State private var isPresentingSharedLinkSheet = false
+    /// Set instead of `isPresentingSharedLinkSheet` when the incoming link
+    /// arrives soon after "지도에서 열기" was tapped on this card — same
+    /// `MapOpenContext`-aware routing `pendingMapScreenshotCard` already
+    /// does for a shared photo, so confirming a place on Google/Naver Map
+    /// and sharing it back can merge straight into the card that sent the
+    /// user there instead of always creating a new one.
+    @State private var pendingMapLinkCard: PlaceCard?
     /// Shown instead of the board picker when the shared link is an
     /// Instagram post/reel — see `SharedLinkParser.isInstagramLink`.
     @State private var isPresentingInstagramGuidanceAlert = false
@@ -119,6 +123,11 @@ struct MainTabView: View {
                     .environmentObject(navigation)
             }
         }
+        .sheet(item: $pendingMapLinkCard) { card in
+            if let pendingLinkText {
+                MapLinkImportSheet(card: card, linkText: pendingLinkText) { _ in }
+            }
+        }
         .alert("iCloud에서 복원됨".localized, isPresented: $showingCloudRestoreAlert) {
             Button("확인".localized, role: .cancel) {}
         } message: {
@@ -162,9 +171,16 @@ struct MainTabView: View {
     }
 
     private func checkForSharedImage() {
+        // Read once, up front, rather than inside each branch below — the
+        // image branch clears this right after checking it, so a link
+        // branch reading it afterward would always see it already gone on
+        // the (rare) occasion both an image and a link were pending at
+        // once. Reading it once here is correct either way.
+        let recentCardID = MapOpenContext.recentCardID()
+
         if let data = SharedImportStore.takePendingImage() {
             pendingSharedImageData = data
-            if let cardID = MapOpenContext.recentCardID(), let card = storageService.placeCard(id: cardID) {
+            if let recentCardID, let card = storageService.placeCard(id: recentCardID) {
                 presentShortly { pendingMapScreenshotCard = card }
             } else {
                 presentShortly { isPresentingSharedImportSheet = true }
@@ -175,10 +191,14 @@ struct MainTabView: View {
         if let text = SharedImportStore.takePendingLink() {
             if SharedLinkParser.isInstagramLink(text) {
                 presentShortly { isPresentingInstagramGuidanceAlert = true }
+            } else if let recentCardID, let card = storageService.placeCard(id: recentCardID) {
+                pendingLinkText = text
+                presentShortly { pendingMapLinkCard = card }
             } else {
                 pendingLinkText = text
                 presentShortly { isPresentingSharedLinkSheet = true }
             }
+            MapOpenContext.clear()
         }
     }
 
@@ -189,11 +209,25 @@ struct MainTabView: View {
     /// silently fail to actually present — the state changes, but no sheet
     /// appears, until *something else* changes state afterward. Reported
     /// as "처음에는 화면이 안 뜨다가 포커스를 바꿨다 돌아오면 뜬다" (doesn't
-    /// show up at first; switching away and back makes it appear) — this
-    /// pushes the actual presentation to the next runloop tick, which is
-    /// consistently enough for the window to be ready to host it.
+    /// show up at first; switching away and back makes it appear).
+    ///
+    /// A flat 150ms delay used to be the fix, but a heavier return trip —
+    /// switching back after finding a place in the Google Maps app and
+    /// sharing it, say — can still land the state flip inside that window,
+    /// since the delay was only ever a guess at how long the window scene
+    /// takes to settle, not an actual signal that it has. This instead
+    /// polls until the window scene reports itself `.foregroundActive`
+    /// (there's no notification for "now it's safe to present a sheet"),
+    /// then waits one more short beat before presenting — closer to
+    /// waiting for the real condition than hoping a fixed number was big
+    /// enough.
     private func presentShortly(_ action: @escaping () -> Void) {
         Task { @MainActor in
+            for _ in 0..<20 {
+                let isActive = UIApplication.shared.connectedScenes.contains { $0.activationState == .foregroundActive }
+                if isActive { break }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
             try? await Task.sleep(nanoseconds: 150_000_000)
             action()
         }

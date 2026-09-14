@@ -2,6 +2,68 @@
 
 ## [Unreleased]
 
+### 2026-09-14 (148차) — AI 자동 검증, 장소 확정(사후), 지도 링크 공유 확정, 공유 후 블랙스크린 완화
+사용자가 한 번에 요청한 4가지를 모두 구현.
+1. AI가 사진에서 이름+주소를 함께 읽은 후보는, Google Places 검색
+   결과가 정확히 하나로 좁혀지면 사용자 확인 없이 자동으로 확정.
+2. Google로 확정되지 않은 카드(수동 저장/Naver 검증)를
+   `EditPlaceCardSheet`에서 나중에 Google(우선)/Naver(대체)로 검색해
+   확정할 수 있는 새 "장소 확정" 섹션 추가.
+3. Google/Naver 지도에서 장소를 찾아 공유("지도에서 열기" 직후)하면,
+   사진 스크린샷 공유와 동일하게 그 카드에 바로 병합되도록
+   `MainTabView`의 링크 공유 경로에도 `MapOpenContext`를 연결하고
+   새 `MapLinkImportSheet` 추가.
+4. Google 지도에서 공유 후 돌아오면 보드 선택 화면이 검게 나오는
+   문제 — 기존 150ms 고정 지연(`presentShortly`)이 무거운 복귀
+   경로에는 부족한 것으로 보여, 윈도우 씬이 실제로
+   `.foregroundActive`가 될 때까지 폴링한 뒤 시트를 띄우도록 강화.
+#### Added
+- `ViewModels/PlaceCardViewModel.swift`: `analyzeImages()`가 후보 행을
+  만든 뒤 `autoVerifyUnambiguousRows()`를 호출 — 이름·주소가 모두
+  채워진 각 행에 대해 `search(rowID:)`를 실행하고, 검색 결과가
+  정확히 하나면 `chooseResult(_:forRowID:)`로 자동 확정. 결과가
+  없거나 여럿이면 손대지 않고 기존 수동 검색 흐름 그대로 남겨둠.
+- `Views/EditPlaceCardSheet.swift`: `card.googlePlaceId == nil`일 때만
+  보이는 새 "장소 확정" 섹션(`placeConfirmSection`) — 현재
+  이름·주소로 Google Places를 검색하고(키가 없거나 결과가 없으면
+  Naver 검색 API로 대체), 목록에서 고르면 이름·주소·좌표를 확정
+  값으로 덮어쓰고 평점·리뷰수·전화번호·웹사이트·카테고리는 비어
+  있을 때만 채움. Google 결과를 고르면 `confirmedGooglePlaceId`(새
+  `@State`, 저장 시 `updated.googlePlaceId`로 반영)가 채워져 기존
+  "Google에서 새로고침" 섹션도 저장하지 않고 바로 이어서 쓸 수 있음.
+- `Views/MapLinkImportSheet.swift` (신규): `MapScreenshotImportSheet`를
+  그대로 본뜬 링크 버전 — 공유받은 Google/Naver 지도 링크를
+  `SharedLinkParser`로 파싱해 이름(다르면 확인 알럿)·주소(비어있을
+  때만)·메모를 채우고, 좌표는 카드에 아직 없으면 바로 저장, 이미
+  있으면 100m 이상 차이 날 때만 경고(사진 GPS와 달리 지도 앱에서
+  실제로 확인한 위치라 토글 없이 적용). 링크 자체도
+  "Google Maps"/"Naver Map" 외부 링크로 추가.
+#### Changed
+- `Views/MainTabView.swift`: `checkForSharedImage()`의 링크 공유
+  분기가 사진 분기와 동일하게 `MapOpenContext.recentCardID()`를
+  확인해, 최근 "지도에서 열기"로 연 카드가 있으면
+  `SharedLinkBoardPickerSheet`(새 카드 생성) 대신 새
+  `MapLinkImportSheet`(기존 카드에 병합)로 라우팅. 두 분기가 모두
+  `MapOpenContext`를 참조/소비하므로, 순서에 따라 한쪽이 먼저 지워
+  버리는 일이 없도록 `recentCardID()`를 분기 진입 전에 한 번만 읽어
+  공유.
+  `presentShortly(_:)`를 고정 150ms 지연 대신, `UIApplication
+  .shared.connectedScenes`가 `.foregroundActive`를 보고할 때까지(최대
+  2초) 폴링한 뒤 한 번 더 150ms 대기하고 시트를 띄우도록 변경 —
+  Google 지도 앱에서 공유하고 돌아오는 것처럼 더 무거운 복귀
+  경로에서는 고정 지연이 부족했던 것으로 보여, 실제 조건(포그라운드
+  전환 완료)을 기다리도록 강화. 시뮬레이터가 없는 이 환경에서는
+  코드 리뷰로만 검증했고 실기기 확인은 못 했음.
+- `PlaceCards.xcodeproj/project.pbxproj`: 새 `MapLinkImportSheet.swift`를
+  `MapScreenshotImportSheet.swift` 항목을 템플릿 삼아
+  `PBXBuildFile`/`PBXFileReference`/그룹 멤버십/`PlaceCards` 타겟의
+  `PBXSourcesBuildPhase` 4곳에 모두 등록(145차에서 이 등록을 빠뜨려
+  컴파일이 아예 안 됐던 사고를 반복하지 않기 위해 처음부터 함께 추가).
+#### Note
+- PR #3(147차, "GPS로 촬영위치찾기" dim out)은 이전 요약과 달리 아직
+  병합되지 않고 열려 있는 상태로 확인됨 — 이번 148차 작업은 그와
+  무관하게 현재 main 기준으로 진행.
+
 ### 2026-09-13 (146차) — 장소 추가 화면에 사진 찍은 위치를 바로 지도에서 볼 수 있는 버튼 추가
 #### Added
 - `Views/AddPlaceCardView.swift`: `photosSection`의 "AI로 장소 분석하기"

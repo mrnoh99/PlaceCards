@@ -69,6 +69,7 @@
 		E442B047733FB355400DFE8A /* PlaceCardsShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
 		00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6A /* MapOpenContext.swift */; };
 		0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */; };
+		0F81A9485D4E90BB4FB422A7 /* MapLinkImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4C37F44B2C46E3E3ACF758 /* MapLinkImportSheet.swift */; };
 		1D6673576E4E433227B962C8 /* GoogleMapWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1179E13A408F9863A8E33444 /* GoogleMapWebView.swift */; };
 		592559CA7A77E63949E9C832 /* NaverMapWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A241590A64DC54139736AAF5 /* NaverMapWebView.swift */; };
 /* End PBXBuildFile section */
@@ -139,6 +140,7 @@
 		42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PlaceCardsShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		74B4C3C6D38A815385431E6A /* MapOpenContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapOpenContext.swift; sourceTree = "<group>"; };
 		4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapScreenshotImportSheet.swift; sourceTree = "<group>"; };
+		BF4C37F44B2C46E3E3ACF758 /* MapLinkImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLinkImportSheet.swift; sourceTree = "<group>"; };
 		1179E13A408F9863A8E33444 /* GoogleMapWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleMapWebView.swift; sourceTree = "<group>"; };
 		A241590A64DC54139736AAF5 /* NaverMapWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NaverMapWebView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -284,6 +286,7 @@
 				4C33C95BB876F24E926E2910 /* SharedLinkBoardPickerSheet.swift */,
 				76CBD8E07A8BD78DD2E51164 /* ImportBoardSheet.swift */,
 				4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */,
+				BF4C37F44B2C46E3E3ACF758 /* MapLinkImportSheet.swift */,
 				1179E13A408F9863A8E33444 /* GoogleMapWebView.swift */,
 				A241590A64DC54139736AAF5 /* NaverMapWebView.swift */,
 			);
@@ -469,6 +472,7 @@
 				24C9B79F1C2C7A98368E9A7C /* SharedLinkBoardPickerSheet.swift in Sources */,
 				00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */,
 				0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */,
+				0F81A9485D4E90BB4FB422A7 /* MapLinkImportSheet.swift in Sources */,
 				1D6673576E4E433227B962C8 /* GoogleMapWebView.swift in Sources */,
 				592559CA7A77E63949E9C832 /* NaverMapWebView.swift in Sources */,
 			);

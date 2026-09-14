@@ -183,10 +183,50 @@ final class PlaceCardViewModel: ObservableObject {
             } else {
                 if isFallback { notes.append(provider.fallbackNoteSuffix.trimmingCharacters(in: .whitespaces)) }
                 if !notes.isEmpty { infoMessage = notes.joined(separator: "\n") }
+                await autoVerifyUnambiguousRows()
             }
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// A row the AI extracted with both a name *and* an address is precise
+    /// enough that, when a Google Places search for it turns up exactly one
+    /// match, there's nothing left to ask the user about — this confirms
+    /// those rows automatically, the same way tapping a single search
+    /// result by hand would (`chooseResult`), right after `analyzeImages()`
+    /// builds the batch. A row with no address, or one whose search comes
+    /// back with zero or several candidates, is left alone for the user to
+    /// resolve manually via the existing "Google/Naver에서 검색" flow —
+    /// this only ever skips the confirmation step when Google Places itself
+    /// already pinpointed exactly one place for it.
+    private func autoVerifyUnambiguousRows() async {
+        let rowsToVerify = candidateRows.filter {
+            !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
+                && !$0.address.trimmingCharacters(in: .whitespaces).isEmpty
+                && $0.chosenResult == nil
+        }
+        guard !rowsToVerify.isEmpty else { return }
+
+        // `search(rowID:)` sets `errorMessage` for any row it couldn't
+        // find a confident match for — noisy here, since this runs
+        // silently across every row in the batch rather than in response
+        // to one explicit user tap. Restored afterward; a row left
+        // unconfirmed is still visible as-is for the user to search by
+        // hand.
+        let savedErrorMessage = errorMessage
+        var confirmedCount = 0
+        for row in rowsToVerify {
+            await search(rowID: row.id)
+            guard let index = candidateRows.firstIndex(where: { $0.id == row.id }),
+                  candidateRows[index].searchResults.count == 1 else { continue }
+            chooseResult(candidateRows[index].searchResults[0], forRowID: row.id)
+            confirmedCount += 1
+        }
+        errorMessage = savedErrorMessage
+        guard confirmedCount > 0 else { return }
+        let note = "Google에서 자동으로 확인한 장소 ".localized + "\(confirmedCount)" + "개".localized
+        infoMessage = [infoMessage, note].compactMap { $0 }.joined(separator: "\n")
     }
 
     /// Cross-checks a candidate `photoLocationHint` (this batch's own photo
