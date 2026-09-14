@@ -791,7 +791,13 @@ struct EditPlaceCardSheet: View {
     /// the rest of this editing session, ahead of `save()` actually
     /// writing it to the card; a Naver result instead sets
     /// `confirmedNaverVerified`, which carries no re-fetchable ID but
-    /// still counts toward the "장소확정" badge same as Google does.
+    /// still counts toward the "장소확정" badge same as Google does. A
+    /// Google confirmation also fires `refreshFromGooglePlaceDetails()`
+    /// right away rather than waiting for a separate tap on
+    /// `googleRefreshSection`'s own button — the confirm search result
+    /// already carries a subset of Places data (rating/phone/website/
+    /// category), but not hours, so this immediately follows up with the
+    /// one Places Details call that gets the rest.
     private func applyConfirmedPlace(_ result: PlaceSearchResult) {
         name = result.name
         address = result.address
@@ -801,6 +807,7 @@ struct EditPlaceCardSheet: View {
         }
         if result.isFromGooglePlaces {
             confirmedGooglePlaceId = result.id
+            Task { await refreshFromGooglePlaceDetails() }
         } else {
             confirmedNaverVerified = true
         }

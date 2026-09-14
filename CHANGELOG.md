@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### 2026-09-14 (160차) — "장소 확정"이 Google 매치면 "Google에서 새로고침"도 자동 실행
+사용자 요청: 장소확정과 구글에서 새로고침은 확정과 동시에 자동진행해라.
+지금까지는 `EditPlaceCardSheet`에서 "Google/Naver에서 장소 확정"으로
+Google 결과를 고르면 `googlePlaceId`만 채워지고, 영업시간처럼 확정
+검색 결과에는 없는 정보를 마저 채우려면 사용자가 "Google에서
+새로고침" 버튼을 따로 한 번 더 눌러야 했음.
+#### Changed
+- `Views/EditPlaceCardSheet.swift`: `applyConfirmedPlace(_:)`가 Google
+  결과로 확정될 때(`result.isFromGooglePlaces`) `confirmedGooglePlaceId`를
+  채운 직후 `Task { await refreshFromGooglePlaceDetails() }`를 자동으로
+  실행 — 별도 탭 없이 확정과 동시에 영업시간까지 채워짐. Naver 확정은
+  그대로 유지(요청 범위 밖 — Naver 지역검색 API 자체에 새로고침으로
+  더 가져올 정보가 애초에 거의 없음, 158차 참고).
+
 ### 2026-09-14 (155차) — 지도 링크 공유 병합 후 Google Places로 자동 보강(평점·전화번호·영업시간·사진 등)
 사용자 요청: 구글맵에서 공유로 데이터가 오면 그 데이터를 카드에
 추가한 뒤, 그 정보로 Google에서 상세 정보와 사진도 가져와라.
