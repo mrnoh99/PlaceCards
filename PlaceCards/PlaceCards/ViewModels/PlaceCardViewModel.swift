@@ -179,7 +179,7 @@ final class PlaceCardViewModel: ObservableObject {
                 }
             }
             if candidateRows.isEmpty {
-                errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요.".localized
+                errorMessage = "이미지에서 장소를 찾지 못했습니다. 다른 사진으로 다시 시도해주세요.".localized
             } else {
                 if isFallback { notes.append(provider.fallbackNoteSuffix.trimmingCharacters(in: .whitespaces)) }
                 if !notes.isEmpty { infoMessage = notes.joined(separator: "\n") }
@@ -259,33 +259,6 @@ final class PlaceCardViewModel: ObservableObject {
             return (candidate, nil)
         }
         return (nil, "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
-    }
-
-    func addBlankRow() {
-        candidateRows.append(PlaceCandidateRow(name: "", address: ""))
-    }
-
-    /// `photoLocationHint` is otherwise only ever computed inside
-    /// `analyzeImages()` — a user who picks photos and goes straight to
-    /// "+ 장소 추가" without ever running AI analysis would leave it `nil`
-    /// forever despite `rawImageDatas` holding EXIF-intact bytes. Called
-    /// from that same "+ 장소 추가" action instead, right before
-    /// `addBlankRow()`: at that point exactly one new row is being
-    /// created from the currently staged photos, so there's no AI result
-    /// count to gate on the way `analyzeImages()` has to — the photos are
-    /// unambiguously all meant for this one row. Never overwrites an
-    /// already-set hint (from an AI run earlier this batch), and averages
-    /// when there's more than one photo, same as the single-place case in
-    /// `analyzeImages()`. There's no place name/address yet to verify
-    /// against (the row is still blank), so this always surfaces as an
-    /// unverified, photo-GPS-only hint via `infoMessage`.
-    func primePhotoLocationHintIfNeeded(rawImageDatas: [Data]) {
-        guard photoLocationHint == nil else { return }
-        let photoCoordinates = rawImageDatas.compactMap(PhotoMetadata.extractLocation)
-        guard let candidate = photoCoordinates.count > 1 ? Coordinates.average(photoCoordinates) : photoCoordinates.first
-        else { return }
-        photoLocationHint = candidate
-        infoMessage = "대조할 장소 주소가 없어 사진의 위치 정보만 사용합니다.".localized
     }
 
     func removeRow(id: UUID) {
