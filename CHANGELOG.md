@@ -27,13 +27,19 @@ detail view에서 google 에서 새로고침 하면 사진을 새로 가져오�
   평점 등만 채우고 사진은 전혀 가져오지 않던 버그 수정 —
   `GooglePlacesService.details(placeId:)`의 필드마스크에 애초에
   `photos`가 빠져 있었음. 필드마스크에 `photos` 추가, `PlaceDetails`에
-  `photoName` 필드 추가, 카드에 사진이 하나도 없을 때만 Google의
-  대표 사진을 내려받아 `officialPhotos`에 추가하도록 함
-  (`MapLinkImportSheet.enrichFromGooglePlaces()`가 이미 쓰던 것과
-  같은 "사진 없을 때만" 규칙). `EditPlaceCardSheet`는 다른 필드처럼
-  즉시 저장이 아니라 "저장" 버튼을 눌러야 반영되는 구조라, 다운로드한
-  사진 바이트를 새 `@State`(`fetchedGooglePhotoData`)에 잠시 담아뒀다가
-  `save()`에서 `MediaStore`에 기록하고 `MediaItem`으로 추가.
+  `photoName` 필드 추가, 실제 사진이 없을 때만 Google의 대표 사진을
+  내려받아 `officialPhotos`에 추가하도록 함(`MapLinkImportSheet
+  .enrichFromGooglePlaces()`도 함께 수정). `EditPlaceCardSheet`는 다른
+  필드처럼 즉시 저장이 아니라 "저장" 버튼을 눌러야 반영되는 구조라,
+  다운로드한 사진 바이트를 새 `@State`(`fetchedGooglePhotoData`)에
+  잠시 담아뒀다가 `save()`에서 `MediaStore`에 기록하고 `MediaItem`으로
+  추가.
+- `Models/MediaModels.swift`: "사진이 없을 때만" 판단 기준을
+  `media.allItems.isEmpty`(모든 사진 포함)에서 새 `media
+  .hasNonScreenshotPhoto`(글자판독용으로 올린 지도/SNS 스크린샷
+  `mapScreenshots`은 제외하고 판단)로 교체 — 카드에 있는 사진이
+  AI 스캔용 스크린샷뿐이어도 실제 장소 사진이 아니므로, Google의
+  진짜 대표 사진을 계속 가져오도록 함.
 
 ### 2026-09-14 (161차) — 번들 식별자를 com.mrnoh99.PinSpots로, 앱 이름을 PinSpots로 변경
 사용자 요청: com.mrnoh99.PinSpots 으로 bundle identifier 를 변경하고

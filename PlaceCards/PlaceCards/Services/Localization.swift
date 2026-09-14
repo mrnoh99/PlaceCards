@@ -120,7 +120,7 @@ enum Localization {
         "+ 방문 날짜 추가": "+ Add visit date",
         "+ 요일 추가": "+ Add day",
         "2026년 4월": "April 2026",
-        "AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다. 사진이 하나도 없으면 Google의 대표 사진도 가져옵니다.": "Without AI, re-checks this place's hours, rating, phone, website, and other blank fields straight from the Google Places API. Also pulls Google's own cover photo if the card has no photo at all yet.",
+        "AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다. 실제 사진이 없으면(글자판독용으로 올린 스크린샷만 있어도) Google의 대표 사진도 가져옵니다.": "Without AI, re-checks this place's hours, rating, phone, website, and other blank fields straight from the Google Places API. Also pulls Google's own cover photo if there's no real photo yet (even if the only thing there is a screenshot uploaded just for text recognition).",
         "AI 없이 Naver 지역검색 API로 이 장소의 전화번호·웹사이트·카테고리 등 비어 있는 항목만 다시 확인합니다. 평점·영업시간·사진은 Naver 지역검색이 제공하지 않아 채워지지 않습니다.": "Without AI, re-checks this place's phone, website, category, and other blank fields via the Naver local search API. Rating, hours, and photos aren't filled in, since Naver's local search doesn't provide them.",
         "AI 응답 언어": "AI Response Language",
         "AI 이미지 분석 (BYOK)": "AI Image Analysis (BYOK)",

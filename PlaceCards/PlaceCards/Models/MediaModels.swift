@@ -70,4 +70,17 @@ struct MediaBundle: Codable, Equatable {
     var allItems: [MediaItem] {
         mapScreenshots + officialPhotos + onsitePhotos + receivedPhotos
     }
+
+    /// Whether this card has any photo besides a map/social screenshot
+    /// uploaded purely so AI could read text off it (`mapScreenshots` —
+    /// see `MapScreenshotImportSheet`, which feeds these straight into
+    /// `analyzePlaces`, never meant as an actual picture of the place).
+    /// Used to decide whether an automatic Google-photo fetch
+    /// (`EditPlaceCardSheet.refreshFromGooglePlaceDetails()`,
+    /// `MapLinkImportSheet.enrichFromGooglePlaces()`) should still run —
+    /// a card whose only "photo" is really just an OCR input shouldn't
+    /// block fetching a real one.
+    var hasNonScreenshotPhoto: Bool {
+        !officialPhotos.isEmpty || !onsitePhotos.isEmpty || !receivedPhotos.isEmpty
+    }
 }

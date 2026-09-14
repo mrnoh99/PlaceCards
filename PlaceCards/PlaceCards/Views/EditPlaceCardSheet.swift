@@ -647,7 +647,7 @@ struct EditPlaceCardSheet: View {
                         .foregroundStyle(.secondary)
                 }
             } footer: {
-                Text("AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다. 사진이 하나도 없으면 Google의 대표 사진도 가져옵니다.".localized)
+                Text("AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다. 실제 사진이 없으면(글자판독용으로 올린 스크린샷만 있어도) Google의 대표 사진도 가져옵니다.".localized)
             }
         }
     }
@@ -1060,7 +1060,7 @@ struct EditPlaceCardSheet: View {
             let details = try await googleService.details(placeId: placeId)
             var filledFields = fillBlankFields(from: details)
 
-            if card.media.allItems.isEmpty, fetchedGooglePhotoData == nil, let photoName = details.photoName,
+            if !card.media.hasNonScreenshotPhoto, fetchedGooglePhotoData == nil, let photoName = details.photoName,
                let photoData = try? await googleService.photoData(photoName: photoName) {
                 fetchedGooglePhotoData = photoData
                 filledFields.append("사진".localized)
