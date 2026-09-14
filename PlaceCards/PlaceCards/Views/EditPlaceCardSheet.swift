@@ -116,6 +116,11 @@ struct EditPlaceCardSheet: View {
     /// Section` showing up right away, `refreshFromGooglePlaceDetails()`
     /// having a `placeId` to call).
     @State private var confirmedGooglePlaceId: String?
+    /// Same reasoning as `confirmedGooglePlaceId`, for a Naver-origin
+    /// result chosen from `placeConfirmSection` — starts as
+    /// `card.naverVerified` and is written back to
+    /// `updated.naverVerified` at `save()`.
+    @State private var confirmedNaverVerified: Bool
     @State private var isConfirmingPlace = false
     @State private var placeConfirmResults: [PlaceSearchResult] = []
     @State private var placeConfirmMessage: String?
@@ -164,6 +169,7 @@ struct EditPlaceCardSheet: View {
         _dietaryOptionsText = State(initialValue: card.dietaryOptions.joined(separator: ", "))
         _memoText = State(initialValue: card.memo ?? "")
         _confirmedGooglePlaceId = State(initialValue: card.googlePlaceId)
+        _confirmedNaverVerified = State(initialValue: card.naverVerified ?? false)
     }
 
     /// Other categories already used in this card's board — offered as
@@ -783,7 +789,9 @@ struct EditPlaceCardSheet: View {
     /// GooglePlaceId` (Google results only — a Naver-origin `id` isn't a
     /// real Google Places ID) is what unlocks `googleRefreshSection` for
     /// the rest of this editing session, ahead of `save()` actually
-    /// writing it to the card.
+    /// writing it to the card; a Naver result instead sets
+    /// `confirmedNaverVerified`, which carries no re-fetchable ID but
+    /// still counts toward the "장소확정" badge same as Google does.
     private func applyConfirmedPlace(_ result: PlaceSearchResult) {
         name = result.name
         address = result.address
@@ -793,6 +801,8 @@ struct EditPlaceCardSheet: View {
         }
         if result.isFromGooglePlaces {
             confirmedGooglePlaceId = result.id
+        } else {
+            confirmedNaverVerified = true
         }
         if ratingText.trimmingCharacters(in: .whitespaces).isEmpty, let rating = result.rating {
             ratingText = String(rating)
@@ -943,7 +953,13 @@ struct EditPlaceCardSheet: View {
         }
 
         let result = results[0]
-        let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
+        // Stripped the same way every other name/address entering this
+        // app already is (`String.strippingInvisibleFormatCharacters()`)
+        // — an AI provider can echo back invisible bidi marks it read off
+        // the photo's own on-screen text, which would otherwise make this
+        // compare as "different" from the (already-stripped) current name
+        // even though the two are visually identical.
+        let extractedName = result.placeName.trimmingCharacters(in: .whitespaces).strippingInvisibleFormatCharacters()
         let currentName = name.trimmingCharacters(in: .whitespaces)
         if !extractedName.isEmpty, !currentName.isEmpty, extractedName != currentName {
             // The name-change confirmation happens on a later tap (the
@@ -1271,6 +1287,7 @@ struct EditPlaceCardSheet: View {
     private func save() {
         var updated = card
         updated.googlePlaceId = confirmedGooglePlaceId
+        updated.naverVerified = confirmedNaverVerified
         updated.name = name.trimmingCharacters(in: .whitespaces)
         let trimmedCategory = category.trimmingCharacters(in: .whitespaces)
         updated.category = trimmedCategory.isEmpty ? nil : trimmedCategory

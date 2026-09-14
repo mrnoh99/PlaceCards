@@ -58,15 +58,32 @@ struct PlaceCard: Identifiable, Codable {
     var category: String?
     var address: String
     var coordinates: Coordinates?
-    /// This place's Google Places `placeId`, set only when the card was
-    /// created from a verified Google Places search result
+    /// This place's Google Places `placeId`, set when the card was created
+    /// from (or later confirmed against, via `EditPlaceCardSheet`'s "장소
+    /// 확정" section) a verified Google Places search result
     /// (`PlaceSearchResult.isFromGooglePlaces`) — `nil` for a
-    /// Naver-verified or manually-entered card, and never retroactively
-    /// filled in later. Lets `EditPlaceCardSheet` re-fetch this place's
-    /// own `GooglePlacesService.details(placeId:)` (hours, rating, phone,
+    /// Naver-verified-only or manually-entered card. Lets
+    /// `EditPlaceCardSheet` re-fetch this place's own
+    /// `GooglePlacesService.details(placeId:)` (hours, rating, phone,
     /// website) straight from Google with no AI involved at all — the
     /// one non-AI way to refresh a card's info after creation.
     var googlePlaceId: String?
+    /// Whether this card was matched against a verified Naver local-search
+    /// result (`PlaceSearchResult` with `isFromGooglePlaces == false`) —
+    /// at creation, or later via `EditPlaceCardSheet`'s "장소 확정"
+    /// section falling back to Naver. Naver's local search API has no
+    /// stable place ID worth keeping (unlike `googlePlaceId`, there's
+    /// nothing to re-fetch details from later), so this is just a flag,
+    /// not an ID — used alongside `googlePlaceId` to decide whether a
+    /// card counts as "장소확정" (the green badge on the detail view,
+    /// list row, and grid cell): either source confirming it is enough.
+    /// Optional (not a `= false` default), same reason `memo`'s own doc
+    /// comment gives — a field added after this struct's original release
+    /// has to be `Optional` for synthesized `Decodable` to default a
+    /// missing key on an already-saved card; a non-optional `= false`
+    /// default is only honored for a key present at the struct's original
+    /// release, not one added later.
+    var naverVerified: Bool?
 
     var rating: Double?
     var reviewCount: Int?
@@ -204,6 +221,14 @@ extension PlaceCard: Hashable {
 }
 
 extension PlaceCard {
+    /// "장소확정" — whether this place has actually been matched against a
+    /// real map listing, on Google or Naver, rather than sitting as a
+    /// manually-entered or AI-guessed name/address. Drives the green
+    /// badge shown on the detail view, list row, and grid cell.
+    var isPlaceConfirmed: Bool {
+        googlePlaceId != nil || (naverVerified ?? false)
+    }
+
     /// The card's representative photo — shown as the detail view's hero
     /// banner and every list/grid cell's thumbnail. The user's explicit
     /// `coverPhotoID` pick, if set and that photo is still attached;
