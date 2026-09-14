@@ -358,7 +358,7 @@ struct SettingsView: View {
         } header: {
             Text("자동 백업".localized)
         } footer: {
-            Text("폴더를 한 번 선택해두면, 앱을 열 때마다(위 주기당 최대 한 번) PlaceCards가 그 폴더에 새 백업을 저장합니다.".localized)
+            Text("폴더를 한 번 선택해두면, 앱을 열 때마다(위 주기당 최대 한 번) PinSpots가 그 폴더에 새 백업을 저장합니다.".localized)
         }
         .fileImporter(
             isPresented: $showingBackupFolderPicker,
@@ -371,7 +371,7 @@ struct SettingsView: View {
     private var infoSection: some View {
         Section("정보".localized) {
             LabeledContent("API 키 저장 방식".localized, value: "iOS 키체인 (기기 내)".localized)
-            Text("PlaceCards는 사용자가 등록한 API 키로 직접 Google/Naver/AI 서비스를 호출합니다(BYOK). 키는 iCloud와 동기화되지 않으며 이 기기에만 저장됩니다.".localized)
+            Text("PinSpots는 사용자가 등록한 API 키로 직접 Google/Naver/AI 서비스를 호출합니다(BYOK). 키는 iCloud와 동기화되지 않으며 이 기기에만 저장됩니다.".localized)
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -395,7 +395,7 @@ struct SettingsView: View {
                 }
                 .font(.caption)
             } else {
-                Text("아직 공유 시도 기록이 없습니다. 사진 공유 시트에서 PlaceCards를 선택하면 여기에 결과가 표시됩니다.".localized)
+                Text("아직 공유 시도 기록이 없습니다. 사진 공유 시트에서 PinSpots를 선택하면 여기에 결과가 표시됩니다.".localized)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

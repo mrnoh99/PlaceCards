@@ -193,7 +193,7 @@ struct PlaceStatusFilterBar: View {
             }
             Button("취소".localized, role: .cancel) {}
         } message: {
-            Text("현재 위치에서의 거리를 표시하려면 설정 앱에서 PlaceCards의 위치 권한을 허용해주세요.".localized)
+            Text("현재 위치에서의 거리를 표시하려면 설정 앱에서 PinSpots의 위치 권한을 허용해주세요.".localized)
         }
         .alert("현재 위치를 가져오지 못했습니다".localized, isPresented: $isPresentingLocationUnavailableAlert) {
             Button("확인".localized, role: .cancel) {}

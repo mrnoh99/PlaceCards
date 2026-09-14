@@ -5,7 +5,7 @@ struct OnboardingView: View {
     @State private var step = 0
 
     private let steps: [(systemImage: String, title: String, description: String)] = [
-        ("mappin.and.ellipse", "PlaceCards",
+        ("mappin.and.ellipse", "PinSpots",
          "지도 앱, SNS, 직접 찍은 사진에서 발견한 장소를 하나의 카드로 모아보세요.".localized),
         ("photo.on.rectangle.angled", "사진으로 바로 추가".localized,
          "스크린샷이나 사진을 넣으면 AI가 장소명을 찾아주고, Google 지도 정보로 자동 보강됩니다.".localized),

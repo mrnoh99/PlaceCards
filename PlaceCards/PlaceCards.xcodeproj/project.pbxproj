@@ -654,7 +654,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = PlaceCards;
+				INFOPLIST_KEY_CFBundleDisplayName = PinSpots;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "거리 기준으로 장소를 정렬할 때 현재 위치를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -666,7 +666,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PlaceCards;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PinSpots;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -685,7 +685,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = PlaceCards;
+				INFOPLIST_KEY_CFBundleDisplayName = PinSpots;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "거리 기준으로 장소를 정렬할 때 현재 위치를 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -697,7 +697,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PlaceCards;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PinSpots;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -720,7 +720,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PlaceCards.Share;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PinSpots.Share;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -744,7 +744,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PlaceCards.Share;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mrnoh99.PinSpots.Share;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
