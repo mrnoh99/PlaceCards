@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### 2026-09-14 (150차) — 장소 추가 화면의 "+ 장소 추가" 버튼 제거
+사진 선택/AI 분석 여부와 무관하게, "추가할 장소" 리스트 맨 아래에
+있던 "+ 장소 추가"(빈 행 추가) 버튼을 삭제.
+#### Removed
+- `Views/AddPlaceCardView.swift`: `candidatesSection`의 "+ 장소 추가"
+  버튼 제거.
+- `ViewModels/PlaceCardViewModel.swift`: 그 버튼에서만 쓰이던
+  `addBlankRow()`/`primePhotoLocationHintIfNeeded(rawImageDatas:)`를
+  다른 호출처가 없어 함께 삭제(죽은 코드로 남기지 않음).
+#### Changed
+- `Views/AddPlaceCardView.swift`: 섹션 footer 문구에서 이제 없는
+  "직접 추가하세요" 안내 제거.
+- `ViewModels/PlaceCardViewModel.swift`: `analyzeImages()`가 후보를
+  전혀 못 찾았을 때의 안내 문구를 "아래에서 직접 추가해주세요."에서
+  "다른 사진으로 다시 시도해주세요."로 변경 — 이제 없는 버튼을
+  가리키지 않도록.
+
 ### 2026-09-14 (149차) — Google로 확정된 카드에 초록색 "장소확정" 배지 표시
 `card.googlePlaceId != nil`(148차 "장소 확정" 섹션 등으로 실제
 Google Places 결과와 매칭된 카드)인 경우, 카드가 보이는 주요 화면
