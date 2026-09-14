@@ -143,6 +143,24 @@ struct SettingsView: View {
     private var aiProviderKeysSection: some View {
         Section {
             ForEach(AIProviderType.allCases) { provider in
+                // "저장" used to live inside this same `VStack` as the
+                // gateway model `Picker` — even after pinning
+                // `.pickerStyle(.menu)` and adding `.buttonStyle(.borderless)`
+                // (an attempt at the standard fix for two interactive
+                // controls sharing one custom `List`/`Form` row), it was
+                // still reported as un-tappable, the tap instead landing on
+                // the Picker above it. A `.menu`-style Picker/Menu's own
+                // interaction region inside a List row can end up larger
+                // than its visual bounds regardless of sibling button
+                // styling, so the only fix that's actually held up is
+                // giving "저장" its own separate Form row entirely — same
+                // as every other section's own always-worked "저장"
+                // button (`googlePlacesAPISection`, `naverMapSection`,
+                // `naverSearchAPISection`), none of which share a row with
+                // a Picker. `ForEach`'s per-item closure is `@ViewBuilder`,
+                // so returning this as a sibling of the `VStack` below
+                // (not nested inside it) is enough for `Form` to split
+                // them into two independent rows.
                 VStack(alignment: .leading, spacing: 6) {
                     Text(provider.displayName)
                         .font(.subheadline.bold())
@@ -157,18 +175,6 @@ struct SettingsView: View {
                     }
 
                     if provider == .gateway {
-                        // `.menu`, explicitly — this row already needs
-                        // `.buttonStyle(.borderless)` below to keep "저장"
-                        // (right underneath) reliably tappable on its own
-                        // (same fix `aiProviderPrioritySection`'s up/down
-                        // buttons already use — sharing one custom `VStack`
-                        // row with another interactive control leaves the
-                        // row's own tap gesture ambiguous otherwise, and
-                        // was observed resolving to the Picker even when
-                        // the tap landed on "저장"). Pinning the style
-                        // outright also avoids relying on whatever
-                        // `.automatic` happens to resolve to inside a
-                        // `Form` across iOS versions.
                         Picker("모델".localized, selection: $gatewayModelSelection) {
                             ForEach(GatewayModels.all) { model in
                                 Text(model.label).tag(model.id)
@@ -182,19 +188,17 @@ struct SettingsView: View {
                                 .autocorrectionDisabled()
                         }
                     }
-
-                    Button("저장".localized) {
-                        if provider == .gateway {
-                            viewModel.gatewayModel = gatewayModelSelection == Self.customModelTag
-                                ? gatewayCustomModelInput
-                                : gatewayModelSelection
-                        }
-                        viewModel.saveProviderAPIKey(provider)
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.caption)
                 }
                 .padding(.vertical, 4)
+
+                Button("저장".localized) {
+                    if provider == .gateway {
+                        viewModel.gatewayModel = gatewayModelSelection == Self.customModelTag
+                            ? gatewayCustomModelInput
+                            : gatewayModelSelection
+                    }
+                    viewModel.saveProviderAPIKey(provider)
+                }
             }
         } header: {
             Text("AI 이미지 분석 (BYOK)".localized)
