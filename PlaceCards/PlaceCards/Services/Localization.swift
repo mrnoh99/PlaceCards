@@ -121,6 +121,7 @@ enum Localization {
         "+ 요일 추가": "+ Add day",
         "2026년 4월": "April 2026",
         "AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다.": "Without AI, re-checks this place's hours, rating, phone, website, and other blank fields straight from the Google Places API.",
+        "AI 없이 Naver 지역검색 API로 이 장소의 전화번호·웹사이트·카테고리 등 비어 있는 항목만 다시 확인합니다. 평점·영업시간·사진은 Naver 지역검색이 제공하지 않아 채워지지 않습니다.": "Without AI, re-checks this place's phone, website, category, and other blank fields via the Naver local search API. Rating, hours, and photos aren't filled in, since Naver's local search doesn't provide them.",
         "AI 응답 언어": "AI Response Language",
         "AI 이미지 분석 (BYOK)": "AI Image Analysis (BYOK)",
         "AI 제공자 우선순위": "AI Provider Priority",
@@ -157,6 +158,8 @@ enum Localization {
         "Naver 검색 API (선택)": "Naver Search API (Optional)",
         "Naver 검색 API 정보가 저장되었습니다.": "Naver Search API credentials saved.",
         "Naver에서 검색": "Search on Naver",
+        "Naver에서 새로 채울 정보를 찾지 못했습니다.": "Found nothing new to fill in from Naver.",
+        "Naver에서 새로고침": "Refresh from Naver",
         "PlaceCards 백업 파일이 아닙니다.": "This isn't a PlaceCards backup file.",
         "PlaceCards는 사용자가 등록한 API 키로 직접 Google/Naver/AI 서비스를 호출합니다(BYOK). 키는 iCloud와 동기화되지 않으며 이 기기에만 저장됩니다.": "PlaceCards calls Google/Naver/AI services directly using the API keys you register (BYOK). Keys are not synced via iCloud and are stored only on this device.",
         "Tmap에서 열기": "Open in Tmap",
@@ -346,8 +349,8 @@ enum Localization {
         "의 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요.": "'s call limit was exceeded. Please try again shortly.",
         "이 백업으로 모든 게시판·장소를 교체할까요?": "Replace every board and place with this backup?",
         "이 사진을 삭제할까요?": "Delete this photo?",
-        "이 카드는 아직 Google/Naver로 확정되지 않았습니다. 이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google에서 새로고침\"도 쓸 수 있게 됩니다.":
-            "This card hasn't been confirmed against Google/Naver yet. Search by name/address and pick the actual place to update it with verified info — and unlock \"Refresh from Google\" afterward.",
+        "이 카드는 아직 Google/Naver로 확정되지 않았습니다. 이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google/Naver에서 새로고침\"도 쓸 수 있게 됩니다.":
+            "This card hasn't been confirmed against Google/Naver yet. Search by name/address and pick the actual place to update it with verified info — and unlock \"Refresh from Google/Naver\" afterward.",
         "이 카드에 추가할까요?": "Add to this card?",
         "이 폴더에 대한 접근 권한이 끊어졌습니다. 아래에서 폴더를 다시 선택해주세요.": "Access to this folder was lost. Please choose the folder again below.",
         "이름": "Name",

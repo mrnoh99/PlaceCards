@@ -86,6 +86,28 @@ Google 결과를 고르면 `googlePlaceId`만 채워지고, 영업시간처럼 �
 - `Services/Localization.swift`: 위 변경들로 더 이상 쓰이지 않게 된
   문자열 키들을 정리(제거 또는 "웹 검색" 언급을 뺀 문구로 수정).
 
+### 2026-09-14 (158차) — "Naver에서 새로고침" 추가
+사용자 요청: Google/Naver/TripAdvisor 등 여러 소스에서 공식·구조화된
+데이터를 가져오는 방안을 검토한 결과("웹 검색으로 채우기" 삭제 이후
+후속 논의) — TripAdvisor·다이닝코드·망고플레이트(서비스 종료)·
+캐치테이블은 공식 API가 없거나 파트너 승인제라 제외하고, Google과
+Naver 두 소스만으로 진행하기로 확정. Google은 이미 "Google에서
+새로고침"으로 완비되어 있어, 그 짝이 없던 Naver 쪽을 추가.
+#### Added
+- `Views/EditPlaceCardSheet.swift`: 새 `naverRefreshSection` +
+  `refreshFromNaverPlaceDetails()` — Naver로만 확정된 카드
+  (`confirmedNaverVerified`, `confirmedGooglePlaceId == nil`)에
+  "Naver에서 새로고침" 버튼을 추가. Naver 지역검색 API는 Google의
+  `placeId` 같은 재조회용 고정 ID가 없어, 현재 이름+주소로 검색을
+  다시 돌려 가장 가까운/이름이 일치하는 결과를 고르는
+  `closestNaverMatch(among:)`(카드에 좌표가 있으면
+  `maxAddressMatchDistanceMeters`(100m) 이내 최근접, 없으면 정확한
+  이름 일치)로 매칭. 새 `fillBlankFields(from: PlaceSearchResult)`
+  오버로드로 비어 있는 전화번호·웹사이트·카테고리·좌표만 채움 —
+  Naver 지역검색 API 자체에 평점·리뷰수·영업시간·사진 필드가 없어
+  (`NaverPlaceSearchService`의 기존 문서 주석 참고) 이 항목들은
+  Google과 달리 채워지지 않음을 버튼 하단 안내문에 명시.
+
 ### 2026-09-14 (154차) — Gateway "저장" 버튼 재발 수정 + 웹 검색 403을 "API 키 무효"로 잘못 표시하던 버그 수정
 사용자 재제보: 153차에서 `.pickerStyle(.menu)`+`.buttonStyle(.borderless)`
 로 고쳤다고 표시했던 Gateway "저장" 버튼이 여전히 모델 Picker로
