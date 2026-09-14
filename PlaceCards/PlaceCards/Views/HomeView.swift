@@ -103,7 +103,7 @@ struct HomeView: View {
                     }
                 }
             }
-            .navigationTitle("PlaceCards")
+            .navigationTitle("PinSpots")
             // `.always` so search stays visible without a pull-down/
             // scroll — matches Gallery.
             .searchable(text: $searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "카드 검색".localized)

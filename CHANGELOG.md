@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### 2026-09-14 (161차) — 번들 식별자를 com.mrnoh99.PinSpots로, 앱 이름을 PinSpots로 변경
+사용자 요청: com.mrnoh99.PinSpots 으로 bundle identifier 를 변경하고
+app name 도 PinSpots 로 변경하라.
+#### Changed
+- `PlaceCards.xcodeproj/project.pbxproj`: 메인 앱 타겟의
+  `PRODUCT_BUNDLE_IDENTIFIER`를 `com.mrnoh99.PlaceCards` →
+  `com.mrnoh99.PinSpots`로, `INFOPLIST_KEY_CFBundleDisplayName`을
+  `PlaceCards` → `PinSpots`로 변경(Debug/Release 둘 다). 공유 확장
+  (`PlaceCardsShare`) 타겟의 `PRODUCT_BUNDLE_IDENTIFIER`도
+  `com.mrnoh99.PlaceCards.Share` → `com.mrnoh99.PinSpots.Share`로
+  함께 변경 — 부모 앱과 접두사가 어긋나면 "Embedded binary's bundle
+  identifier is not prefixed with the parent app's bundle identifier"
+  오류가 남.
+- `PlaceCardsShare/Info.plist`: 공유 시트에 표시되는
+  `CFBundleDisplayName`도 `PlaceCards` → `PinSpots`로 변경.
+- 앱 내에서 사용자에게 직접 보이는 "PlaceCards" 문자열(온보딩 첫
+  화면, 홈 탭 제목/내비게이션 타이틀, 설정의 자동 백업/BYOK 안내문,
+  위치 권한 안내 얼럿, 공유 시트 안내문, 백업 파일 형식 오류 메시지)
+  도 전부 "PinSpots"로 변경 — `Localization.swift`의 대응 키도 함께
+  수정.
+- App Group(`group.com.mrnoh99.PlaceCards`)과 iCloud 컨테이너
+  (`iCloud.com.mrnoh99.PlaceCards`) 식별자, Xcode 타겟/스킴/프로젝트
+  파일명, 내부 `PlaceCard*` 타입명은 의도적으로 그대로 둠 — 번들
+  ID와 무관하게 독립적으로 등록되는 capability 식별자라 바꾸려면
+  Apple Developer Portal 재등록이 필요하고, 바꾸면 기존 설치 사용자의
+  공유 확장으로 가져온 데이터가 끊김. 백업 파일 형식 자체의 내부
+  태그(`BackupData.app = "placecards"`)도 기존에 내보낸 백업 파일과의
+  호환을 위해 그대로 둠.
+
 ### 2026-09-14 (159차) — 앱 내에서 Apple 지도로 열면 엉뚱한 곳이 중심에 뜨던 버그 수정
 사용자 제보: "앱내에서 애플 맵을 열면 장소가 보이지 않는다. 구글맵은
 장소가 보이고 네이버 맵도 장소가 모인 것이 보이는데 애플맵은

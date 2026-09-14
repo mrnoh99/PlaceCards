@@ -151,7 +151,7 @@ struct MainTabView: View {
                 Image(systemName: "mappin.and.ellipse")
                     .font(.system(size: 48))
                     .foregroundStyle(Color.accentColor)
-                Text("PlaceCards")
+                Text("PinSpots")
                     .font(.title2.bold())
                 ProgressView()
                     .padding(.top, 8)
