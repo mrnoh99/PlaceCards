@@ -48,6 +48,25 @@
   찾아 공유로 돌아왔을 때 `MapLinkImportSheet`/`MapScreenshotImportSheet`
   로 이 카드에 바로 반영되도록 유도.
 
+### 2026-09-14 (152차) — 사진 GPS가 (0,0)인 경우 "위치 정보 없음"으로 처리
+사용자 제보: 위도·경도가 정확히 0,0인 사진인데도 "지도에서 찾기"/
+"GPS로 촬영위치찾기" 버튼이 활성화되어 있었음.
+#### Fixed
+- `Services/PhotoMetadata.swift`: `extractLocation(from:)`이 EXIF GPS
+  IFD에서 위도·경도를 읽어오기만 하고 값 자체를 검증하지 않았음 —
+  일부 사진 내보내기/편집 파이프라인은 실제 위치 정보가 없을 때
+  GPS 블록 자체를 생략하는 대신 위도·경도를 0으로 채운 채로 GPS IFD
+  구조만 남겨두는데, 이 경우 지금까지는 "(0, 0)"이라는 유효한 좌표로
+  잘못 인식되어 그대로 반환되고 있었음. 실제로는 위도·경도가 정확히
+  0,0인 곳(아프리카 서쪽 대서양 한복판, 일명 "Null Island")에서
+  찍힌 사진은 있을 수 없으므로, 위도·경도가 둘 다 정확히 0이면 GPS
+  블록이 아예 없을 때와 동일하게 `nil`을 반환하도록 수정. 이 함수
+  하나가 앱 전체(`AddPlaceCardView.pickedPhotoCoordinate`,
+  `PlaceCardViewModel.analyzeImages`, `EditPlaceCardSheet`,
+  `MapScreenshotImportSheet`)에서 공유되는 유일한 EXIF GPS 추출
+  지점이라, 근본 원인을 여기서 한 번만 고치면 모든 화면에 동시에
+  반영됨.
+
 ### 2026-09-14 (153차) — 설정의 Gateway "저장" 버튼이 안 눌리던 버그 수정
 사용자 제보: 설정에서 Gateway 제공자의 "저장" 버튼을 터치하면
 저장되지 않고 모델 Picker가 대신 뜸.
