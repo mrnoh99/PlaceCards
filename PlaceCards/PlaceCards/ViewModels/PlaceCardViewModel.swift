@@ -179,14 +179,54 @@ final class PlaceCardViewModel: ObservableObject {
                 }
             }
             if candidateRows.isEmpty {
-                errorMessage = "이미지에서 장소를 찾지 못했습니다. 아래에서 직접 추가해주세요.".localized
+                errorMessage = "이미지에서 장소를 찾지 못했습니다. 다른 사진으로 다시 시도해주세요.".localized
             } else {
                 if isFallback { notes.append(provider.fallbackNoteSuffix.trimmingCharacters(in: .whitespaces)) }
                 if !notes.isEmpty { infoMessage = notes.joined(separator: "\n") }
+                await autoVerifyUnambiguousRows()
             }
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// A row the AI extracted with both a name *and* an address is precise
+    /// enough that, when a Google Places search for it turns up exactly one
+    /// match, there's nothing left to ask the user about — this confirms
+    /// those rows automatically, the same way tapping a single search
+    /// result by hand would (`chooseResult`), right after `analyzeImages()`
+    /// builds the batch. A row with no address, or one whose search comes
+    /// back with zero or several candidates, is left alone for the user to
+    /// resolve manually via the existing "Google/Naver에서 검색" flow —
+    /// this only ever skips the confirmation step when Google Places itself
+    /// already pinpointed exactly one place for it.
+    private func autoVerifyUnambiguousRows() async {
+        let rowsToVerify = candidateRows.filter {
+            !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
+                && !$0.address.trimmingCharacters(in: .whitespaces).isEmpty
+                && $0.chosenResult == nil
+        }
+        guard !rowsToVerify.isEmpty else { return }
+
+        // `search(rowID:)` sets `errorMessage` for any row it couldn't
+        // find a confident match for — noisy here, since this runs
+        // silently across every row in the batch rather than in response
+        // to one explicit user tap. Restored afterward; a row left
+        // unconfirmed is still visible as-is for the user to search by
+        // hand.
+        let savedErrorMessage = errorMessage
+        var confirmedCount = 0
+        for row in rowsToVerify {
+            await search(rowID: row.id)
+            guard let index = candidateRows.firstIndex(where: { $0.id == row.id }),
+                  candidateRows[index].searchResults.count == 1 else { continue }
+            chooseResult(candidateRows[index].searchResults[0], forRowID: row.id)
+            confirmedCount += 1
+        }
+        errorMessage = savedErrorMessage
+        guard confirmedCount > 0 else { return }
+        let note = "Google에서 자동으로 확인한 장소 ".localized + "\(confirmedCount)" + "개".localized
+        infoMessage = [infoMessage, note].compactMap { $0 }.joined(separator: "\n")
     }
 
     /// Cross-checks a candidate `photoLocationHint` (this batch's own photo
@@ -219,33 +259,6 @@ final class PlaceCardViewModel: ObservableObject {
             return (candidate, nil)
         }
         return (nil, "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
-    }
-
-    func addBlankRow() {
-        candidateRows.append(PlaceCandidateRow(name: "", address: ""))
-    }
-
-    /// `photoLocationHint` is otherwise only ever computed inside
-    /// `analyzeImages()` — a user who picks photos and goes straight to
-    /// "+ 장소 추가" without ever running AI analysis would leave it `nil`
-    /// forever despite `rawImageDatas` holding EXIF-intact bytes. Called
-    /// from that same "+ 장소 추가" action instead, right before
-    /// `addBlankRow()`: at that point exactly one new row is being
-    /// created from the currently staged photos, so there's no AI result
-    /// count to gate on the way `analyzeImages()` has to — the photos are
-    /// unambiguously all meant for this one row. Never overwrites an
-    /// already-set hint (from an AI run earlier this batch), and averages
-    /// when there's more than one photo, same as the single-place case in
-    /// `analyzeImages()`. There's no place name/address yet to verify
-    /// against (the row is still blank), so this always surfaces as an
-    /// unverified, photo-GPS-only hint via `infoMessage`.
-    func primePhotoLocationHintIfNeeded(rawImageDatas: [Data]) {
-        guard photoLocationHint == nil else { return }
-        let photoCoordinates = rawImageDatas.compactMap(PhotoMetadata.extractLocation)
-        guard let candidate = photoCoordinates.count > 1 ? Coordinates.average(photoCoordinates) : photoCoordinates.first
-        else { return }
-        photoLocationHint = candidate
-        infoMessage = "대조할 장소 주소가 없어 사진의 위치 정보만 사용합니다.".localized
     }
 
     func removeRow(id: UUID) {

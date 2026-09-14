@@ -44,8 +44,12 @@ struct PlaceCardListRow: View {
                     .font(.subheadline)
                 }
 
-                if card.category?.isEmpty == false || distanceText != nil {
+                if card.category?.isEmpty == false || distanceText != nil || card.googlePlaceId != nil {
                     HStack(spacing: 4) {
+                        if card.googlePlaceId != nil {
+                            Label("장소확정".localized, systemImage: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                        }
                         if let category = card.category, !category.isEmpty {
                             Label(PlaceCategoryIcon.normalizedLabel(for: category), systemImage: PlaceCategoryIcon.symbolName(for: category))
                         }

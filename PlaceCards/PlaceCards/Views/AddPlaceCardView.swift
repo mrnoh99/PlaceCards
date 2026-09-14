@@ -46,7 +46,7 @@ struct AddPlaceCardView: View {
     /// The seeded row's ID when opened from a shared link, so `.task` can
     /// run its search automatically exactly once — see
     /// `autoResolveInitialLinkIfNeeded()`. `nil` for every other way this
-    /// view opens (photo scan, "+ 장소 추가", blank row).
+    /// view opens (photo scan).
     @State private var initialLinkRowID: UUID?
     /// Whether this screen was opened with something already handed over
     /// from outside the app (a Share Extension link or photo) rather than
@@ -286,15 +286,10 @@ struct AddPlaceCardView: View {
                     viewModel.removeRow(id: viewModel.candidateRows[index].id)
                 }
             }
-
-            Button("+ 장소 추가".localized) {
-                viewModel.primePhotoLocationHintIfNeeded(rawImageDatas: pickedImageDatas)
-                viewModel.addBlankRow()
-            }
         } header: {
             Text("추가할 장소 (".localized + "\(viewModel.selectedRowCount)" + "개 선택)".localized)
         } footer: {
-            Text("AI가 찾은 장소를 검토·수정하거나 직접 추가하세요. \"Google에서 검색\"으로 정확한 주소·평점·연락처를 채울 수 있습니다.".localized)
+            Text("AI가 찾은 장소를 검토·수정하세요. \"Google에서 검색\"으로 정확한 주소·평점·연락처를 채울 수 있습니다.".localized)
         }
     }
 

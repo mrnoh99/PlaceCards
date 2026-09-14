@@ -2,6 +2,104 @@
 
 ## [Unreleased]
 
+### 2026-09-14 (150차) — 장소 추가 화면의 "+ 장소 추가" 버튼 제거
+사진 선택/AI 분석 여부와 무관하게, "추가할 장소" 리스트 맨 아래에
+있던 "+ 장소 추가"(빈 행 추가) 버튼을 삭제.
+#### Removed
+- `Views/AddPlaceCardView.swift`: `candidatesSection`의 "+ 장소 추가"
+  버튼 제거.
+- `ViewModels/PlaceCardViewModel.swift`: 그 버튼에서만 쓰이던
+  `addBlankRow()`/`primePhotoLocationHintIfNeeded(rawImageDatas:)`를
+  다른 호출처가 없어 함께 삭제(죽은 코드로 남기지 않음).
+#### Changed
+- `Views/AddPlaceCardView.swift`: 섹션 footer 문구에서 이제 없는
+  "직접 추가하세요" 안내 제거.
+- `ViewModels/PlaceCardViewModel.swift`: `analyzeImages()`가 후보를
+  전혀 못 찾았을 때의 안내 문구를 "아래에서 직접 추가해주세요."에서
+  "다른 사진으로 다시 시도해주세요."로 변경 — 이제 없는 버튼을
+  가리키지 않도록.
+
+### 2026-09-14 (149차) — Google로 확정된 카드에 초록색 "장소확정" 배지 표시
+`card.googlePlaceId != nil`(148차 "장소 확정" 섹션 등으로 실제
+Google Places 결과와 매칭된 카드)인 경우, 카드가 보이는 주요 화면
+세 곳 모두에 초록색 체크 배지를 추가 — AddPlaceCardView의 후보 행이
+검증 직후 보여주던 "Google/Naver 지도에서 확인됨" 배지(초록,
+checkmark.seal 아이콘)와 같은 시각 언어를 저장된 카드 자체에도
+적용.
+#### Added
+- `Views/PlaceCardDetailView.swift`: 이름/카테고리 아래에
+  `Label("장소확정", systemImage: "checkmark.seal.fill")`을 초록색으로
+  표시.
+- `Views/PlaceCardListRow.swift`: 카테고리·거리 라인 맨 앞에 같은
+  배지 추가(게시판 목록 화면).
+- `Views/GalleryView.swift` (`PlaceCardGridCell`): 이름 아래에 같은
+  배지 추가(갤러리 탭 그리드 셀).
+- `Services/Localization.swift`: "장소확정" 키 추가(148차의 "장소
+  확정" 섹션 제목과는 별개 — 그쪽은 공백이 있는 풀 문장, 이쪽은
+  좁은 공간용 짧은 배지 라벨).
+
+### 2026-09-14 (148차) — AI 자동 검증, 장소 확정(사후), 지도 링크 공유 확정, 공유 후 블랙스크린 완화
+사용자가 한 번에 요청한 4가지를 모두 구현.
+1. AI가 사진에서 이름+주소를 함께 읽은 후보는, Google Places 검색
+   결과가 정확히 하나로 좁혀지면 사용자 확인 없이 자동으로 확정.
+2. Google로 확정되지 않은 카드(수동 저장/Naver 검증)를
+   `EditPlaceCardSheet`에서 나중에 Google(우선)/Naver(대체)로 검색해
+   확정할 수 있는 새 "장소 확정" 섹션 추가.
+3. Google/Naver 지도에서 장소를 찾아 공유("지도에서 열기" 직후)하면,
+   사진 스크린샷 공유와 동일하게 그 카드에 바로 병합되도록
+   `MainTabView`의 링크 공유 경로에도 `MapOpenContext`를 연결하고
+   새 `MapLinkImportSheet` 추가.
+4. Google 지도에서 공유 후 돌아오면 보드 선택 화면이 검게 나오는
+   문제 — 기존 150ms 고정 지연(`presentShortly`)이 무거운 복귀
+   경로에는 부족한 것으로 보여, 윈도우 씬이 실제로
+   `.foregroundActive`가 될 때까지 폴링한 뒤 시트를 띄우도록 강화.
+#### Added
+- `ViewModels/PlaceCardViewModel.swift`: `analyzeImages()`가 후보 행을
+  만든 뒤 `autoVerifyUnambiguousRows()`를 호출 — 이름·주소가 모두
+  채워진 각 행에 대해 `search(rowID:)`를 실행하고, 검색 결과가
+  정확히 하나면 `chooseResult(_:forRowID:)`로 자동 확정. 결과가
+  없거나 여럿이면 손대지 않고 기존 수동 검색 흐름 그대로 남겨둠.
+- `Views/EditPlaceCardSheet.swift`: `card.googlePlaceId == nil`일 때만
+  보이는 새 "장소 확정" 섹션(`placeConfirmSection`) — 현재
+  이름·주소로 Google Places를 검색하고(키가 없거나 결과가 없으면
+  Naver 검색 API로 대체), 목록에서 고르면 이름·주소·좌표를 확정
+  값으로 덮어쓰고 평점·리뷰수·전화번호·웹사이트·카테고리는 비어
+  있을 때만 채움. Google 결과를 고르면 `confirmedGooglePlaceId`(새
+  `@State`, 저장 시 `updated.googlePlaceId`로 반영)가 채워져 기존
+  "Google에서 새로고침" 섹션도 저장하지 않고 바로 이어서 쓸 수 있음.
+- `Views/MapLinkImportSheet.swift` (신규): `MapScreenshotImportSheet`를
+  그대로 본뜬 링크 버전 — 공유받은 Google/Naver 지도 링크를
+  `SharedLinkParser`로 파싱해 이름(다르면 확인 알럿)·주소(비어있을
+  때만)·메모를 채우고, 좌표는 카드에 아직 없으면 바로 저장, 이미
+  있으면 100m 이상 차이 날 때만 경고(사진 GPS와 달리 지도 앱에서
+  실제로 확인한 위치라 토글 없이 적용). 링크 자체도
+  "Google Maps"/"Naver Map" 외부 링크로 추가.
+#### Changed
+- `Views/MainTabView.swift`: `checkForSharedImage()`의 링크 공유
+  분기가 사진 분기와 동일하게 `MapOpenContext.recentCardID()`를
+  확인해, 최근 "지도에서 열기"로 연 카드가 있으면
+  `SharedLinkBoardPickerSheet`(새 카드 생성) 대신 새
+  `MapLinkImportSheet`(기존 카드에 병합)로 라우팅. 두 분기가 모두
+  `MapOpenContext`를 참조/소비하므로, 순서에 따라 한쪽이 먼저 지워
+  버리는 일이 없도록 `recentCardID()`를 분기 진입 전에 한 번만 읽어
+  공유.
+  `presentShortly(_:)`를 고정 150ms 지연 대신, `UIApplication
+  .shared.connectedScenes`가 `.foregroundActive`를 보고할 때까지(최대
+  2초) 폴링한 뒤 한 번 더 150ms 대기하고 시트를 띄우도록 변경 —
+  Google 지도 앱에서 공유하고 돌아오는 것처럼 더 무거운 복귀
+  경로에서는 고정 지연이 부족했던 것으로 보여, 실제 조건(포그라운드
+  전환 완료)을 기다리도록 강화. 시뮬레이터가 없는 이 환경에서는
+  코드 리뷰로만 검증했고 실기기 확인은 못 했음.
+- `PlaceCards.xcodeproj/project.pbxproj`: 새 `MapLinkImportSheet.swift`를
+  `MapScreenshotImportSheet.swift` 항목을 템플릿 삼아
+  `PBXBuildFile`/`PBXFileReference`/그룹 멤버십/`PlaceCards` 타겟의
+  `PBXSourcesBuildPhase` 4곳에 모두 등록(145차에서 이 등록을 빠뜨려
+  컴파일이 아예 안 됐던 사고를 반복하지 않기 위해 처음부터 함께 추가).
+#### Note
+- PR #3(147차, "GPS로 촬영위치찾기" dim out)은 이전 요약과 달리 아직
+  병합되지 않고 열려 있는 상태로 확인됨 — 이번 148차 작업은 그와
+  무관하게 현재 main 기준으로 진행.
+
 ### 2026-09-13 (147차) — "GPS로 촬영위치찾기": 사진들의 GPS가 서로 다른 곳이면 dim out
 146차에서 추가한 버튼을 정교화 — 사진에 GPS 정보가 없거나, 여러 장의
 GPS가 서로 다른 곳(다른 장소 사진들이 섞여 있음)을 가리키면 선택할

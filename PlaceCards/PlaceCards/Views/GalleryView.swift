@@ -615,6 +615,11 @@ struct PlaceCardGridCell: View {
             Text(card.name)
                 .font(.subheadline.bold())
                 .lineLimit(1)
+            if card.googlePlaceId != nil {
+                Label("장소확정".localized, systemImage: "checkmark.seal.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.green)
+            }
             Text(card.address)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
