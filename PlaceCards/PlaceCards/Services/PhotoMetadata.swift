@@ -23,9 +23,21 @@ enum PhotoMetadata {
         else {
             return nil
         }
-        return Coordinates(
+        let coordinate = Coordinates(
             latitude: latitudeRef == "S" ? -latitude : latitude,
             longitude: longitudeRef == "W" ? -longitude : longitude
         )
+        // Some photo export/edit pipelines keep the GPS IFD structure but
+        // write 0 for both latitude and longitude instead of omitting the
+        // block entirely when there's no real location fix — no genuine
+        // photo is actually taken at 0°N, 0°E (open ocean off the coast
+        // of Africa, nicknamed "Null Island"), so this is treated the
+        // same as no GPS data at all rather than a real coordinate that
+        // would otherwise enable "GPS로 촬영위치찾기"/location-hint
+        // features on a photo with no actual location in it.
+        guard coordinate.latitude != 0 || coordinate.longitude != 0 else {
+            return nil
+        }
+        return coordinate
     }
 }
