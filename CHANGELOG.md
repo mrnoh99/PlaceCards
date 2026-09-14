@@ -43,6 +43,35 @@
   `withTaskGroup`으로 병렬화. 행의 원래 순서를 유지하기 위해 인덱스를
   함께 넘겨 완료 후 재정렬.
 
+### 2026-09-14 (157차) — "웹 검색으로 채우기" 기능 삭제
+사용자 요청: 웹 검색으로 채움 삭제해라.
+#### Removed
+- `Views/EditPlaceCardSheet.swift`: "웹 검색으로 채우기" 섹션
+  (`webSearchSection`)과 그 버튼이 호출하던 `searchWebForDetails()`,
+  결과를 반영하던 `applyWebDetails(_:answeredBy:)`, 관련 상태
+  (`isSearchingWeb`, `webSearchMessage`), 그리고 검색 프롬프트에 넘기던
+  `knownLinks`(호출부가 여기뿐이라 함께 제거)를 모두 삭제. 사진 스캔
+  ("AI로 정보 읽어오기")과 Google 상세 새로고침("Google에서
+  새로고침")은 그대로 유지.
+- `Services/AIProvider.swift`: `AIProvider` 프로토콜의
+  `searchWebForDetails(name:address:knownLinks:)` 요구사항과 기본
+  구현, `ClaudeProvider`/`OpenAIProvider`/`GeminiProvider` 각각의
+  구현체, 프롬프트를 만들던 `webDetailsSearchPrompt(for:knownLinks:)`,
+  응답을 파싱하던 `parseWebDetails(from:)`를 삭제. 사진 스캔 결과와
+  구조를 공유하는 `PlaceWebDetails` 구조체와
+  `PlaceCard.applyScannedDetails(_:)`는 사진 스캔 경로에 계속
+  쓰이므로 그대로 유지.
+- `Services/AIProviderChain.swift`: 웹 검색 지원 여부를 나타내던
+  `AIProviderType.supportsWebSearch`(유일한 참조처였던 설정 화면의
+  안내 문구와 함께) 삭제.
+- `Views/SettingsView.swift`: 제공자별 "웹 검색으로 채우기 미지원"
+  안내 문구를 삭제하고, "사진 스캔·웹 검색" 두 기능을 함께 언급하던
+  안내 문구 3곳을 "사진 스캔"만 언급하도록 수정.
+- `Services/PlaceCardsError.swift`: 웹 검색 기본 구현이 던지던
+  `.notImplemented(String)` 케이스(다른 호출부 없음) 삭제.
+- `Services/Localization.swift`: 위 변경들로 더 이상 쓰이지 않게 된
+  문자열 키들을 정리(제거 또는 "웹 검색" 언급을 뺀 문구로 수정).
+
 ### 2026-09-14 (154차) — Gateway "저장" 버튼 재발 수정 + 웹 검색 403을 "API 키 무효"로 잘못 표시하던 버그 수정
 사용자 재제보: 153차에서 `.pickerStyle(.menu)`+`.buttonStyle(.borderless)`
 로 고쳤다고 표시했던 Gateway "저장" 버튼이 여전히 모델 Picker로
