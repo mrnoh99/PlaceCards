@@ -23,6 +23,26 @@
   확정된 카드면 조용히 건너뜀(`EditPlaceCardSheet`의 "장소 확정"
   섹션과 같은 보강 로직을 지도 링크 공유 경로에도 적용한 것).
 
+### 2026-09-14 (156차) — 속도 저하 점검: 후보 행 자동 검증/저장이 순차 네트워크 호출로 느려지던 부분을 병렬화
+사용자 제보: "속도가 늦다" — 점검 결과, 148차에서 추가한 자동 검증
+단계가 AI가 찾은 장소 수만큼 Google 검색을 순차적으로(하나 끝나야
+다음 시작) 돌리고 있어서, 스크린샷 하나에 장소가 여러 개(흔히
+5개 이상) 나열된 경우 로딩 스피너가 훨씬 오래 걸리는 것으로 확인.
+같은 패턴이 카드 저장 단계에도 있어 함께 수정.
+#### Fixed
+- `ViewModels/PlaceCardViewModel.swift`: `autoVerifyUnambiguousRows()`
+  (148차, AI가 이름+주소를 함께 읽은 후보를 자동으로 Google 검증)가
+  후보 행을 `for ... await` 순차 루프로 하나씩 처리하던 것을
+  `withTaskGroup`으로 병렬화 — N개 행이면 대기 시간이 "N번의 네트워크
+  왕복 합"에서 "가장 느린 한 번" 수준으로 줄어듦. `search(rowID:)`/
+  `chooseResult(_:forRowID:)`가 매번 ID로 행을 다시 찾아 반영하고
+  `@MainActor` 클래스라 모든 변경이 직렬화되므로 동시 실행해도 안전.
+- `ViewModels/PlaceCardViewModel.swift`: `createCards(source:)`(선택한
+  후보 행들을 실제 카드로 저장 — Google 검증된 행은 영업시간/사진도
+  추가로 조회)도 같은 순차 루프 구조였던 것을 동일하게
+  `withTaskGroup`으로 병렬화. 행의 원래 순서를 유지하기 위해 인덱스를
+  함께 넘겨 완료 후 재정렬.
+
 ### 2026-09-14 (154차) — Gateway "저장" 버튼 재발 수정 + 웹 검색 403을 "API 키 무효"로 잘못 표시하던 버그 수정
 사용자 재제보: 153차에서 `.pickerStyle(.menu)`+`.buttonStyle(.borderless)`
 로 고쳤다고 표시했던 Gateway "저장" 버튼이 여전히 모델 Picker로

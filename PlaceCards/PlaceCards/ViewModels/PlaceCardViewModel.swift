@@ -215,15 +215,31 @@ final class PlaceCardViewModel: ObservableObject {
         // unconfirmed is still visible as-is for the user to search by
         // hand.
         let savedErrorMessage = errorMessage
-        var confirmedCount = 0
-        for row in rowsToVerify {
-            await search(rowID: row.id)
-            guard let index = candidateRows.firstIndex(where: { $0.id == row.id }),
-                  candidateRows[index].searchResults.count == 1 else { continue }
-            chooseResult(candidateRows[index].searchResults[0], forRowID: row.id)
-            confirmedCount += 1
+        // Every row's own search runs concurrently rather than one after
+        // another — sequentially, a batch of N AI-extracted places (a
+        // single Google Maps list screenshot routinely names five or more
+        // at once) meant N full network round trips stacked back to back
+        // before the loading spinner ever cleared, turning what used to
+        // be one AI call's wait into N of them. Safe to run at once:
+        // `search(rowID:)`/`chooseResult(_:forRowID:)` each look up their
+        // own row fresh by ID rather than a captured index, and every
+        // mutation still runs serialized on this `@MainActor` class
+        // regardless of how many tasks are in flight, so nothing here
+        // needs its own locking.
+        await withTaskGroup(of: Void.self) { group in
+            for row in rowsToVerify {
+                group.addTask { @MainActor in
+                    await self.search(rowID: row.id)
+                    guard let index = self.candidateRows.firstIndex(where: { $0.id == row.id }),
+                          self.candidateRows[index].searchResults.count == 1 else { return }
+                    self.chooseResult(self.candidateRows[index].searchResults[0], forRowID: row.id)
+                }
+            }
         }
         errorMessage = savedErrorMessage
+        let confirmedCount = rowsToVerify.filter { row in
+            candidateRows.first(where: { $0.id == row.id })?.chosenResult != nil
+        }.count
         guard confirmedCount > 0 else { return }
         let note = "Google에서 자동으로 확인한 장소 ".localized + "\(confirmedCount)" + "개".localized
         infoMessage = [infoMessage, note].compactMap { $0 }.joined(separator: "\n")
@@ -616,27 +632,47 @@ final class PlaceCardViewModel: ObservableObject {
         isSaving = true
         defer { isSaving = false }
 
-        var created: [PlaceCard] = []
-        for row in candidateRows where row.selected && !row.name.trimmingCharacters(in: .whitespaces).isEmpty {
-            let links = Self.externalLinks(source: row.originSource, mapURL: row.scannedMapURL)
-            if let chosen = row.chosenResult {
-                if let card = try? await createPlaceCard(
-                    from: chosen, images: selectedImages, source: source,
-                    note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails, tags: row.tags,
-                    externalLinks: links
-                ) {
-                    created.append(card)
-                }
-            } else {
-                let card = await createManualPlaceCard(
-                    name: row.name, address: row.address, images: selectedImages, source: source,
-                    note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails, tags: row.tags,
-                    externalLinks: links
-                )
-                created.append(card)
-            }
+        let rowsToCreate = Array(candidateRows.enumerated()).filter {
+            $0.element.selected && !$0.element.name.trimmingCharacters(in: .whitespaces).isEmpty
         }
-        return created
+
+        // Each row's own card creation (a Google-verified row's best-effort
+        // hours/photo fetch in `createPlaceCard(from:)`) runs concurrently
+        // rather than one row fully finishing before the next starts —
+        // same reasoning as `autoVerifyUnambiguousRows()`: saving several
+        // places from one batch used to mean their network calls stacked
+        // up back to back. Indices are carried through and re-sorted at
+        // the end purely to keep the returned order matching the rows'
+        // own order, since `TaskGroup` results can complete out of order.
+        let results = await withTaskGroup(of: (Int, PlaceCard?).self) { group -> [(Int, PlaceCard?)] in
+            for (index, row) in rowsToCreate {
+                group.addTask { @MainActor in
+                    let links = Self.externalLinks(source: row.originSource, mapURL: row.scannedMapURL)
+                    if let chosen = row.chosenResult {
+                        let card = try? await self.createPlaceCard(
+                            from: chosen, images: self.selectedImages, source: source,
+                            note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
+                            tags: row.tags, externalLinks: links
+                        )
+                        return (index, card)
+                    } else {
+                        let card = await self.createManualPlaceCard(
+                            name: row.name, address: row.address, images: self.selectedImages, source: source,
+                            note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
+                            tags: row.tags, externalLinks: links
+                        )
+                        return (index, card)
+                    }
+                }
+            }
+            var collected: [(Int, PlaceCard?)] = []
+            for await result in group {
+                collected.append(result)
+            }
+            return collected
+        }
+
+        return results.sorted { $0.0 < $1.0 }.compactMap { $0.1 }
     }
 
     /// `note` is whatever the AI scan found worth keeping beyond name/
