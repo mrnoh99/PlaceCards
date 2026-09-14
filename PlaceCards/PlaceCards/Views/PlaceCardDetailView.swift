@@ -84,10 +84,29 @@ struct PlaceCardDetailView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
-                        if card.googlePlaceId != nil {
+                        if card.isPlaceConfirmed {
                             Label("장소확정".localized, systemImage: "checkmark.seal.fill")
                                 .font(.subheadline)
                                 .foregroundStyle(.green)
+                        } else {
+                            // Shown only in place of the badge above — a
+                            // more direct nudge than the generic "지도에서
+                            // 열기" menu further down (which opens whatever
+                            // map app the user picks, confirmed or not):
+                            // this specifically points at Google Maps, the
+                            // one place a user can go pin down the real
+                            // listing and share it straight back into this
+                            // exact card (`MapOpenContext.recordMapOpen`
+                            // is what makes that share land here instead of
+                            // starting a new card — see `MapLinkImportSheet`/
+                            // `MapScreenshotImportSheet`).
+                            Button {
+                                MapOpenContext.recordMapOpen(cardID: card.id)
+                                GoogleMapsOpener.open(for: card, using: openURL)
+                            } label: {
+                                Label("지도에서 장소 확인".localized, systemImage: "mappin.and.ellipse")
+                            }
+                            .font(.subheadline)
                         }
                         if !card.address.isEmpty {
                             Text(card.address)
