@@ -92,7 +92,7 @@ struct SettingsView: View {
                 }
             }
         } footer: {
-            Text("앱 화면 전체에서 사용하는 언어입니다. 사진 스캔·웹 검색 결과의 언어는 아래 \"AI 응답 언어\"에서 따로 정합니다.".localized)
+            Text("앱 화면 전체에서 사용하는 언어입니다. 사진 스캔 결과의 언어는 아래 \"AI 응답 언어\"에서 따로 정합니다.".localized)
         }
     }
 
@@ -168,12 +168,6 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
-                    if !provider.supportsWebSearch {
-                        Text("이 제공자는 \"웹 검색으로 채우기\" 기능을 지원하지 않습니다 — 사진 스캔에만 쓰입니다.".localized)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
                     if provider == .gateway {
                         Picker("모델".localized, selection: $gatewayModelSelection) {
                             ForEach(GatewayModels.all) { model in
@@ -240,7 +234,7 @@ struct SettingsView: View {
         } header: {
             Text("AI 제공자 우선순위".localized)
         } footer: {
-            Text("사진 스캔·웹 검색 시 이 순서대로 시도합니다. 키가 등록되지 않은 제공자는 건너뜁니다.".localized)
+            Text("사진 스캔 시 이 순서대로 시도합니다. 키가 등록되지 않은 제공자는 건너뜁니다.".localized)
         }
     }
 
@@ -260,7 +254,7 @@ struct SettingsView: View {
                 }
             }
         } footer: {
-            Text("사진 스캔·웹 검색으로 채워지는 카테고리·메모 같은 텍스트를 어떤 언어로 작성할지 정합니다. 앱 화면 자체의 언어(한국어)에는 영향을 주지 않습니다.".localized)
+            Text("사진 스캔으로 채워지는 카테고리·메모 같은 텍스트를 어떤 언어로 작성할지 정합니다. 앱 화면 자체의 언어(한국어)에는 영향을 주지 않습니다.".localized)
         }
     }
 

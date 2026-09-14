@@ -13,7 +13,6 @@ enum PlaceCardsError: LocalizedError {
     case rateLimited(String)
     case userCancelled
     case noResults
-    case notImplemented(String)
     case invalidImage
 
     var errorDescription: String? {
@@ -42,8 +41,6 @@ enum PlaceCardsError: LocalizedError {
             return "사용자가 취소했습니다.".localized
         case .noResults:
             return "검색 결과가 없습니다.".localized
-        case .notImplemented(let message):
-            return "아직 지원하지 않는 기능입니다: ".localized + message
         case .invalidImage:
             return "이미지를 처리할 수 없습니다.".localized
         }

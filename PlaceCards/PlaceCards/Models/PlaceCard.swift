@@ -115,9 +115,7 @@ struct PlaceCard: Identifiable, Codable {
     /// per platform, since there's no fixed, closed set of these worth
     /// hardcoding — `website`/`instagramURL` stay their own dedicated
     /// fields since every card routinely has those specific two and the UI
-    /// treats them distinctly (a dedicated icon/action each). Also fed to
-    /// `AIProvider.searchWebForDetails` as sources to check first, ahead
-    /// of a generic web search.
+    /// treats them distinctly (a dedicated icon/action each).
     var externalLinks: [ExternalLink] = []
 
     /// Mirrors Peragra's `Place.favorite`/`Place.visited` — toggled
@@ -333,11 +331,10 @@ extension PlaceCard {
     }
 
     /// Fills only whatever's still blank on this card from a scanned
-    /// photo's or web search's extra details (`PlaceWebDetails` —
-    /// `EditPlaceCardSheet`'s "AI로 정보 읽어오기"/"웹 검색으로 채우기",
-    /// `MapScreenshotImportSheet`'s own photo import, and
-    /// `PlaceCardViewModel.createCards()` for a brand-new card all share
-    /// this) — never overwrites a value already set from elsewhere.
+    /// photo's extra details (`PlaceWebDetails` — `EditPlaceCardSheet`'s
+    /// "AI로 정보 읽어오기", `MapScreenshotImportSheet`'s own photo import,
+    /// and `PlaceCardViewModel.createCards()` for a brand-new card all
+    /// share this) — never overwrites a value already set from elsewhere.
     ///
     /// `details.tags` is deliberately never touched here — unlike every
     /// other field on `PlaceWebDetails`, AI-suggested tags aren't applied
