@@ -199,6 +199,8 @@ enum Localization {
         "공유한 링크에서 장소 정보를 찾지 못했습니다.": "Couldn't find place info in the shared link.",
         "공유한 링크에서는 \"": "The shared link looks like \"",
         "공유한 사진을 추가할 게시판": "Board to add the shared photo to",
+        "공유한 정보": "Shared info",
+        "공유한 정보를 확인하는 중…": "Checking the shared info…",
         "공유한 지도 링크의 위치가 카드의 기존 좌표와 100m 이상 떨어져 있어 좌표는 바꾸지 않았습니다.": "The shared map link's location is more than 100m from the card's existing coordinates, so they weren't changed.",
         "공유한 지도 정보를 카드에 채웠습니다.": "Filled in the shared map info on the card.",
         "관광 정보": "Visitor info",
@@ -427,6 +429,7 @@ enum Localization {
         "추가하기": "Add",
         "추가한 사진이 이 장소에서 촬영된 것 같지 않습니다 (사진 GPS가 주소에서 100m 이상 떨어져 있습니다).":
             "The photo you added doesn't look like it was taken at this place (its GPS is more than 100m from the address).",
+        "추가할 게시판": "Board to add to",
         "추가할 장소 (": "Places to add (",
         "추천 메뉴": "Recommended menu",
         "추천 메뉴 ": "Recommended menu: ",
