@@ -48,6 +48,10 @@ struct AddPlaceCardView: View {
     /// `autoResolveInitialLinkIfNeeded()`. `nil` for every other way this
     /// view opens (photo scan).
     @State private var initialLinkRowID: UUID?
+    /// Set when this view was opened from an imported Google Maps list, so
+    /// `.task` runs the bulk Places verification across every seeded row
+    /// exactly once. False for every other entry point.
+    @State private var needsListVerification: Bool
     /// Whether this screen was opened with something already handed over
     /// from outside the app (a Share Extension link or photo) rather than
     /// started blank from inside — set once in `init`, from the same two
@@ -72,10 +76,21 @@ struct AddPlaceCardView: View {
     /// picked and confirmed it in Google/Naver Maps before sharing), so
     /// making them also tap "Google에서 검색" here would just be re-doing
     /// a confirmation that already happened.
-    init(viewModel: PlaceCardViewModel, initialImageData: Data? = nil, initialLinkText: String? = nil) {
+    ///
+    /// `initialList` seeds one row per place in a shared Google Maps list
+    /// (`GoogleMapsListParser`), already carrying the name and address read
+    /// off each place's own Google listing — see `verifyImportedListIfNeeded()`
+    /// for the verification pass that then fills in everything else.
+    init(
+        viewModel: PlaceCardViewModel,
+        initialImageData: Data? = nil,
+        initialLinkText: String? = nil,
+        initialList: SharedPlaceList? = nil
+    ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         cameFromSharedInfo = initialImageData != nil
             || (initialLinkText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+            || initialList != nil
         if let initialImageData, let image = UIImage(data: initialImageData) {
             _pickedImages = State(initialValue: [image])
             _pickedImageDatas = State(initialValue: [initialImageData])
@@ -85,12 +100,17 @@ struct AddPlaceCardView: View {
             viewModel.candidateRows = [row]
             _initialLinkRowID = State(initialValue: row.id)
         }
+        if let initialList {
+            viewModel.seedRows(from: initialList)
+        }
+        _needsListVerification = State(initialValue: initialList != nil)
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 photosSection
+                verificationProgressSection
                 candidatesSection
 
                 if let errorMessage = viewModel.errorMessage {
@@ -142,6 +162,7 @@ struct AddPlaceCardView: View {
             }
             .task {
                 await autoResolveInitialLinkIfNeeded()
+                await verifyImportedListIfNeeded()
             }
         }
     }
@@ -274,6 +295,35 @@ struct AddPlaceCardView: View {
                 <= Self.maxPhotoLocationMatchDistanceMeters
         }
         return allAgree ? average : nil
+    }
+
+    /// Runs the bulk Places verification across every row seeded from an
+    /// imported Google Maps list, once. The list itself only ever gives a
+    /// name and address (that's all Google's own listing page exposes), so
+    /// without this every imported card would save unconfirmed — no place
+    /// id, rating, phone, hours or photo.
+    private func verifyImportedListIfNeeded() async {
+        guard needsListVerification else { return }
+        needsListVerification = false
+        await viewModel.verifySeededRows()
+    }
+
+    @ViewBuilder
+    private var verificationProgressSection: some View {
+        if let progress = viewModel.verificationProgress {
+            Section {
+                HStack(spacing: 12) {
+                    ProgressView(value: Double(progress.done), total: Double(max(progress.total, 1)))
+                    Text("\(progress.done)/\(progress.total)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Button("중단".localized) { viewModel.cancelVerification() }
+                        .font(.caption)
+                }
+            } footer: {
+                Text("가져온 장소를 Google에서 하나씩 확인하는 중입니다. 중단해도 이미 확인된 장소는 그대로 남습니다.".localized)
+            }
+        }
     }
 
     private var candidatesSection: some View {

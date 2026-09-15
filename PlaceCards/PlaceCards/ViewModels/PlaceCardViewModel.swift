@@ -105,6 +105,20 @@ final class PlaceCardViewModel: ObservableObject {
     /// sensor/positioning noise better than any single one of them alone.
     @Published var photoLocationHint: Coordinates?
 
+    /// How far a bulk verification pass (`verifySeededRows()`) has got, or
+    /// `nil` when none is running. A shared Google Maps list can hold
+    /// dozens of places, each needing its own Google Places round trip, so
+    /// unlike a photo scan's handful of rows this genuinely takes a while
+    /// and has to show progress rather than one indefinite spinner.
+    @Published var verificationProgress: VerificationProgress?
+
+    struct VerificationProgress: Equatable {
+        var done: Int
+        var total: Int
+    }
+
+    private var isCancellingVerification = false
+
     private let storageService: StorageService
     private let boardId: String
 
@@ -276,6 +290,87 @@ final class PlaceCardViewModel: ObservableObject {
         }
         return (nil, "사진의 위치 정보가 인식된 장소 주소와 너무 멀어 사진 위치는 사용하지 않았습니다.".localized)
     }
+
+    /// Replaces the review list with one row per place in a shared Google
+    /// Maps list (`GoogleMapsListParser`). Each row already carries a real
+    /// name and full address read off Google's own listing, plus that
+    /// listing's canonical `?cid=` URL — marked `.googleMapShare` so
+    /// `search(rowID:)` verifies it against Google (never Naver) and
+    /// `createCards` saves the link as the card's "Google Maps" external
+    /// link, exactly as a single shared place already does.
+    ///
+    /// `SharedListPlace.category` is deliberately not carried over: it's a
+    /// de-slugged English `gcid:` value ("Catholic Church") read off the
+    /// list thumbnail, and the Places verification every row goes through
+    /// supplies the real, properly localized category anyway. It's kept on
+    /// the parsed list only for showing alongside each place while the user
+    /// is deciding whether to import.
+    func seedRows(from list: SharedPlaceList) {
+        candidateRows = list.places.map { place in
+            var row = PlaceCandidateRow(name: place.name, address: place.address ?? "")
+            row.originSource = .googleMapShare
+            row.scannedMapURL = place.mapURL
+            return row
+        }
+    }
+
+    /// Verifies every seeded row against Google Places, in bounded batches,
+    /// auto-confirming a row whose search comes back with exactly one match
+    /// — the same rule `autoVerifyUnambiguousRows()` applies after a photo
+    /// scan, just driven across a whole imported list and with progress the
+    /// caller can show.
+    ///
+    /// Batched rather than one unbounded `TaskGroup` over every row (which
+    /// is what the photo-scan path does): that is fine for the handful of
+    /// rows a screenshot yields, but a list can hold hundreds, and firing
+    /// hundreds of simultaneous Places requests is how a client gets rate
+    /// limited instead of served.
+    func verifySeededRows() async {
+        let rowIDs = candidateRows.map(\.id)
+        guard !rowIDs.isEmpty else { return }
+
+        isCancellingVerification = false
+        verificationProgress = VerificationProgress(done: 0, total: rowIDs.count)
+        defer { verificationProgress = nil }
+
+        // Each row's own "couldn't find a confident match" message would
+        // overwrite the last as this sweeps the list — noisy, and none of
+        // it is about one deliberate user tap. Restored at the end; a row
+        // left unconfirmed is still visible as-is to search by hand.
+        let savedErrorMessage = errorMessage
+        var done = 0
+
+        for chunk in stride(from: 0, to: rowIDs.count, by: Self.verificationBatchSize) {
+            if isCancellingVerification { break }
+            let upperBound = min(chunk + Self.verificationBatchSize, rowIDs.count)
+            await withTaskGroup(of: Void.self) { group in
+                for rowID in rowIDs[chunk..<upperBound] {
+                    group.addTask { @MainActor in
+                        await self.search(rowID: rowID)
+                        guard let index = self.candidateRows.firstIndex(where: { $0.id == rowID }),
+                              self.candidateRows[index].searchResults.count == 1 else { return }
+                        self.chooseResult(self.candidateRows[index].searchResults[0], forRowID: rowID)
+                    }
+                }
+            }
+            done = upperBound
+            verificationProgress = VerificationProgress(done: done, total: rowIDs.count)
+        }
+
+        errorMessage = savedErrorMessage
+        let confirmedCount = candidateRows.filter { $0.chosenResult != nil }.count
+        guard confirmedCount > 0 else { return }
+        let note = "Google에서 자동으로 확인한 장소 ".localized + "\(confirmedCount)" + "개".localized
+        infoMessage = [infoMessage, note].compactMap { $0 }.joined(separator: "\n")
+    }
+
+    func cancelVerification() {
+        isCancellingVerification = true
+    }
+
+    /// Kept well under what Google's own per-client rate limits tolerate —
+    /// see `verifySeededRows()`.
+    private static let verificationBatchSize = 5
 
     func removeRow(id: UUID) {
         candidateRows.removeAll { $0.id == id }
@@ -641,35 +736,44 @@ final class PlaceCardViewModel: ObservableObject {
         // rather than one row fully finishing before the next starts —
         // same reasoning as `autoVerifyUnambiguousRows()`: saving several
         // places from one batch used to mean their network calls stacked
-        // up back to back. Indices are carried through and re-sorted at
-        // the end purely to keep the returned order matching the rows'
-        // own order, since `TaskGroup` results can complete out of order.
-        let results = await withTaskGroup(of: (Int, PlaceCard?).self) { group -> [(Int, PlaceCard?)] in
-            for (index, row) in rowsToCreate {
-                group.addTask { @MainActor in
-                    let links = Self.externalLinks(source: row.originSource, mapURL: row.scannedMapURL)
-                    if let chosen = row.chosenResult {
-                        let card = try? await self.createPlaceCard(
-                            from: chosen, images: self.selectedImages, source: source,
-                            note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
-                            tags: row.tags, externalLinks: links
-                        )
-                        return (index, card)
-                    } else {
-                        let card = await self.createManualPlaceCard(
-                            name: row.name, address: row.address, images: self.selectedImages, source: source,
-                            note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
-                            tags: row.tags, externalLinks: links
-                        )
-                        return (index, card)
+        // up back to back. Run in bounded batches rather than all at once,
+        // for the same reason `verifySeededRows()` is: a photo scan's five
+        // rows are fine either way, but an imported Google Maps list can be
+        // hundreds, and that many simultaneous Places requests gets the
+        // user's own API key rate limited. Indices are carried through and
+        // re-sorted at the end purely to keep the returned order matching
+        // the rows' own order, since results can complete out of order.
+        var results: [(Int, PlaceCard?)] = []
+        for chunk in stride(from: 0, to: rowsToCreate.count, by: Self.verificationBatchSize) {
+            let upperBound = min(chunk + Self.verificationBatchSize, rowsToCreate.count)
+            let batch = await withTaskGroup(of: (Int, PlaceCard?).self) { group -> [(Int, PlaceCard?)] in
+                for (index, row) in rowsToCreate[chunk..<upperBound] {
+                    group.addTask { @MainActor in
+                        let links = Self.externalLinks(source: row.originSource, mapURL: row.scannedMapURL)
+                        if let chosen = row.chosenResult {
+                            let card = try? await self.createPlaceCard(
+                                from: chosen, images: self.selectedImages, source: source,
+                                note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
+                                tags: row.tags, externalLinks: links
+                            )
+                            return (index, card)
+                        } else {
+                            let card = await self.createManualPlaceCard(
+                                name: row.name, address: row.address, images: self.selectedImages, source: source,
+                                note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
+                                tags: row.tags, externalLinks: links
+                            )
+                            return (index, card)
+                        }
                     }
                 }
+                var collected: [(Int, PlaceCard?)] = []
+                for await result in group {
+                    collected.append(result)
+                }
+                return collected
             }
-            var collected: [(Int, PlaceCard?)] = []
-            for await result in group {
-                collected.append(result)
-            }
-            return collected
+            results.append(contentsOf: batch)
         }
 
         return results.sorted { $0.0 < $1.0 }.compactMap { $0.1 }
