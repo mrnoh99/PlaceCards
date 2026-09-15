@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 /// Map's own "공유" text) — either can be handed straight to the app
 /// instead of first saving a screenshot to Photos, or copying a link by
 /// hand. No storyboard — its view is built in code (see `setUpUI`) purely
-/// so tapping the PlaceCards row in the share sheet doesn't just flash an
+/// so tapping the PinSpots row in the share sheet doesn't just flash an
 /// empty screen and vanish, which read as "nothing happened" even when
 /// the share saved correctly; it briefly shows a spinner, then a ✓/✗
 /// before dismissing.
@@ -18,7 +18,7 @@ final class ShareViewController: UIViewController {
     private let viewDidLoadTime = Date()
     /// For a link/text share, `loadItem` (`handleLinkAttachment`) usually
     /// resolves in well under a frame's time — no network I/O involved —
-    /// so without this floor, `finish()` could fire before the "PlaceCards로
+    /// so without this floor, `finish()` could fire before the "PinSpots로
     /// 저장 중…" spinner/label have even been on screen long enough for a
     /// glance to register real text: reported as the popup flashing and
     /// vanishing with only the trailing "…" catching the eye. `finish()`
@@ -38,7 +38,7 @@ final class ShareViewController: UIViewController {
     private func setUpUI() {
         view.backgroundColor = .systemBackground
 
-        statusLabel.text = "PlaceCards로 저장 중…"
+        statusLabel.text = "PinSpots로 저장 중…"
         statusLabel.font = .preferredFont(forTextStyle: .body)
         statusLabel.textAlignment = .center
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -147,7 +147,7 @@ final class ShareViewController: UIViewController {
             }
             SharedImportStore.savePendingImage(data)
             SharedImportStore.recordDebugStatus("사진 저장 성공 (\(data.count) bytes)")
-            self?.finish(success: true, message: "PlaceCards로 저장됨")
+            self?.finish(success: true, message: "PinSpots로 저장됨")
         }
     }
 
@@ -182,7 +182,7 @@ final class ShareViewController: UIViewController {
             }
             SharedImportStore.savePendingLink(text)
             SharedImportStore.recordDebugStatus("링크 저장 성공 (\(text.prefix(80)))")
-            self?.finish(success: true, message: "PlaceCards로 저장됨")
+            self?.finish(success: true, message: "PinSpots로 저장됨")
         }
     }
 

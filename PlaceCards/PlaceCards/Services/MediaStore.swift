@@ -22,8 +22,24 @@ struct MediaStore {
     private static let cache: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
         cache.countLimit = 200
+        // A count limit alone bounds the wrong thing: these are decoded
+        // bitmaps, and one full-size entry (`maxSavedDimension` 2048px
+        // square, 4 bytes/pixel) is ~16MB against a thumbnail's fraction
+        // of a megabyte, so 200 of the former is gigabytes while 200 of
+        // the latter is nothing. `NSCache` does evict under memory
+        // pressure, but only once the system is already in trouble —
+        // costing each entry by its real byte size keeps this bounded
+        // before that point instead.
+        cache.totalCostLimit = 128 * 1024 * 1024
         return cache
     }()
+
+    /// Decoded size in bytes — what an entry actually costs the cache,
+    /// as opposed to the compressed size of the file it came from.
+    private static func cacheCost(of image: UIImage) -> Int {
+        guard let cgImage = image.cgImage else { return 0 }
+        return cgImage.bytesPerRow * cgImage.height
+    }
 
     private static var directoryURL: URL {
         let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -81,7 +97,7 @@ struct MediaStore {
         if let cached = cache.object(forKey: key) { return cached }
         let url = directoryURL.appendingPathComponent(fileName)
         guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else { return nil }
-        cache.setObject(image, forKey: key)
+        cache.setObject(image, forKey: key, cost: cacheCost(of: image))
         return image
     }
 
@@ -107,7 +123,7 @@ struct MediaStore {
         ]
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
         let image = UIImage(cgImage: cgImage)
-        cache.setObject(image, forKey: key)
+        cache.setObject(image, forKey: key, cost: cacheCost(of: image))
         return image
     }
 

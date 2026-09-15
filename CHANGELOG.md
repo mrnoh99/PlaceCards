@@ -2,6 +2,97 @@
 
 ## [Unreleased]
 
+### 2026-09-15 (165차) — 전체 점검: 숨은 데이터 손실·무음 실패·메인 스레드 정지 수정
+사용자 요청: "전체적으로 점검해라. 숨어있는 bug를 찾고 개선점을
+찾아보아라. 특히 사람의 행동에 기반한 flow에 적합한 설계인지
+확인해라." 코드베이스 전체(61개 파일)를 읽고 찾은 문제를 모두 수정.
+#### Fixed
+- `Models/PlaceCard.swift`: `merge(with:)`가 구조체 필드의 3분의 1
+  정도만 옮기고 나머지는 조용히 버리던 데이터 손실 수정. 특히
+  `googlePlaceId`/`naverVerified`가 빠져 있어 **확정된 카드를 미확정
+  카드에 병합하면 "장소확정"이 풀렸고**, `externalLinks`는
+  `FindDuplicatesSheet`가 화면에서 "링크는 남는 카드로 옮겨진다"고
+  명시적으로 약속하는데도 실제로는 옮기지 않았음. 병합은 되돌릴 수
+  없으므로(`removeMergedDuplicate`로 즉시 삭제) 누락 하나가 영구
+  손실임. `myRating`·`priceLevel`·`wouldRevisit`·`visitDates`·
+  `hoursDetail`·`closingTime`·`holidays`·`reservationInfo`·
+  `recommendedMenu`·`suggestedDuration`·`admissionFee`·`awards`·
+  `dietaryOptions`·`discoverySource`·`coverPhotoID`까지 전부 포함하도록
+  수정. `FindDuplicatesSheet`의 안내 문구도 실제 동작에 맞게 갱신.
+- `Services/StorageService.swift`: 저장 파일이 디코딩에 실패하면
+  배열이 빈 채로 남고 **바로 다음 `save()`가 멀쩡한 원본 파일을 빈
+  상태로 덮어쓰던** 치명적 경로 수정 — 필드 하나만 읽히지 않아도 전체
+  라이브러리가 복구 불가능하게 날아갈 수 있었음
+  (`SourceType.unsplashSearch`의 주석이 바로 이 위험을 설명하고 있으나
+  방어는 없었음). 이제 원본을 `...-corrupt-<시각>.json`으로 보관하고
+  덮어쓰지 않으며, `MainTabView`가 알림으로 즉시 알림.
+- `ViewModels/PlaceCardViewModel.swift`, `Views/AddPlaceCardView.swift`:
+  `createPlaceCard`가 `try?`로 호출돼 사진 저장 실패 시 해당 카드가
+  조용히 `nil`로 사라졌고, `AddPlaceCardView`는 결과와 무관하게 시트를
+  닫아 **"추가 (3)"을 눌러 0개가 저장돼도 정상적으로 닫히던** 무음 실패
+  수정. 실패 건수를 `errorMessage`로 알리고, 요청한 개수만큼 저장되지
+  않으면 화면을 닫지 않음.
+- `Views/SharedPhotoBoardPickerSheet.swift`: 163차에서
+  `SharedLinkBoardPickerSheet`에만 넣었던 첫 렌더링 빈 화면 수정
+  (`isReady` 게이트)이 구조가 동일한 사진 쪽에는 빠져 있어 같은 버그가
+  그대로 남아 있던 것 수정. 링크 쪽의 "공유한 정보" 미리보기에 대응하는
+  "공유한 사진" 썸네일 미리보기도 추가 — 연속으로 찍은 스크린샷은 공유
+  시트에서 구분이 안 되므로 무엇을 넣는지 보고 게시판을 고를 수 있어야 함.
+- `ViewModels/PlaceCardViewModel.swift`, `Views/AddPlaceCardView.swift`:
+  공유 링크에서 장소 정보를 복구하지 못하면(오프라인, 펼쳐지지 않는
+  단축 링크, 지원하지 않는 호스트) URL 문자열이 그대로 이름이 되어
+  `https://maps.app.goo.gl/…`이라는 이름의 카드가 저장되던 문제 수정.
+  이 상태의 행은 저장 대상에서 제외하고, 왜 제외됐는지와 어떻게 해야
+  하는지를 행에 직접 표시.
+#### Changed
+- `Views/MapLinkImportSheet.swift`, `Views/MapScreenshotImportSheet.swift`,
+  `Views/MainTabView.swift`: "이 카드에 추가할까요?" 추측이 틀렸을 때
+  빠져나갈 길이 없던 설계 수정 — 기존에는 "취소"가 유일한 선택지였고,
+  공유 확장은 항목을 한 번만 넘겨주므로 **취소하면 공유한 링크/사진이
+  완전히 사라져** 원래 앱으로 돌아가 다시 공유해야 했음. "다른 장소예요
+  — 새 카드로 추가" 동작을 추가해 같은 공유 항목을 그대로 일반 게시판
+  선택 흐름으로 넘김. 164차에서 유효기간을 30분→5분으로 줄인 것은 오탐
+  *빈도*만 낮췄고 오탐이 났을 때의 비용은 그대로였는데, 이걸로 그 비용
+  자체가 없어짐.
+- `Services/MapOpenContext.swift`, `Views/PlaceCardListRow.swift`,
+  `Views/PlaceCardDetailView.swift`, `Views/GalleryView.swift`: Tmap
+  버튼에서는 `recordMapOpen`을 기록하지 않도록 변경 — Tmap은 턴바이턴
+  내비게이션이라 누르는 의도가 "여기로 데려다줘"이지 "이 장소를 찾아보고
+  뭔가 공유해서 돌아올게"가 아님. 의도가 다른 행동이 같은 상태를 쓰고
+  있었음.
+#### Performance
+- `Services/BackupService.swift`, `Services/CloudBackupService.swift`,
+  `Services/AutoBackupService.swift`, `Views/MainTabView.swift`,
+  `Views/SettingsView.swift`, `Views/HomeView.swift`: 백업 내보내기가
+  `@MainActor`에서 **라이브러리의 모든 사진 바이트를 읽어 base64로
+  인코딩**하던 것을 메인 액터 밖으로 이동. `CloudBackupService.backup`은
+  포그라운드·백그라운드 전환마다 호출되므로, 카드를 하나 수정한 뒤 앱을
+  내릴 때마다 수십~수백 MB를 메인 스레드에서 인코딩하며 UI가 멈췄고
+  백그라운드 전환 워치독에 걸릴 수도 있었음. 복원 시의 디코딩과 사진
+  쓰기도 동일하게 분리.
+- `Services/CloudBackupService.swift`: 콜드 런치에서 `hasRestorableBackup()`이
+  `boards.isEmpty` 하나를 보려고 백업 전체(사진 포함)를 디코딩하고
+  `restoreIfAvailable`이 똑같은 파일을 한 번 더 디코딩하던 것을
+  `loadRestorableBackup()` 한 번으로 통합. 또한 iCloud 파일이 아직
+  플레이스홀더 상태이면 `Data(contentsOf:)`가 그냥 실패해 **"새 폰으로
+  바꿨다"는 이 기능의 존재 이유인 바로 그 상황에서 조용히 실패**하던
+  문제를, `startDownloadingUbiquitousItem`으로 내려받기를 요청하고
+  기다리도록 수정.
+- `Services/StorageService.swift`: 실행할 때마다 라이브러리 전체를
+  무조건 재인코딩·재기록하던 것을, 실제로 지울 보이지 않는 문자가 있을
+  때만 쓰도록 변경(`PlaceCard: Equatable`이 id만 비교하므로 카드끼리
+  비교로는 감지할 수 없어, 원본 JSON에서 format 범주 스칼라를 훑는
+  방식을 씀).
+- `Services/MediaStore.swift`: 이미지 캐시에 `countLimit`만 있고
+  `totalCostLimit`이 없어 2048px 원본 디코딩 이미지(장당 약 16MB) 200장
+  기준 이론상 수 GB까지 자랄 수 있던 것을, 실제 바이트 크기로 비용을
+  매기고 128MB 상한을 두도록 수정.
+#### Fixed (마감)
+- `PlaceCardsShare/ShareViewController.swift`: 161차 PinSpots 리네임에서
+  빠진 "PlaceCards로 저장 중…"/"PlaceCards로 저장됨" 문자열 수정 —
+  하드코딩이라 `.localized`가 아니어서 커버리지 검사에도 잡히지 않았고,
+  하필 사용자가 가장 자주 보는 공유 시트 화면이었음.
+
 ### 2026-09-15 (164차) — 공유가 엉뚱하게 예전에 열어봤던 카드에 합쳐지던 버그 수정
 사용자 제보: "공유하면 공유한뒤 공유시작전에 열려있는 카드를
 보여주고 있다" — 전혀 새로운 장소를 공유했는데 새 카드가 아니라

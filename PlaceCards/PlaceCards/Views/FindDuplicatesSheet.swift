@@ -47,7 +47,7 @@ struct FindDuplicatesSheet: View {
                 } else {
                     List {
                         Section {
-                            Text("같은 장소가 두 번 이상 저장된 것으로 보이는 ".localized + "\(remainingCount)" + "개 그룹을 찾았습니다. 남길 카드를 고른 뒤 병합하세요 — 나머지의 전화번호·링크·사진은 남는 카드로 옮겨진 뒤 삭제됩니다.".localized)
+                            Text("같은 장소가 두 번 이상 저장된 것으로 보이는 ".localized + "\(remainingCount)" + "개 그룹을 찾았습니다. 남길 카드를 고른 뒤 병합하세요 — 나머지가 가진 정보(연락처·링크·사진·방문 기록·장소확정 등)는 남는 카드에 빠짐없이 옮겨진 뒤 삭제됩니다.".localized)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }

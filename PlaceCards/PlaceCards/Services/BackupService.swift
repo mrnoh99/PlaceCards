@@ -85,19 +85,37 @@ enum BackupService {
     /// screen's full Backup ("전체 백업") and by the automatic
     /// folder backup (`AutoBackupService`).
     @MainActor
-    static func exportData(storageService: StorageService) throws -> Data {
-        let placeCards = storageService.placeCards
-        let backup = BackupData(boards: storageService.boards, placeCards: placeCards, mediaFiles: collectMediaFiles(for: placeCards))
-        return try makeEncoder().encode(backup)
+    static func exportData(storageService: StorageService) async throws -> Data {
+        try await encodeOffMainActor(boards: storageService.boards, placeCards: storageService.placeCards)
     }
 
     /// One board and only its own place cards — used by "게시판
     /// 내보내기" (Export Board), shared via `ShareLink`.
     @MainActor
-    static func exportBoard(_ board: Board, storageService: StorageService) throws -> Data {
-        let placeCards = storageService.placeCards(inBoard: board.id)
-        let backup = BackupData(boards: [board], placeCards: placeCards, mediaFiles: collectMediaFiles(for: placeCards))
-        return try makeEncoder().encode(backup)
+    static func exportBoard(_ board: Board, storageService: StorageService) async throws -> Data {
+        try await encodeOffMainActor(boards: [board], placeCards: storageService.placeCards(inBoard: board.id))
+    }
+
+    /// Reads every photo's bytes and base64-encodes the whole document off
+    /// the main actor. Only the snapshot of what to export is taken on the
+    /// main actor (by the two callers above, since `StorageService` is
+    /// `@MainActor`); the expensive part is not. This matters because
+    /// `collectMediaFiles` pulls in every photo's actual bytes and
+    /// `JSONEncoder` then base64-encodes all of them inline (see this
+    /// type's own doc comment) — for a real library that's tens to
+    /// hundreds of megabytes, and `CloudBackupService.backup` runs it on
+    /// every foreground/background transition where anything changed. Done
+    /// on the main actor, that froze the UI for the whole encode on the
+    /// very transitions a user notices most (backgrounding right after
+    /// editing a card), with iOS's own background-transition watchdog as
+    /// the worst case.
+    private static func encodeOffMainActor(boards: [Board], placeCards: [PlaceCard]) async throws -> Data {
+        try await Task.detached(priority: .utility) {
+            let backup = BackupData(
+                boards: boards, placeCards: placeCards, mediaFiles: collectMediaFiles(for: placeCards)
+            )
+            return try makeEncoder().encode(backup)
+        }.value
     }
 
     /// Every referenced photo's actual bytes for `placeCards`, keyed by
@@ -135,7 +153,7 @@ enum BackupService {
     /// Decodes a `BackupData` payload without applying it anywhere — used
     /// on its own by `ImportBoardSheet` (to preview a board/place count
     /// before the user commits to importing it) and by
-    /// `CloudBackupService.hasRestorableBackup()`, and internally by
+    /// `CloudBackupService.loadRestorableBackup()`, and internally by
     /// `restore(from:storageService:)`. Version compatibility is checked
     /// the same minimal way Peragra does — only the `app` tag, not
     /// `version` itself, since `Board`/`PlaceCard` already tolerate an
@@ -157,12 +175,25 @@ enum BackupService {
     /// Replaces every board and place card with what's in `data` —
     /// mirrors Peragra's `restore(from:context:)`: a full wipe and
     /// rebuild, not a merge, keeping every id exactly as it was in the
-    /// backup (so restoring the same file twice is idempotent).
+    /// backup (so restoring the same file twice is idempotent). Decoding
+    /// and writing the photos back out both happen off the main actor,
+    /// same reasoning as `encodeOffMainActor` — a backup carries every
+    /// photo's bytes inline, so neither step is cheap.
     @MainActor
-    static func restore(from data: Data, storageService: StorageService) throws {
-        let backup = try decode(data)
+    static func restore(from data: Data, storageService: StorageService) async throws {
+        let backup = try await Task.detached(priority: .utility) { try decode(data) }.value
+        try await restore(backup, storageService: storageService)
+    }
+
+    /// The already-decoded form of `restore(from:storageService:)` — for a
+    /// caller that had to decode the payload anyway (see
+    /// `CloudBackupService.loadRestorableBackup()`), so the whole document
+    /// isn't decoded a second time just to apply it.
+    @MainActor
+    static func restore(_ backup: BackupData, storageService: StorageService) async throws {
         storageService.replaceAll(boards: backup.boards, placeCards: backup.placeCards)
-        writeMediaFiles(backup.mediaFiles)
+        let mediaFiles = backup.mediaFiles
+        await Task.detached(priority: .utility) { writeMediaFiles(mediaFiles) }.value
     }
 
     /// Adds a board (and its place cards) from a shared/exported file
