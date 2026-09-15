@@ -239,13 +239,38 @@ struct MainTabView: View {
                 presentShortly { isPresentingInstagramGuidanceAlert = true }
             } else if let recentCardID, let card = storageService.placeCard(id: recentCardID) {
                 pendingLinkText = text
-                presentShortly { pendingMapLinkCard = card }
+                // A shared Google Maps *list* is never "the card you just
+                // opened a map for" — it's a whole board's worth of places
+                // — so it must not be offered as a merge into that one
+                // card. Whether a share is a list can only be told by
+                // following the link (see `GoogleMapsListParser`), so this
+                // one case pays for that check before choosing a screen;
+                // every other share routes immediately as before.
+                Task {
+                    let isList = await isSharedListLink(text)
+                    presentShortly {
+                        if isList {
+                            isPresentingSharedLinkSheet = true
+                        } else {
+                            pendingMapLinkCard = card
+                        }
+                    }
+                }
             } else {
                 pendingLinkText = text
                 presentShortly { isPresentingSharedLinkSheet = true }
             }
             MapOpenContext.clear()
         }
+    }
+
+    /// Only ever true for a Google Maps share — every other source
+    /// (Naver, a plain link) has no list concept at all, so nothing else
+    /// is worth a network round trip to rule out.
+    private func isSharedListLink(_ text: String) async -> Bool {
+        guard let parsed = SharedLinkParser.parse(text), parsed.source == .googleMapShare,
+              let url = parsed.url else { return false }
+        return await GoogleMapsListParser.isSharedList(url)
     }
 
     /// Flipping a sheet/alert's `isPresented` binding to `true` in the very

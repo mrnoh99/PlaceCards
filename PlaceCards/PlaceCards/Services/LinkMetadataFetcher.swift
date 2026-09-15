@@ -21,20 +21,66 @@ enum LinkMetadataFetcher {
         return extractOGTitle(from: html) ?? extractTitleTag(from: html)
     }
 
+    /// An `og:` property triple plus the URL the request actually ended up
+    /// at after redirects. `GoogleMapsListParser` needs all of it: a shared
+    /// Google Maps list arrives as a `maps.app.goo.gl` short link whose
+    /// *final* URL is the only reliable way to tell a list apart from a
+    /// single place, and the list's own contents are carried in `og:image`
+    /// (its map-thumbnail URL encodes one feature-ID block per pin).
+    struct PageMetadata {
+        var finalURL: URL
+        var title: String?
+        var description: String?
+        var image: String?
+    }
+
+    static func fetchMetadata(for url: URL, session: URLSession = .shared) async -> PageMetadata? {
+        guard let page = await fetchPage(for: url, session: session) else { return nil }
+        return PageMetadata(
+            finalURL: page.finalURL,
+            title: extractOGTitle(from: page.html) ?? extractTitleTag(from: page.html),
+            description: extractOGProperty("description", from: page.html),
+            image: extractOGProperty("image", from: page.html)
+        )
+    }
+
     /// Fetches a page's raw HTML with the same crawler-UA-then-mobile-
     /// Safari-UA fallback described above. Shared with
     /// `WebsiteBusinessInfoFetcher`, which needs the whole page (to find its
     /// JSON-LD structured data) rather than just a parsed title.
     static func fetchHTML(for url: URL, session: URLSession = .shared) async -> String? {
-        if let html = await fetchHTML(for: url, userAgent: crawlerUserAgent, session: session) {
-            return html
-        }
-        return await fetchHTML(for: url, userAgent: mobileSafariUserAgent, session: session)
+        await fetchPage(for: url, session: session)?.html
     }
 
-    private static func fetchHTML(for url: URL, userAgent: String, session: URLSession) async -> String? {
+    /// The page body plus wherever the request finally landed — `URLSession`
+    /// follows redirects on its own, so this is also how a short link gets
+    /// resolved, with no separate HEAD request of its own.
+    private struct Page {
+        var html: String
+        var finalURL: URL
+    }
+
+    private static func fetchPage(for url: URL, session: URLSession) async -> Page? {
+        if let page = await fetchPage(for: url, userAgent: crawlerUserAgent, session: session) {
+            return page
+        }
+        return await fetchPage(for: url, userAgent: mobileSafariUserAgent, session: session)
+    }
+
+    /// What language the fetched page should come back in. Google serves
+    /// a place's `og:title` address in whatever this asks for — without it
+    /// a Korean address comes back transliterated ("454-5 Cheongoksan-gil,
+    /// Mitan-myeon, Pyeongchang-gun, Gangwon-do, South Korea") instead of
+    /// as written ("대한민국 강원특별자치도 평창군 미탄면 청옥산길 454-5"),
+    /// which is what then gets saved onto the card.
+    private static var acceptLanguage: String {
+        AppLanguage.current() == .english ? "en-US,en;q=0.9" : "ko-KR,ko;q=0.9,en;q=0.8"
+    }
+
+    private static func fetchPage(for url: URL, userAgent: String, session: URLSession) async -> Page? {
         var request = URLRequest(url: url)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(acceptLanguage, forHTTPHeaderField: "Accept-Language")
 
         guard let (data, response) = try? await session.data(for: request),
               let http = response as? HTTPURLResponse,
@@ -43,21 +89,26 @@ enum LinkMetadataFetcher {
             return nil
         }
 
-        return html
+        return Page(html: html, finalURL: http.url ?? url)
     }
 
     private static func extractOGTitle(from html: String) -> String? {
-        if let title = firstMatch(
+        extractOGProperty("title", from: html)
+    }
+
+    private static func extractOGProperty(_ property: String, from html: String) -> String? {
+        if let value = firstMatch(
             in: html,
-            pattern: #"<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']"#
-        ) {
-            return title
+            pattern: #"<meta[^>]*property=["']og:"# + property + #"["'][^>]*content=["']([^"']*)["']"#
+        ), !value.isEmpty {
+            return value
         }
         // Attribute order in a <meta> tag isn't guaranteed, so try content-first too.
-        return firstMatch(
+        let value = firstMatch(
             in: html,
-            pattern: #"<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']"#
+            pattern: #"<meta[^>]*content=["']([^"']*)["'][^>]*property=["']og:"# + property + #"["']"#
         )
+        return (value?.isEmpty ?? true) ? nil : value
     }
 
     private static func extractTitleTag(from html: String) -> String? {

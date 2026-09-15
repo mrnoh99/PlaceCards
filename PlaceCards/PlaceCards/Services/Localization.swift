@@ -97,6 +97,20 @@ extension String {
 /// text if a translation here looks incomplete on its own.
 enum Localization {
     static let englishTranslations: [String: String] = [
+        "개 중 ": " in this list, ",
+        "개를 가져옵니다. 구글이 공유 링크에 담아 보내는 최대 개수입니다.": " will be imported — that is the most Google puts in a shared link.",
+        "이 목록 ": "Of the ",
+        "Google Maps · ": "Google Maps · ",
+        "가져온 장소는 Google에서 하나씩 확인해 평점·연락처·영업시간·사진까지 채웁니다. 장소 수만큼 본인의 Google Places API 키가 사용됩니다.": "Each imported place is checked against Google one by one to fill in its rating, contacts, hours, and photo. That uses your own Google Places API key once per place.",
+        "가져온 장소를 Google에서 하나씩 확인하는 중입니다. 중단해도 이미 확인된 장소는 그대로 남습니다.": "Checking the imported places against Google, one at a time. Stopping keeps whatever has already been confirmed.",
+        "가져올 장소 (": "Places to import (",
+        "개)": ")",
+        "게시판 이름": "Board name",
+        "공유한 목록": "Shared list",
+        "공유한 목록 가져오기": "Import Shared List",
+        "만들 게시판": "Board to create",
+        "이 목록 가져오기": "Import this list",
+        "중단": "Stop",
         "앱 언어": "App Language",
         "카드 검색": "Search cards",
         "카테고리 검색": "Search categories",
