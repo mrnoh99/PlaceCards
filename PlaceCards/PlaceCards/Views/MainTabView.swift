@@ -90,6 +90,11 @@ struct MainTabView: View {
     /// of holding the intro screen up for them too.
     @State private var isPerformingStartupWork = true
 
+    /// Set by `OnboardingView` when the user picked "지금 설정하기" on the
+    /// AI-key step — consumed once here, since that screen has no
+    /// `AppNavigation` of its own to switch tabs with.
+    @AppStorage("pendingOpenAIKeySetup") private var pendingOpenAIKeySetup = false
+
     var body: some View {
         ZStack {
             TabView(selection: $navigation.selectedTab) {
@@ -128,6 +133,7 @@ struct MainTabView: View {
             }
         }
         .task {
+            consumePendingKeySetupIfNeeded()
             checkForSharedImage()
             await restoreFromCloudIfNeeded()
             withAnimation { isPerformingStartupWork = false }
@@ -251,6 +257,15 @@ struct MainTabView: View {
         guard let backup = await CloudBackupService.loadRestorableBackup() else { return }
         try? await BackupService.restore(backup, storageService: storageService)
         showingCloudRestoreAlert = true
+    }
+
+    /// Opens the Settings tab once, for a user who just asked to set their
+    /// AI key up straight away. Cleared as it's consumed so it never fires
+    /// again on a later launch.
+    private func consumePendingKeySetupIfNeeded() {
+        guard pendingOpenAIKeySetup else { return }
+        pendingOpenAIKeySetup = false
+        navigation.selectedTab = .settings
     }
 
     private func checkForSharedImage() {

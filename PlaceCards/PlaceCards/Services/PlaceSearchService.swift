@@ -34,6 +34,10 @@ struct PlaceDetails {
     var rating: Double?
     var reviewCount: Int?
     var hoursDetail: [String: String]?
+    /// The structured form of `hoursDetail` — see `OpeningPeriod`. Comes
+    /// from the same `regularOpeningHours` object already being requested,
+    /// so it costs nothing extra to carry.
+    var openingPeriods: [OpeningPeriod]?
     var amenities: [String]
     var website: String?
     var phone: String?
@@ -242,7 +246,20 @@ private struct GooglePlace: Decodable {
 
 private struct GooglePlaceDetail: Decodable {
     struct OpeningHours: Decodable {
+        /// Google omits `minute` when it's zero, and omits `close`
+        /// entirely for a place that never closes.
+        struct Point: Decodable {
+            let day: Int
+            let hour: Int
+            let minute: Int?
+        }
+        struct Period: Decodable {
+            let open: Point?
+            let close: Point?
+        }
+
         let weekdayDescriptions: [String]?
+        let periods: [Period]?
     }
     struct Location: Decodable { let latitude: Double; let longitude: Double }
     struct Photo: Decodable { let name: String }
@@ -267,10 +284,21 @@ private struct GooglePlaceDetail: Decodable {
             }
             hours = map
         }
+        let periods: [OpeningPeriod]? = regularOpeningHours?.periods?.compactMap { period in
+            guard let open = period.open else { return nil }
+            return OpeningPeriod(
+                openDay: open.day,
+                openMinute: open.hour * 60 + (open.minute ?? 0),
+                closeDay: period.close?.day,
+                closeMinute: period.close.map { $0.hour * 60 + ($0.minute ?? 0) }
+            )
+        }
+
         return PlaceDetails(
             rating: rating,
             reviewCount: userRatingCount,
             hoursDetail: hours,
+            openingPeriods: (periods?.isEmpty ?? true) ? nil : periods,
             amenities: [],
             website: websiteUri,
             phone: internationalPhoneNumber,

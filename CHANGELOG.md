@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### 2026-09-15 (171차) — 통상 사용 흐름 점검 후 수정: 요일 순서, 영업 중 표시, 방문 기록, 첫 실행 안내
+사용자 요청: 통상 사용 과정에 맞춰 점검 후 "1,2,3,4 고쳐라. 첫실행시
+ai api 지금설정하기 나중에 두고 안내 추가해라."
+#### Fixed
+- `Services/PlaceSearchService.swift`, `Views/PlaceCardDetailView.swift`,
+  `Views/EditPlaceCardSheet.swift`: **영업시간 요일이 뒤죽박죽 표시되던
+  버그 수정.** 구글의 `weekdayDescriptions`는 월요일부터 **순서 있는
+  배열**인데 `[String: String]` 딕셔너리에 담아 순서를 버린 뒤, 화면에서
+  키를 문자열 정렬하고 있었음 — 한국어는 금·목·수·월·일·토·화,
+  영어는 Friday·Monday·Saturday·Sunday·Thursday·Tuesday·Wednesday로
+  나왔음. 요일을 인식해 정렬하는 `WeekdayLabel.sortedByWeekday`를
+  추가해 4곳(상세 1, 편집 3) 모두 교체. 딕셔너리를 배열로 바꾸는 대신
+  정렬로 푼 이유는, 배열은 구글에서 온 카드의 순서만 지켜주고 AI 스캔·
+  수기 입력 시간은 여전히 임의 순서로 남기 때문.
+#### Added
+- `Services/OpeningHours.swift`(신규), `Models/PlaceCard.swift`:
+  **"지금 영업 중인가"를 상세 화면에 표시.** 그동안 7줄짜리 표를
+  사용자가 직접 읽고 계산해야 했음. 구글이 이미 보내주고 있으나
+  디코딩에서 버려지던 `regularOpeningHours.periods`(구조화된 요일·시각)를
+  새 `PlaceCard.openingPeriods`에 저장하고, 로컬에서 영업 여부를 계산함 —
+  **추가 API 호출 없음**. 자정/주말을 넘기는 영업시간도 주 단위 분
+  범위 계산으로 정확히 처리하며, 1시간 내 마감이면 "곧 영업 종료"로
+  구분해 표시. 사용자가 영업시간 텍스트를 손으로 고치면
+  `openingPeriods`를 버려서, 고친 시간과 모순되는 배지가 뜨지 않게 함.
+- `Views/PlaceCardDetailView.swift`: **방문 기록을 한 번에.** ✓ 방문
+  토글이 오늘 날짜도 함께 기록하고(끌 때는 지우지 않음), 방문 날짜
+  섹션에 "오늘 방문" 버튼을 추가. 기존에는 편집 시트를 열고 날짜를
+  추가한 뒤 저장하는 5단계였고, ✓만 누르는 사용자는 날짜가 하나도
+  쌓이지 않아 "언제 갔었지?"에 답할 수 없었음. 방문 기록이 없을 때도
+  섹션을 표시(그래야 첫 기록을 남길 수 있음).
+- `Views/OnboardingView.swift`, `Views/MainTabView.swift`: **첫 실행
+  안내 개선.** 마지막 단계를 "지금 설정하기 / 나중에" 두 선택지로 바꾸고
+  (`pendingOpenAIKeySetup` → 설정 탭으로 이동), 두 번째 단계를 "공유로
+  바로 담기"로 교체해 **키 없이도 지금 당장 쓸 수 있다**는 사실을
+  먼저 알림. 기존에는 신규 사용자가 게시판을 만들고 사진을 골라도
+  "AI로 장소 분석하기"가 비활성인 이유를 알 수 없었음.
+
 ### 2026-09-15 (170차) — 빌드 번호 3으로 올림
 사용자 요청: "병합하고 build 3로 올려라".
 #### Changed

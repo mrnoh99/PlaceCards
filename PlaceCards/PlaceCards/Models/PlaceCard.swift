@@ -138,6 +138,15 @@ struct PlaceCard: Identifiable, Codable {
     var wouldRevisit: Bool?
 
     var hoursDetail: [String: String]?
+    /// The machine-readable form of `hoursDetail`, when it came from
+    /// Google — what makes "지금 영업 중" answerable. Optional, like every
+    /// field added after this struct's first release (see `memo`), so
+    /// already-saved cards keep decoding. Deliberately cleared whenever
+    /// the user edits the hours text by hand (`EditPlaceCardSheet.save()`):
+    /// once the two can disagree, the text is what the user believes, and
+    /// showing a badge computed from stale Google data next to their own
+    /// corrected hours would be worse than showing no badge at all.
+    var openingPeriods: [OpeningPeriod]?
     var closingTime: String?
     var holidays: String?
 
@@ -348,6 +357,9 @@ extension PlaceCard {
         if phone == nil, let value = details.phone, !value.isEmpty { phone = value }
         if website == nil, let value = details.website, !value.isEmpty { website = value }
         if category == nil, let value = details.category, !value.isEmpty { category = value }
+        // No `openingPeriods` counterpart here on purpose: an AI scan reads
+        // hours off a screenshot as free text, with nothing structured
+        // behind it to judge "지금 영업 중" from.
         if hoursDetail?.isEmpty ?? true, let value = details.hoursDetail, !value.isEmpty { hoursDetail = value }
         if closingTime == nil, let value = details.closingTime, !value.isEmpty { closingTime = value }
         if holidays == nil, let value = details.holidays, !value.isEmpty { holidays = value }
@@ -411,6 +423,7 @@ extension PlaceCard {
         if discoverySource == nil { discoverySource = duplicates.compactMap(\.discoverySource).first }
         if hoursDetail?.isEmpty ?? true {
             hoursDetail = duplicates.compactMap(\.hoursDetail).first { !$0.isEmpty }
+            openingPeriods = duplicates.compactMap(\.openingPeriods).first { !$0.isEmpty }
         }
         if memo?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
             memo = duplicates.compactMap(\.memo).first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }

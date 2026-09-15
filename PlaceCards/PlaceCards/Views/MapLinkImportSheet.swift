@@ -281,6 +281,7 @@ struct MapLinkImportSheet: View {
            let details = try? await googleService.details(placeId: match.id),
            let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
             card.hoursDetail = hoursDetail
+            card.openingPeriods = details.openingPeriods
             filledFields.append("영업시간".localized)
         }
         if !card.media.hasNonScreenshotPhoto, let photoName = match.photoName,
