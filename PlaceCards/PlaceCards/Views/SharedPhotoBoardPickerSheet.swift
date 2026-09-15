@@ -16,15 +16,11 @@ struct SharedPhotoBoardPickerSheet: View {
     @EnvironmentObject private var navigation: AppNavigation
     @Environment(\.dismiss) private var dismiss
     @State private var selectedBoard: Board?
-    /// Flipped true from `.task`, which only runs after this view's first
-    /// layout pass — the list is held back until then so it is drawn on a
-    /// genuine second pass. Same bug and same fix as
-    /// `SharedLinkBoardPickerSheet`: presented at the moment the app comes
-    /// forward from the share sheet, the list would otherwise render blank
-    /// and only fill in once some *other* state change (backgrounding the
-    /// app and returning) forced a redraw. The link sheet was fixed for
-    /// this and the photo sheet — same shape, same presentation path
-    /// (`MainTabView.presentShortly`) — was not.
+    /// Flipped true from `.task`, so the list is drawn on a second layout
+    /// pass rather than the first. Kept in step with
+    /// `SharedLinkBoardPickerSheet`'s identical property — see its comment
+    /// for why this turned out not to be the cause of the blank-share
+    /// report, and where that was actually fixed.
     @State private var isReady = false
 
     private var previewImage: UIImage? { UIImage(data: imageData) }

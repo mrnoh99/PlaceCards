@@ -27,18 +27,20 @@ struct SharedLinkBoardPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedBoard: Board?
 
-    /// Held back until `.task` runs once, then flipped on — this view's
-    /// own board `List` was reported showing up blank on its very first
-    /// presentation (right after cold-launching into a shared link), only
-    /// rendering correctly once something else forced a re-layout (the app
-    /// backgrounded and foregrounded again). `.task` doesn't run until
-    /// after this view's first layout pass, so gating the real content
-    /// behind it (rather than showing the `List` straight away) forces
-    /// that same kind of second pass automatically, without the user
-    /// having to leave and come back. Mirrors `MainTabView.presentShortly`'s
-    /// own reasoning for a sibling case of this exact class of bug — a
-    /// sheet/state flip landing in the same runloop tick as other startup
-    /// work can silently fail to lay out correctly the first time.
+    /// Held back until `.task` runs once, then flipped on, so the content
+    /// is drawn on a second layout pass rather than the first.
+    ///
+    /// This was originally added as the fix for "공유 화면이 처음엔 비어
+    /// 있다가 앱을 다시 열면 제대로 뜬다" and it did not work, because that
+    /// was never this view's bug: `MainTabView` presented the sheet with
+    /// `.sheet(isPresented:)` and read the payload back out of a separate
+    /// optional inside the content closure, so when that optional read
+    /// `nil` the sheet presented *empty* — this view was never constructed
+    /// at all, and nothing it does to its own layout could have mattered.
+    /// That is fixed at the source now (`MainTabView.pendingShare` carries
+    /// its payload as the sheet's item). Kept here only as cheap
+    /// insurance against unrelated first-pass layout trouble; it is no
+    /// longer load-bearing for any known bug.
     @State private var isReady = false
 
     /// Resolved once via `.task` — the same "parse the URL directly, fall
