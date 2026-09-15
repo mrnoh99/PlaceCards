@@ -234,19 +234,25 @@ struct AddPlaceCardView: View {
                     }
                 }
 
+                // No longer gated on an AI key: without one the scan
+                // falls back to on-device text recognition
+                // (`ScreenshotPlaceScanner`), which handles the map-app
+                // screenshot case this button exists for. The label says
+                // which of the two is about to run, so the thinner
+                // result isn't a surprise.
                 Button {
                     Task { await viewModel.analyzeImages(pickedImages, rawImageDatas: pickedImageDatas, source: Self.defaultSource) }
                 } label: {
                     if viewModel.isLoading {
                         ProgressView()
                     } else {
-                        Text("AI로 장소 분석하기 (".localized + "\(pickedImages.count)" + "장)".localized)
+                        Text(analyzeButtonTitle)
                     }
                 }
-                .disabled(viewModel.isLoading || !AIProviderChain.hasAnyConfiguredProvider())
+                .disabled(viewModel.isLoading || pickedImages.isEmpty)
 
                 if !AIProviderChain.hasAnyConfiguredProvider() {
-                    Text(AIProviderChain.unconfiguredHint)
+                    Text("지도 앱 스크린샷은 AI 키 없이 기기에서 바로 인식합니다. 설정에서 AI 키를 등록하면 인스타그램 게시물처럼 복잡한 사진도 읽을 수 있습니다.".localized)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -279,6 +285,19 @@ struct AddPlaceCardView: View {
                 .disabled(pickedPhotoCoordinate == nil)
             }
         }
+    }
+
+    /// Built in separate statements rather than one `+` chain inside the
+    /// view body — a long chain of `.localized` concatenations there is
+    /// what trips "unable to type-check this expression in reasonable
+    /// time" (see `MapScreenshotImportSheet.nameChangeAlertMessage`).
+    private var analyzeButtonTitle: String {
+        let prefix = AIProviderChain.hasAnyConfiguredProvider()
+            ? "AI로 장소 분석하기 (".localized
+            : "사진에서 장소 찾기 (".localized
+        let count = "\(pickedImages.count)"
+        let suffix = "장)".localized
+        return prefix + count + suffix
     }
 
     /// The currently picked batch's own photo GPS — computed fresh here,

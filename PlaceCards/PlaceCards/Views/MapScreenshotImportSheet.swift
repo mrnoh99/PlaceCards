@@ -35,6 +35,12 @@ struct MapScreenshotImportSheet: View {
     @State private var didProcess = false
     @State private var statusMessage: String?
     @State private var pendingResult: AIAnalysisResult?
+    /// Carried alongside `pendingResult` because the confirm alert applies
+    /// it a beat later, from a button that has no idea which scanner ran.
+    /// Unlike the fallback-provider note (deliberately dropped on that
+    /// path as stale context), this isn't context — it's what the result
+    /// *is*, and it decides which "정보를 채웠습니다" line is true.
+    @State private var pendingResultViaOnDeviceScan = false
     @State private var isConfirmingNameChange = false
     /// Off by default — a coordinate is trusted evidence about where the
     /// photo itself was taken, not about what the AI read off it, so
@@ -93,7 +99,7 @@ struct MapScreenshotImportSheet: View {
                     if AIProviderChain.hasAnyConfiguredProvider() {
                         Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, AI로 읽어 비어 있는 이름·주소를 채웁니다.".localized)
                     } else {
-                        Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가합니다. (AI 제공자가 등록되어 있지 않아 정보는 자동으로 읽지 않습니다 — 설정에서 등록하면 이용할 수 있습니다.)".localized)
+                        Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, 기기에서 글자를 읽어 비어 있는 이름·주소를 채웁니다. (설정에서 AI 키를 등록하면 전화번호·영업시간 등도 함께 읽습니다.)".localized)
                     }
                 }
 
@@ -146,13 +152,13 @@ struct MapScreenshotImportSheet: View {
             ) {
                 Button("변경".localized) {
                     if let pendingResult {
-                        applyExtracted(pendingResult, applyName: true)
+                        applyExtracted(pendingResult, applyName: true, viaOnDeviceScan: pendingResultViaOnDeviceScan)
                     }
                     pendingResult = nil
                 }
                 Button("이름은 유지".localized, role: .cancel) {
                     if let pendingResult {
-                        applyExtracted(pendingResult, applyName: false)
+                        applyExtracted(pendingResult, applyName: false, viaOnDeviceScan: pendingResultViaOnDeviceScan)
                     }
                     pendingResult = nil
                 }
@@ -223,8 +229,13 @@ struct MapScreenshotImportSheet: View {
             return
         }
 
+        // With no AI key this used to stop here, adding the photo and
+        // reading nothing off it. On-device text recognition covers the
+        // case this sheet is reached from most — a map-app screenshot
+        // shared straight in — and fills the same name/address fields.
         guard AIProviderChain.hasAnyConfiguredProvider() else {
-            statusMessage = "사진을 카드에 추가했습니다.".localized
+            let results = await ScreenshotPlaceScanner.extractPlaces(imageDatas: [jpegData])
+            handleAnalysisResults(results, viaOnDeviceScan: true)
             return
         }
 
@@ -287,7 +298,11 @@ struct MapScreenshotImportSheet: View {
         return "추가한 사진이 이 장소에서 촬영된 것 같지 않습니다 (사진 GPS가 주소에서 100m 이상 떨어져 있습니다).".localized
     }
 
-    private func handleAnalysisResults(_ results: [AIAnalysisResult], answeredBy fallbackProvider: AIProviderType? = nil) {
+    private func handleAnalysisResults(
+        _ results: [AIAnalysisResult],
+        answeredBy fallbackProvider: AIProviderType? = nil,
+        viaOnDeviceScan: Bool = false
+    ) {
         guard !results.isEmpty else {
             statusMessage = "사진을 카드에 추가했습니다. (장소 정보는 찾지 못했습니다.)".localized
             return
@@ -309,13 +324,19 @@ struct MapScreenshotImportSheet: View {
             // own button applies the result later, by which point this
             // call's fallback note is stale context — skipped here.
             pendingResult = result
+            pendingResultViaOnDeviceScan = viaOnDeviceScan
             isConfirmingNameChange = true
         } else {
-            applyExtracted(result, applyName: true, answeredBy: fallbackProvider)
+            applyExtracted(result, applyName: true, answeredBy: fallbackProvider, viaOnDeviceScan: viaOnDeviceScan)
         }
     }
 
-    private func applyExtracted(_ result: AIAnalysisResult, applyName: Bool, answeredBy fallbackProvider: AIProviderType? = nil) {
+    private func applyExtracted(
+        _ result: AIAnalysisResult,
+        applyName: Bool,
+        answeredBy fallbackProvider: AIProviderType? = nil,
+        viaOnDeviceScan: Bool = false
+    ) {
         if applyName {
             let extractedName = result.placeName.trimmingCharacters(in: .whitespaces)
             if !extractedName.isEmpty {
@@ -334,7 +355,12 @@ struct MapScreenshotImportSheet: View {
         card.applyScannedDetails(result.details)
         storageService.save(card)
         onApplied(card)
-        statusMessage = "AI가 읽은 정보를 채웠습니다.".localized
+        // Says which of the two actually read the photo — an on-device
+        // scan fills name/address only, so calling that "AI가 읽은
+        // 정보" would promise more than the card got.
+        statusMessage = viaOnDeviceScan
+            ? "사진에서 읽은 이름·주소를 채웠습니다.".localized
+            : "AI가 읽은 정보를 채웠습니다.".localized
         if let fallbackProvider {
             statusMessage? += fallbackProvider.fallbackNoteSuffix
         }
