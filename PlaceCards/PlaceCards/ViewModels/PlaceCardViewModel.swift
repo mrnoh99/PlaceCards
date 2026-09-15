@@ -245,6 +245,15 @@ final class PlaceCardViewModel: ObservableObject {
         }
     }
 
+    /// Tells the user that rows were left for them rather than searched
+    /// automatically — otherwise hitting the cap looks like the scan
+    /// simply failed on those rows.
+    private func noteDeferredVerification(_ count: Int) {
+        guard count > 0 else { return }
+        let note = "나머지 ".localized + "\(count)" + "곳은 목록에서 직접 검색할 수 있습니다.".localized
+        infoMessage = [infoMessage, note].compactMap { $0 }.joined(separator: "\n")
+    }
+
     /// A row the AI extracted with both a name *and* an address is precise
     /// enough that, when a Google Places search for it turns up exactly one
     /// match, there's nothing left to ask the user about — this confirms
@@ -255,13 +264,30 @@ final class PlaceCardViewModel: ObservableObject {
     /// resolve manually via the existing "Google/Naver에서 검색" flow —
     /// this only ever skips the confirmation step when Google Places itself
     /// already pinpointed exactly one place for it.
+    ///
+    /// Capped at `maxAutoVerifiedRows`, because this is the one place in
+    /// the app that spends money without the user asking for anything.
+    /// Each row costs *two* Google Text Search requests, not one — the
+    /// place lookup, plus the address geocode `resolveGroundTruth` does to
+    /// get something to verify the results against — so a screenshot
+    /// naming twenty-five places would quietly run up fifty billable
+    /// requests the moment it finished scanning. The rows past the cap
+    /// aren't lost or treated differently: they sit in the same list as
+    /// every unconfirmed row, one tap from being searched, and the user
+    /// is told how many are waiting. Same reasoning as the 20-place limit
+    /// on an imported Google Maps list.
     private func autoVerifyUnambiguousRows() async {
-        let rowsToVerify = candidateRows.filter {
+        let verifiable = candidateRows.filter {
             !$0.name.trimmingCharacters(in: .whitespaces).isEmpty
                 && !$0.address.trimmingCharacters(in: .whitespaces).isEmpty
                 && $0.chosenResult == nil
         }
-        guard !rowsToVerify.isEmpty else { return }
+        let deferredCount = max(0, verifiable.count - Self.maxAutoVerifiedRows)
+        let rowsToVerify = Array(verifiable.prefix(Self.maxAutoVerifiedRows))
+        guard !rowsToVerify.isEmpty else {
+            noteDeferredVerification(deferredCount)
+            return
+        }
 
         // `search(rowID:)` sets `errorMessage` for any row it couldn't
         // find a confident match for — noisy here, since this runs
@@ -295,6 +321,7 @@ final class PlaceCardViewModel: ObservableObject {
         let confirmedCount = rowsToVerify.filter { row in
             candidateRows.first(where: { $0.id == row.id })?.chosenResult != nil
         }.count
+        defer { noteDeferredVerification(deferredCount) }
         guard confirmedCount > 0 else { return }
         let note = "Google에서 자동으로 확인한 장소 ".localized + "\(confirmedCount)" + "개".localized
         infoMessage = [infoMessage, note].compactMap { $0 }.joined(separator: "\n")
@@ -412,6 +439,11 @@ final class PlaceCardViewModel: ObservableObject {
     /// Kept well under what Google's own per-client rate limits tolerate —
     /// see `verifySeededRows()`.
     private static let verificationBatchSize = 5
+    /// How many rows one scan may verify against Google on its own. Each
+    /// costs two billable Text Search requests (see
+    /// `autoVerifyUnambiguousRows`), so this is the ceiling on what a
+    /// single tap can spend unprompted.
+    private static let maxAutoVerifiedRows = 10
 
     func removeRow(id: UUID) {
         candidateRows.removeAll { $0.id == id }
