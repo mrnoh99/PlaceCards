@@ -277,11 +277,13 @@ struct MapLinkImportSheet: View {
             card.category = value
             filledFields.append("카테고리".localized)
         }
+        // From the same search response as everything above it — see
+        // `PlaceSearchResult.hoursDetail`. No separate Place Details
+        // request, so enriching a shared link costs one Google call.
         if card.hoursDetail?.isEmpty ?? true,
-           let details = try? await googleService.details(placeId: match.id),
-           let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
+           let hoursDetail = match.hoursDetail, !hoursDetail.isEmpty {
             card.hoursDetail = hoursDetail
-            card.openingPeriods = details.openingPeriods
+            card.openingPeriods = match.openingPeriods
             filledFields.append("영업시간".localized)
         }
         if !card.media.hasNonScreenshotPhoto, let photoName = match.photoName,

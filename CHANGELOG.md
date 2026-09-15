@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### 2026-09-15 (172차) — Google Places 호출 비용 최적화: 카드 1장당 상세 호출 제거
+사용자 요청: "google place key 가격은?" 확인 후 "최적화 적용해라."
+#### Changed
+- `Services/PlaceSearchService.swift`, `Services/NaverPlaceSearchService.swift`,
+  `ViewModels/PlaceCardViewModel.swift`, `Views/MapLinkImportSheet.swift`:
+  **카드를 만들 때 구글에 두 번 묻던 것을 한 번으로 줄임.** 검색
+  (`places:searchText`) 응답에는 영업시간이 없다고 보고, 영업시간 하나
+  때문에 카드마다 Place Details를 따로 호출하고 있었음. 그런데
+  `regularOpeningHours`는 검색 필드마스크에 넣으면 **같은 응답에 그대로
+  실려 온다.** 검색 요청은 `rating`·`priceLevel` 때문에 이미 Enterprise
+  등급이라 필드를 하나 더 얹어도 **요금 등급이 오르지 않고**, 대신
+  없어진 Place Details 호출은 그 자체로 청구되던 요청이었음.
+  - 카드 1장: 검색 $0.035 + 상세 $0.020 + 사진 $0.007 = **$0.062**
+    → 검색 $0.035 + 사진 $0.007 = **$0.042 (-32%)**
+  - 구글 지도 목록 공유 20곳 일괄 저장: **$1.24 → $0.84**
+  - 공유 링크 보강(`MapLinkImportSheet`)도 같은 이유로 상세 호출 제거.
+  - 구현: 검색·상세 두 응답이 똑같은 모양이라 중첩돼 있던
+    `GooglePlaceDetail.OpeningHours`를 공용 `GoogleOpeningHours`로
+    빼내 양쪽이 함께 쓰게 하고, `PlaceSearchResult`에 `hoursDetail`·
+    `openingPeriods`를 추가함. 화면에 보이는 결과는 이전과 동일 —
+    같은 데이터를 요청 한 번 덜 하고 가져올 뿐임. 네이버 검색 결과는
+    원래 영업시간을 주지 않으므로 `nil`(변화 없음), 편집 화면의
+    "Google에서 새로고침"은 사용자가 직접 누르는 갱신이라 Place
+    Details를 그대로 사용함.
+
 ### 2026-09-15 (171차) — 통상 사용 흐름 점검 후 수정: 요일 순서, 영업 중 표시, 방문 기록, 첫 실행 안내
 사용자 요청: 통상 사용 과정에 맞춰 점검 후 "1,2,3,4 고쳐라. 첫실행시
 ai api 지금설정하기 나중에 두고 안내 추가해라."

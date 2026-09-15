@@ -820,11 +820,12 @@ final class PlaceCardViewModel: ObservableObject {
     /// resolved from a business-homepage link (`scannedWebsite`) still
     /// picking up a verified Google Places match shouldn't lose the one
     /// link it started from. `details` fills in whatever `result` itself
-    /// has no field for at all (hours/closing time/holidays/amenities) —
-    /// AI-sourced, when the row came from a photo scan or web search; a
-    /// Google-verified result with no AI involved at all still gets its
-    /// hours filled non-AI, straight from Google's own place-details
-    /// lookup (`fetchGoogleHoursDetail(placeId:)` below). Similarly, a
+    /// has no field for at all (closing time/holidays/amenities) —
+    /// AI-sourced, when the row came from a photo scan or web search.
+    /// Hours are the one field both can supply: a Google-verified
+    /// `result` carries its own (`PlaceSearchResult.hoursDetail`,
+    /// straight from the search response, no AI involved), and `details`
+    /// only fills them when that came back empty. Similarly, a
     /// Naver-verified result that ends up with no photo at all (Naver's
     /// search API returns none) gets a best-effort Google Places lookup
     /// for one instead (`fetchGooglePhotoFallback(name:address:
@@ -853,11 +854,17 @@ final class PlaceCardViewModel: ObservableObject {
         )
         card.applyScannedDetails(details)
 
-        if card.hoursDetail?.isEmpty ?? true, result.isFromGooglePlaces,
-           let details = await fetchGoogleHoursDetail(placeId: result.id),
-           let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
+        // Hours ride along on the search result itself (`search`'s field
+        // mask asks Google for `places.regularOpeningHours`), so this is
+        // a plain assignment rather than the separate Place Details
+        // request it used to be — one billable Google call per card
+        // instead of two, for exactly the same data. Still "only if
+        // blank", so an AI photo scan that already read the hours off a
+        // screenshot keeps them.
+        if card.hoursDetail?.isEmpty ?? true,
+           let hoursDetail = result.hoursDetail, !hoursDetail.isEmpty {
             card.hoursDetail = hoursDetail
-            card.openingPeriods = details.openingPeriods
+            card.openingPeriods = result.openingPeriods
         }
 
         for image in images {
@@ -905,24 +912,6 @@ final class PlaceCardViewModel: ObservableObject {
         guard let data = try? await googleService.photoData(photoName: googlePhotoName),
               let fileName = try? MediaStore.saveImage(data: data) else { return nil }
         return MediaItem(localPath: fileName, source: .googleDirectLookup)
-    }
-
-    /// Best-effort, entirely non-AI: `search(query:coordinates:)`'s own
-    /// result never carries opening hours (only Google's separate
-    /// Place Details call does), so this is the one piece a
-    /// Google-verified card would otherwise only ever get from an AI
-    /// photo scan or web search. Called for every Google-origin result
-    /// regardless of whether any AI provider is even configured — this
-    /// only needs the same Google Places API key `search`/`photoData`
-    /// already use. Silently skipped (returns `nil`) on any failure,
-    /// same as `fetchOfficialPhoto` above.
-    /// Returns the whole details payload rather than just the hours text —
-    /// the structured `openingPeriods` riding along with it is what makes
-    /// "지금 영업 중" answerable later, and it arrives in the same response.
-    private func fetchGoogleHoursDetail(placeId: String) async -> PlaceDetails? {
-        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }
-        let googleService = GooglePlacesService(apiKey: apiKey)
-        return try? await googleService.details(placeId: placeId)
     }
 
     /// Used by two callers that would otherwise end up with no photo at
