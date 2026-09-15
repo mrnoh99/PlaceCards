@@ -105,6 +105,13 @@ struct EditPlaceCardSheet: View {
 
     @State private var isRefreshingGoogleDetails = false
     @State private var googleRefreshMessage: String?
+    /// Staged by `refreshFromGooglePlaceDetails()` when the card has no
+    /// photo yet and Google has one — a plain `let card` has nowhere to
+    /// actually persist a downloaded photo mid-session (unlike every other
+    /// field here, which just writes to an already-declared `@State`),
+    /// so this holds the raw bytes until `save()` writes them to disk and
+    /// appends the resulting `MediaItem` to `updated.media.officialPhotos`.
+    @State private var fetchedGooglePhotoData: Data?
 
     @State private var isRefreshingNaverDetails = false
     @State private var naverRefreshMessage: String?
@@ -640,7 +647,7 @@ struct EditPlaceCardSheet: View {
                         .foregroundStyle(.secondary)
                 }
             } footer: {
-                Text("AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다.".localized)
+                Text("AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다. 실제 사진이 없으면(글자판독용으로 올린 스크린샷만 있어도) Google의 대표 사진도 가져옵니다.".localized)
             }
         }
     }
@@ -1031,7 +1038,12 @@ struct EditPlaceCardSheet: View {
     /// Re-fetches this exact place's own Google Places details (only possible when
     /// `card.googlePlaceId` is set — see `googleRefreshSection`) and fills
     /// whatever's still blank, same "never overwrite" rule as every other
-    /// fill-in action here.
+    /// fill-in action here. Also downloads Google's own photo as the
+    /// card's cover photo when it doesn't have one yet — mirrors
+    /// `MapLinkImportSheet.enrichFromGooglePlaces()`'s own "카드에 사진이
+    /// 하나도 없으면 Google의 공식 사진을 내려받아 추가" behavior, which
+    /// this screen's own refresh never did (`details(placeId:)`'s field
+    /// mask never even requested a photo before now).
     private func refreshFromGooglePlaceDetails() async {
         guard let placeId = confirmedGooglePlaceId else { return }
         isRefreshingGoogleDetails = true
@@ -1044,8 +1056,16 @@ struct EditPlaceCardSheet: View {
         }
 
         do {
-            let details = try await GooglePlacesService(apiKey: apiKey).details(placeId: placeId)
-            let filledFields = fillBlankFields(from: details)
+            let googleService = GooglePlacesService(apiKey: apiKey)
+            let details = try await googleService.details(placeId: placeId)
+            var filledFields = fillBlankFields(from: details)
+
+            if !card.media.hasNonScreenshotPhoto, fetchedGooglePhotoData == nil, let photoName = details.photoName,
+               let photoData = try? await googleService.photoData(photoName: photoName) {
+                fetchedGooglePhotoData = photoData
+                filledFields.append("사진".localized)
+            }
+
             googleRefreshMessage = filledFields.isEmpty
                 ? "Google에서 새로 채울 정보를 찾지 못했습니다.".localized
                 : filledFields.joined(separator: ", ") + " 정보를 채웠습니다.".localized
@@ -1408,6 +1428,10 @@ struct EditPlaceCardSheet: View {
             if let fileName = try? MediaStore.saveImage(image) {
                 updated.media.onsitePhotos.append(MediaItem(localPath: fileName, source: .onsitePhoto))
             }
+        }
+
+        if let fetchedGooglePhotoData, let fileName = try? MediaStore.saveImage(data: fetchedGooglePhotoData) {
+            updated.media.officialPhotos.append(MediaItem(localPath: fileName, source: .googleDirectLookup))
         }
 
         storageService.save(updated)
