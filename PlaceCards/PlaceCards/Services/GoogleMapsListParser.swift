@@ -118,13 +118,27 @@ enum GoogleMapsListParser {
     /// `nil` when this isn't a shared list at all (the overwhelmingly
     /// common case — an ordinary single-place share), or when the page
     /// couldn't be read.
-    static func fetchList(from url: URL, session: URLSession = .shared) async -> SharedPlaceList? {
+    /// `sharedText` is the share's own text as the Share Extension received
+    /// it — its first line is "<list name> · <owner>" as *the user's own
+    /// Google Maps rendered it*, which is not always what the page's
+    /// `og:title` says. A built-in list is the clear case: Google's page
+    /// calls it by its internal English name ("Favorites") no matter what
+    /// `Accept-Language` asks for, while the share text carries what the
+    /// user actually saw ("즐겨찾는 장소"). Preferred for exactly that
+    /// reason, with `og:title` as the fallback when there's no usable
+    /// share text.
+    static func fetchList(
+        from url: URL, sharedText: String? = nil, session: URLSession = .shared
+    ) async -> SharedPlaceList? {
         guard let metadata = await LinkMetadataFetcher.fetchMetadata(for: url, session: session) else {
             return nil
         }
         guard isListURL(metadata.finalURL) else { return nil }
 
-        let (listName, owner) = splitOnMiddleDot(metadata.title)
+        let (pageName, pageOwner) = splitOnMiddleDot(metadata.title)
+        let (sharedName, sharedOwner) = splitOnMiddleDot(firstLine(of: sharedText))
+        let listName = sharedName ?? pageName
+        let owner = sharedOwner ?? pageOwner
         guard let listName, !listName.isEmpty else { return nil }
 
         let entries = featureEntries(in: metadata.image ?? "").prefix(maxPlaces)
@@ -147,10 +161,16 @@ enum GoogleMapsListParser {
     }
 
     /// One entry per pin in the thumbnail's `pb=` parameter. Each pin's
-    /// block starts `!5m8!1m2!1y<cellId>!2y<cid>!2s<mid>` and its category
+    /// block starts `!1y<cellId>!2y<cid>`, and its category
     /// (`!15sgcid:<slug>`) follows before the next block begins.
+    ///
+    /// Only the two feature-ID halves are matched. The knowledge-graph mid
+    /// that follows them comes in two forms — `!2s/g/11h4142z0b` plain, or
+    /// `!2zL20vMGQzdzA` base64 — and requiring the plain one silently
+    /// dropped every pin written the other way (6 of 20 on a real list).
+    /// Nothing here uses the mid anyway; `!2y` alone is the CID this needs.
     private static func featureEntries(in thumbnailURL: String) -> [FeatureEntry] {
-        let pattern = #"!1y\d+!2y(\d+)!2s/[a-z]/[0-9a-z_]+(.*?)(?=!1y\d+!2y|$)"#
+        let pattern = #"!1y\d+!2y(\d+)(.*?)(?=!1y\d+!2y|$)"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let range = NSRange(thumbnailURL.startIndex..., in: thumbnailURL)
 
@@ -231,6 +251,20 @@ enum GoogleMapsListParser {
     /// Google writes both "<list name> · <owner>" and "<place name> ·
     /// <address>" with the same " · " separator, split on the *first* one
     /// so an address that contains it of its own doesn't lose its tail.
+    /// The share text's first non-empty, non-URL line — the line Google
+    /// puts the list's own name on. `nil` when the share was a bare URL
+    /// with no text around it, which is the normal shape for a *single*
+    /// place share and is why this never invents a name from a URL line.
+    private static func firstLine(of text: String?) -> String? {
+        guard let text else { return nil }
+        return text
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first {
+                !$0.isEmpty && !$0.lowercased().hasPrefix("http")
+            }
+    }
+
     private static func splitOnMiddleDot(_ text: String?) -> (String?, String?) {
         guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
             return (nil, nil)

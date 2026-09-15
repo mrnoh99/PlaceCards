@@ -67,9 +67,20 @@ enum LinkMetadataFetcher {
         return await fetchPage(for: url, userAgent: mobileSafariUserAgent, session: session)
     }
 
+    /// What language the fetched page should come back in. Google serves
+    /// a place's `og:title` address in whatever this asks for — without it
+    /// a Korean address comes back transliterated ("454-5 Cheongoksan-gil,
+    /// Mitan-myeon, Pyeongchang-gun, Gangwon-do, South Korea") instead of
+    /// as written ("대한민국 강원특별자치도 평창군 미탄면 청옥산길 454-5"),
+    /// which is what then gets saved onto the card.
+    private static var acceptLanguage: String {
+        AppLanguage.current() == .english ? "en-US,en;q=0.9" : "ko-KR,ko;q=0.9,en;q=0.8"
+    }
+
     private static func fetchPage(for url: URL, userAgent: String, session: URLSession) async -> Page? {
         var request = URLRequest(url: url)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(acceptLanguage, forHTTPHeaderField: "Accept-Language")
 
         guard let (data, response) = try? await session.data(for: request),
               let http = response as? HTTPURLResponse,

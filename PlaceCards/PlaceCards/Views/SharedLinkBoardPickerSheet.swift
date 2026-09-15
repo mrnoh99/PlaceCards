@@ -264,7 +264,8 @@ struct SharedLinkBoardPickerSheet: View {
         // this is decided here, during the preview fetch that was going to
         // happen anyway, rather than up front in `MainTabView`.
         if parsed.source == .googleMapShare, let url = parsed.url,
-           let list = await GoogleMapsListParser.fetchList(from: url), !list.places.isEmpty {
+           let list = await GoogleMapsListParser.fetchList(from: url, sharedText: linkText),
+           !list.places.isEmpty {
             listBoardName = list.name
             previewState = .list(list)
             return
