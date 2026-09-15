@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-09-15 (168차) — 빌드 번호 2로 올림
+사용자 요청: "build 2 로 올려라".
+#### Changed
+- `PlaceCards.xcodeproj/project.pbxproj`: `CURRENT_PROJECT_VERSION`을
+  1 → 2로. 앱과 공유 확장(`PlaceCardsShare`)의 Debug/Release 네 곳 모두
+  — 둘의 빌드 번호가 다르면 App Store Connect 업로드가 거부됨. 확장의
+  `Info.plist`는 `$(CURRENT_PROJECT_VERSION)`을 참조하므로 따로 손댈
+  필요 없음. `MARKETING_VERSION`은 1.0 그대로.
+
 ### 2026-09-15 (167차) — 공유 화면이 비어 있던 진짜 원인 수정 + 공유 확장이 "점 세 개"만 보이던 버그 수정
 사용자 제보: "공유를 받을때 화면에 아무것도 없다가 다시 열면 나타나는
 문제가 해결이 안됨", "보낼때도 점세게만 나타남. 보냈다는 메시지가
