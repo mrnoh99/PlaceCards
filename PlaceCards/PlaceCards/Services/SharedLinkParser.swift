@@ -36,10 +36,10 @@ enum SharedLinkParser {
                 return parseNaverText(text, url: url)
             }
             if isGoogleMapHost(url) {
-                let (name, coordinates) = parseGoogleMapsURLPath(url)
+                let (name, address, coordinates) = parseGoogleMapsURLPath(url)
                 return ParsedSharedPlace(
                     name: name,
-                    address: nil,
+                    address: address,
                     coordinates: coordinates,
                     note: nil,
                     url: url,
@@ -121,17 +121,19 @@ enum SharedLinkParser {
         )
     }
 
-    /// Pulls the place name and coordinates straight out of a full Google
-    /// Maps URL's own path (`/maps/place/<name>/@<lat>,<lng>,<zoom>z/...`)
-    /// — every value Google Maps' own share button already puts there, so
-    /// none of it needs a page fetch to recover. Silently yields `(nil, nil)`
-    /// for anything that doesn't match this shape (a short `goo.gl` link,
-    /// or any other Google Maps URL form), which just means the caller's
-    /// `LinkMetadataFetcher` fallback runs instead — never a bug on its own.
-    private static func parseGoogleMapsURLPath(_ url: URL) -> (name: String?, coordinates: Coordinates?) {
+    /// Pulls the place name, address, and coordinates straight out of a
+    /// full Google Maps URL's own path (`/maps/place/<name>/@<lat>,<lng>,
+    /// <zoom>z/...`) — every value Google Maps' own share button already
+    /// puts there, so none of it needs a page fetch to recover. Silently
+    /// yields `(nil, nil, nil)` for anything that doesn't match this shape
+    /// (a short `goo.gl` link, or any other Google Maps URL form), which
+    /// just means the caller's `LinkMetadataFetcher` fallback runs instead
+    /// — never a bug on its own.
+    private static func parseGoogleMapsURLPath(_ url: URL) -> (name: String?, address: String?, coordinates: Coordinates?) {
         let path = url.path
 
         var name: String?
+        var address: String?
         if let placeRange = path.range(of: "/place/") {
             let afterPlace = path[placeRange.upperBound...]
             let nameSegment = afterPlace.prefix(while: { $0 != "/" })
@@ -154,7 +156,32 @@ enum SharedLinkParser {
                     .replacingOccurrences(of: "+", with: " ")
                     .removingPercentEncoding?
                     .strippingInvisibleFormatCharacters()
-                name = (decoded?.isEmpty == false) ? decoded : nil
+                if let decoded, !decoded.isEmpty {
+                    // Whenever there's no single unambiguous display name
+                    // to put on the pin (a bare address pin, or a venue
+                    // Google only knows by its street context), this same
+                    // segment instead carries the full comma-separated
+                    // string Google would show as the title — e.g.
+                    // ".../place/서울특별시+강남구+테헤란로+152,+대한민국/...".
+                    // Left unsplit, the whole thing (name AND address)
+                    // landed in `name` alone with `address` always `nil` —
+                    // which is exactly why a shared-back card kept asking
+                    // "이름이 다릅니다" against an already-clean saved name,
+                    // and why the Google Places search this feeds
+                    // (`MapLinkImportSheet.enrichFromGooglePlaces()`) had
+                    // a garbled query to match against. Splitting on the
+                    // first comma keeps just the actual name/street line
+                    // in `name` and folds the rest into `address`, mirroring
+                    // how `formattedAddress` itself is comma-joined.
+                    if let commaIndex = decoded.firstIndex(of: ",") {
+                        name = String(decoded[..<commaIndex]).trimmingCharacters(in: .whitespaces)
+                        let addressPart = String(decoded[decoded.index(after: commaIndex)...])
+                            .trimmingCharacters(in: .whitespaces)
+                        address = addressPart.isEmpty ? nil : addressPart
+                    } else {
+                        name = decoded
+                    }
+                }
             }
         }
 
@@ -168,6 +195,6 @@ enum SharedLinkParser {
             }
         }
 
-        return (name, coordinates)
+        return (name, address, coordinates)
     }
 }
