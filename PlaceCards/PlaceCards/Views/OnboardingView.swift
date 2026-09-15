@@ -15,8 +15,8 @@ struct OnboardingView: View {
          "지도 앱, SNS, 직접 찍은 사진에서 발견한 장소를 하나의 카드로 모아보세요.".localized),
         ("square.and.arrow.down", "공유로 바로 담기".localized,
          "Google 지도나 네이버 지도에서 장소를 공유하면 바로 카드가 됩니다. 별도 설정 없이 지금 바로 쓸 수 있어요.".localized),
-        ("photo.on.rectangle.angled", "사진에서 AI로 찾기".localized,
-         "스크린샷을 넣으면 AI가 장소명을 읽어옵니다. 이 기능만 AI API 키가 필요하며, 키는 이 기기의 키체인에만 저장됩니다.".localized)
+        ("photo.on.rectangle.angled", "사진에서 찾기".localized,
+         "지도 앱 스크린샷은 키 없이 기기에서 바로 장소명을 읽습니다. AI 키를 등록하면 인스타그램 게시물처럼 복잡한 사진도 읽고 전화번호·영업시간까지 채웁니다. 키는 이 기기의 키체인에만 저장됩니다.".localized)
     ]
 
     /// The AI-key step is the last one, and the only one that ends in a

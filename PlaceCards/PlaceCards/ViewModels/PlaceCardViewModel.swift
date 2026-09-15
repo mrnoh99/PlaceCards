@@ -169,9 +169,9 @@ final class PlaceCardViewModel: ObservableObject {
 
         selectedImages = images
         let photoCoordinates = rawImageDatas.compactMap(PhotoMetadata.extractLocation)
-        // Left nil until AI confirms the batch is exactly one place (below)
-        // — until then we don't know whether these photos even belong to
-        // the same place, so no photo's GPS is safe to use for anything.
+        // Left nil until the scan confirms the batch is exactly one place
+        // (below) — until then we don't know whether these photos even
+        // belong to the same place, so no photo's GPS is safe to use.
         photoLocationHint = nil
         guard !images.isEmpty else { return }
 
@@ -181,48 +181,67 @@ final class PlaceCardViewModel: ObservableObject {
             return
         }
 
-        guard AIProviderChain.hasAnyConfiguredProvider() else {
-            errorMessage = PlaceCardsError.apiKeyMissing.localizedDescription
-            return
+        // The AI goes first whenever a key is registered: it reads far
+        // more off the same image than recognized text and a layout rule
+        // ever could (several places out of one post, plus the dozen
+        // `PlaceWebDetails` fields). With no key, the on-device scan is
+        // what stands between this button and doing nothing at all — see
+        // `ScreenshotPlaceScanner` for why its much thinner result is
+        // still worth having.
+        var notes: [String] = []
+        let results: [AIAnalysisResult]
+        let scannedOnDevice = !AIProviderChain.hasAnyConfiguredProvider()
+        if scannedOnDevice {
+            results = await ScreenshotPlaceScanner.extractPlaces(imageDatas: imageDatas)
+            if !results.isEmpty { notes.append(ScreenshotPlaceScanner.resultNote) }
+        } else {
+            do {
+                let (aiResults, provider, isFallback) = try await AIProviderChain.run {
+                    try await $0.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
+                }
+                results = aiResults
+                if isFallback { notes.append(provider.fallbackNoteSuffix.trimmingCharacters(in: .whitespaces)) }
+            } catch {
+                errorMessage = error.localizedDescription
+                return
+            }
         }
 
-        do {
-            let (results, provider, isFallback) = try await AIProviderChain.run {
-                try await $0.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
+        candidateRows = results.map {
+            PlaceCandidateRow(
+                name: $0.placeName, address: $0.address ?? "", scannedNote: $0.description, scannedDetails: $0.details
+            )
+        }
+        // Only a confirmed single-place batch gets a photoLocationHint:
+        // every photo in it is of the one same place, so averaging
+        // their GPS (when there's more than one) is safe. A batch that
+        // resolved to several places leaves it nil (set above) — rows
+        // may each come from a different photo, so no single photo's
+        // GPS can stand in as a shared hint/ground-truth for all of
+        // them; those rows rely on the scan's per-photo name/text
+        // recognition alone.
+        if results.count == 1 {
+            let candidate = photoCoordinates.count > 1
+                ? Coordinates.average(photoCoordinates)
+                : photoCoordinates.first
+            if let candidate {
+                let (verified, note) = await verifiedPhotoLocationHint(candidate, placeAddress: results.first?.address)
+                photoLocationHint = verified
+                if let note { notes.append(note) }
             }
-            candidateRows = results.map {
-                PlaceCandidateRow(
-                    name: $0.placeName, address: $0.address ?? "", scannedNote: $0.description, scannedDetails: $0.details
-                )
-            }
-            // Only a confirmed single-place batch gets a photoLocationHint:
-            // every photo in it is of the one same place, so averaging
-            // their GPS (when there's more than one) is safe. A batch that
-            // resolved to several places leaves it nil (set above) — rows
-            // may each come from a different photo, so no single photo's
-            // GPS can stand in as a shared hint/ground-truth for all of
-            // them; those rows rely on the AI's per-photo name/text
-            // recognition alone.
-            var notes: [String] = []
-            if results.count == 1 {
-                let candidate = photoCoordinates.count > 1
-                    ? Coordinates.average(photoCoordinates)
-                    : photoCoordinates.first
-                if let candidate {
-                    let (verified, note) = await verifiedPhotoLocationHint(candidate, placeAddress: results.first?.address)
-                    photoLocationHint = verified
-                    if let note { notes.append(note) }
-                }
-            }
-            if candidateRows.isEmpty {
-                errorMessage = "이미지에서 장소를 찾지 못했습니다. 다른 사진으로 다시 시도해주세요.".localized
-            } else {
-                if isFallback { notes.append(provider.fallbackNoteSuffix.trimmingCharacters(in: .whitespaces)) }
-                if !notes.isEmpty { infoMessage = notes.joined(separator: "\n") }
-                await autoVerifyUnambiguousRows()
-            }
-        } catch {
-            errorMessage = error.localizedDescription
+        }
+        if candidateRows.isEmpty {
+            // The on-device scan fails for its own reasons (a photo that
+            // isn't a map screenshot at all), and says so in its own
+            // terms rather than borrowing the AI path's "try another
+            // photo" — which would be the wrong advice when registering
+            // a key is what actually widens what this can read.
+            errorMessage = scannedOnDevice
+                ? ScreenshotPlaceScanner.emptyResultMessage
+                : "이미지에서 장소를 찾지 못했습니다. 다른 사진으로 다시 시도해주세요.".localized
+        } else {
+            if !notes.isEmpty { infoMessage = notes.joined(separator: "\n") }
+            await autoVerifyUnambiguousRows()
         }
     }
 
