@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### 2026-09-15 (170차) — 빌드 번호 3으로 올림
+사용자 요청: "병합하고 build 3로 올려라".
+#### Changed
+- `PlaceCards.xcodeproj/project.pbxproj`: `CURRENT_PROJECT_VERSION`을
+  2 → 3으로(앱·공유 확장의 Debug/Release 네 곳). `MARKETING_VERSION`은
+  1.0 그대로.
+
 ### 2026-09-15 (169차) — 권한이 있는데도 "현재 위치를 가져오지 못했습니다"가 뜨던 버그 수정
 사용자 제보: "거리별 정렬 from here 를 선택하면 나타난다. 사용중 위치
 정보 확인 중인데…" — 설정에서 위치 권한이 "사용하는 동안"으로 켜져
