@@ -1,51 +1,75 @@
 import SwiftUI
 import UIKit
 
+/// One share waiting to be shown, and everything needed to show it. A
+/// fresh `id` per share (rather than one derived from the payload) so that
+/// two shares of the same kind in a row still read as two distinct items
+/// to `.sheet(item:)` — otherwise the second would silently not present.
+private struct PendingShare: Identifiable {
+    enum Kind {
+        /// A shared photo, going through "pick a board, create a new card".
+        case photoToBoard(Data)
+        /// A shared photo offered to the card that recently launched
+        /// "지도에서 열기" — see `MapOpenContext`.
+        case photoToCard(PlaceCard, Data)
+        case linkToBoard(String)
+        case linkToCard(PlaceCard, String)
+    }
+
+    let id = UUID()
+    var kind: Kind
+}
+
 struct MainTabView: View {
     @EnvironmentObject private var storageService: StorageService
     @StateObject private var navigation = AppNavigation()
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Set when a photo shared into the app through the Share Extension
-    /// (`ShareViewController`, `PlaceCardsShare` target) is waiting to be
-    /// picked up — checked every time the app becomes active, since the
-    /// extension runs as a separate process and hands the photo over via
-    /// `SharedImportStore`'s file in their shared App Group container,
-    /// not directly.
-    @State private var pendingSharedImageData: Data?
-    @State private var isPresentingSharedImportSheet = false
-    /// Set instead of `isPresentingSharedImportSheet` when the incoming
-    /// photo arrives soon after "지도에서 열기" was tapped on this card
-    /// (`MapOpenContext`) — offers adding it straight to that card rather
-    /// than always asking which board to create a new one in.
-    @State private var pendingMapScreenshotCard: PlaceCard?
-
-    /// Same hand-off as `pendingSharedImageData`, for a shared link/text
-    /// instead of a photo (e.g. the "share this page" prompt iOS offers
-    /// for maps.google.com, or Naver Map's own share).
-    @State private var pendingLinkText: String?
-    @State private var isPresentingSharedLinkSheet = false
-    /// Set instead of `isPresentingSharedLinkSheet` when the incoming link
-    /// arrives soon after "지도에서 열기" was tapped on this card — same
-    /// `MapOpenContext`-aware routing `pendingMapScreenshotCard` already
-    /// does for a shared photo, so confirming a place on Google/Naver Map
-    /// and sharing it back can merge straight into the card that sent the
-    /// user there instead of always creating a new one.
-    @State private var pendingMapLinkCard: PlaceCard?
+    /// One share handed over by the Share Extension (`ShareViewController`,
+    /// `PlaceCardsShare` target), waiting to be shown — checked every time
+    /// the app becomes active, since the extension runs as a separate
+    /// process and hands its payload over via `SharedImportStore`'s file in
+    /// their shared App Group container, not directly.
+    ///
+    /// The payload rides *inside* this value rather than sitting in a
+    /// separate `@State` optional that the sheet's content closure reads
+    /// back. That difference is the whole fix for the long-standing "공유
+    /// 화면이 처음엔 비어 있다가 앱을 다시 열면 제대로 뜬다" report: with
+    /// `.sheet(isPresented:)` plus `if let payload` inside the closure,
+    /// SwiftUI presents whatever that closure returns *at presentation
+    /// time*, and when the optional reads `nil` there what it presents is a
+    /// structurally empty sheet. Re-opening the app re-evaluates the body
+    /// with the value in place, which is exactly why it looked like it
+    /// "fixed itself" on a second look. Note the two sheets ever reported
+    /// blank were precisely the two built that way, while the two already
+    /// using `.sheet(item:)` never were. Handing the payload in as the
+    /// item's own data makes an empty sheet impossible to express — and it
+    /// also collapses four separate `.sheet` modifiers on this one view
+    /// (itself a well-known way to get sheets that don't present) down to
+    /// one.
+    @State private var pendingShare: PendingShare?
+    /// Shares that arrived while another one was still on screen. Only one
+    /// sheet can be up at a time, so the rest wait here rather than
+    /// overwriting each other — the old code had every branch flip its own
+    /// independent state, so a photo and a link arriving together raced and
+    /// one of them was silently dropped.
+    @State private var queuedShares: [PendingShare.Kind] = []
+    /// True between asking `presentShortly` to show the next share and it
+    /// actually landing. Without it, two shares arriving in the same
+    /// runloop tick would both be scheduled and the second would replace
+    /// the first mid-flight.
+    @State private var isPresentationScheduled = false
+    /// Set when the user rejects the "이 카드에 추가할까요?" guess
+    /// (`MapScreenshotImportSheet`/`MapLinkImportSheet`'s "다른 장소예요"
+    /// action) — carries the very same payload back out through the
+    /// sheet's `onDismiss` so it can be re-shown as the ordinary
+    /// board-picker flow instead of evaporating. Routed through `onDismiss`
+    /// because the outgoing sheet has to be fully gone before another can
+    /// present in its place.
+    @State private var rerouteAfterDismiss: PendingShare.Kind?
     /// Shown instead of the board picker when the shared link is an
     /// Instagram post/reel — see `SharedLinkParser.isInstagramLink`.
     @State private var isPresentingInstagramGuidanceAlert = false
-
-    /// Set when the user rejects the "이 카드에 추가할까요?" guess
-    /// (`MapScreenshotImportSheet`/`MapLinkImportSheet`'s "다른 장소예요"
-    /// action) — read back in that sheet's own `onDismiss` to hand the
-    /// still-pending share to the normal board-picker flow instead of
-    /// letting it evaporate. Routed through `onDismiss` rather than
-    /// presented directly from inside the sheet, since the replacement is
-    /// a sheet off this same view and the outgoing one has to be fully
-    /// gone before it can present.
-    @State private var wantsNewCardFromPendingPhoto = false
-    @State private var wantsNewCardFromPendingLink = false
 
     /// Shown once, right after a cold-launch auto-restore from
     /// `CloudBackupService` actually found and applied something — see
@@ -119,49 +143,8 @@ struct MainTabView: View {
                 await CloudBackupService.backup(storageService: storageService)
             }
         }
-        .sheet(isPresented: $isPresentingSharedImportSheet) {
-            if let pendingSharedImageData {
-                SharedPhotoBoardPickerSheet(imageData: pendingSharedImageData)
-                    .environmentObject(navigation)
-            }
-        }
-        .sheet(
-            item: $pendingMapScreenshotCard,
-            onDismiss: {
-                guard wantsNewCardFromPendingPhoto else { return }
-                wantsNewCardFromPendingPhoto = false
-                presentShortly { isPresentingSharedImportSheet = true }
-            }
-        ) { card in
-            if let pendingSharedImageData {
-                MapScreenshotImportSheet(
-                    card: card,
-                    imageData: pendingSharedImageData,
-                    onCreateNewInstead: { wantsNewCardFromPendingPhoto = true }
-                ) { _ in }
-            }
-        }
-        .sheet(isPresented: $isPresentingSharedLinkSheet) {
-            if let pendingLinkText {
-                SharedLinkBoardPickerSheet(linkText: pendingLinkText)
-                    .environmentObject(navigation)
-            }
-        }
-        .sheet(
-            item: $pendingMapLinkCard,
-            onDismiss: {
-                guard wantsNewCardFromPendingLink else { return }
-                wantsNewCardFromPendingLink = false
-                presentShortly { isPresentingSharedLinkSheet = true }
-            }
-        ) { card in
-            if let pendingLinkText {
-                MapLinkImportSheet(
-                    card: card,
-                    linkText: pendingLinkText,
-                    onCreateNewInstead: { wantsNewCardFromPendingLink = true }
-                ) { _ in }
-            }
+        .sheet(item: $pendingShare, onDismiss: handleShareDismissed) { share in
+            shareSheet(for: share.kind)
         }
         .alert("iCloud에서 복원됨".localized, isPresented: $showingCloudRestoreAlert) {
             Button("확인".localized, role: .cancel) {}
@@ -183,6 +166,60 @@ struct MainTabView: View {
             Button("확인".localized, role: .cancel) {}
         } message: {
             Text("게시물을 캡처(스크린샷)해서 \"장소 추가\"의 사진 선택으로 다시 추가해주세요.".localized)
+        }
+    }
+
+    /// Every payload arrives as a parameter here, so there is no state to
+    /// read back and therefore no way to render an empty sheet — see
+    /// `pendingShare`.
+    @ViewBuilder
+    private func shareSheet(for kind: PendingShare.Kind) -> some View {
+        switch kind {
+        case .photoToBoard(let data):
+            SharedPhotoBoardPickerSheet(imageData: data)
+                .environmentObject(navigation)
+        case .photoToCard(let card, let data):
+            MapScreenshotImportSheet(
+                card: card,
+                imageData: data,
+                onCreateNewInstead: { rerouteAfterDismiss = .photoToBoard(data) }
+            ) { _ in }
+        case .linkToBoard(let text):
+            SharedLinkBoardPickerSheet(linkText: text)
+                .environmentObject(navigation)
+        case .linkToCard(let card, let text):
+            MapLinkImportSheet(
+                card: card,
+                linkText: text,
+                onCreateNewInstead: { rerouteAfterDismiss = .linkToBoard(text) }
+            ) { _ in }
+        }
+    }
+
+    /// A rejected "이 카드에 추가할까요?" guess goes back to the front of
+    /// the line as the ordinary board-picker flow; otherwise whatever
+    /// arrived while this sheet was up gets its turn.
+    private func handleShareDismissed() {
+        if let rerouteAfterDismiss {
+            self.rerouteAfterDismiss = nil
+            queuedShares.insert(rerouteAfterDismiss, at: 0)
+        }
+        presentNextShare()
+    }
+
+    /// Queues a share and shows it when nothing else is up.
+    private func enqueueShare(_ kind: PendingShare.Kind) {
+        queuedShares.append(kind)
+        presentNextShare()
+    }
+
+    private func presentNextShare() {
+        guard !isPresentationScheduled, pendingShare == nil, !queuedShares.isEmpty else { return }
+        isPresentationScheduled = true
+        let next = queuedShares.removeFirst()
+        presentShortly {
+            pendingShare = PendingShare(kind: next)
+            isPresentationScheduled = false
         }
     }
 
@@ -225,11 +262,10 @@ struct MainTabView: View {
         let recentCardID = MapOpenContext.recentCardID()
 
         if let data = SharedImportStore.takePendingImage() {
-            pendingSharedImageData = data
             if let recentCardID, let card = storageService.placeCard(id: recentCardID) {
-                presentShortly { pendingMapScreenshotCard = card }
+                enqueueShare(.photoToCard(card, data))
             } else {
-                presentShortly { isPresentingSharedImportSheet = true }
+                enqueueShare(.photoToBoard(data))
             }
             MapOpenContext.clear()
         }
@@ -238,7 +274,6 @@ struct MainTabView: View {
             if SharedLinkParser.isInstagramLink(text) {
                 presentShortly { isPresentingInstagramGuidanceAlert = true }
             } else if let recentCardID, let card = storageService.placeCard(id: recentCardID) {
-                pendingLinkText = text
                 // A shared Google Maps *list* is never "the card you just
                 // opened a map for" — it's a whole board's worth of places
                 // — so it must not be offered as a merge into that one
@@ -248,17 +283,10 @@ struct MainTabView: View {
                 // every other share routes immediately as before.
                 Task {
                     let isList = await isSharedListLink(text)
-                    presentShortly {
-                        if isList {
-                            isPresentingSharedLinkSheet = true
-                        } else {
-                            pendingMapLinkCard = card
-                        }
-                    }
+                    enqueueShare(isList ? .linkToBoard(text) : .linkToCard(card, text))
                 }
             } else {
-                pendingLinkText = text
-                presentShortly { isPresentingSharedLinkSheet = true }
+                enqueueShare(.linkToBoard(text))
             }
             MapOpenContext.clear()
         }

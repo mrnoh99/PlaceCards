@@ -25,9 +25,11 @@ final class ShareViewController: UIViewController {
     /// waits out whatever's left of this floor before switching to the
     /// ✓/✗ state, so the "저장 중…" text is reliably visible first.
     private static let minimumLoadingDisplaySeconds: TimeInterval = 0.5
-    /// How long the ✓/✗ result itself stays up before auto-dismissing —
-    /// long enough to actually read it, short enough not to feel stuck.
-    private static let resultDisplaySeconds: TimeInterval = 1.0
+    /// How long the result stays up before auto-dismissing — long
+    /// enough to actually read the confirmation, short enough not to
+    /// feel stuck. Raised from 1.0s, which was reported as too quick to
+    /// register as a message at all.
+    private static let resultDisplaySeconds: TimeInterval = 1.8
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -41,6 +43,14 @@ final class ShareViewController: UIViewController {
         statusLabel.text = "PinSpots로 저장 중…"
         statusLabel.font = .preferredFont(forTextStyle: .body)
         statusLabel.textAlignment = .center
+        // Without these the label is one line that truncates whenever the
+        // text is wider than whatever width the extension's container ends
+        // up handing it — and a narrow enough container truncates the whole
+        // message away, leaving just its trailing ellipsis. That is the
+        // "공유할 때 점 세 개만 보인다" report: not a flash too quick to
+        // read, but the text itself being clipped down to "…".
+        statusLabel.numberOfLines = 0
+        statusLabel.lineBreakMode = .byWordWrapping
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
 
         spinner.startAnimating()
@@ -55,11 +65,15 @@ final class ShareViewController: UIViewController {
         NSLayoutConstraint.activate([
             stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            stack.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24),
+            // A definite width, not just "no wider than" bounds: a wrapping
+            // label needs to know how much room it actually has before it
+            // can decide where to break.
+            stack.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -48),
         ])
 
-        preferredContentSize = CGSize(width: 280, height: 140)
+        // Taller than before so a wrapped two-line message still fits
+        // without being squeezed.
+        preferredContentSize = CGSize(width: 280, height: 170)
     }
 
     /// Picks the one attachment this share actually is, retrying once if
@@ -147,7 +161,7 @@ final class ShareViewController: UIViewController {
             }
             SharedImportStore.savePendingImage(data)
             SharedImportStore.recordDebugStatus("사진 저장 성공 (\(data.count) bytes)")
-            self?.finish(success: true, message: "PinSpots로 저장됨")
+            self?.finish(success: true, message: "PinSpots에 저장했습니다")
         }
     }
 
@@ -182,15 +196,20 @@ final class ShareViewController: UIViewController {
             }
             SharedImportStore.savePendingLink(text)
             SharedImportStore.recordDebugStatus("링크 저장 성공 (\(text.prefix(80)))")
-            self?.finish(success: true, message: "PinSpots로 저장됨")
+            self?.finish(success: true, message: "PinSpots에 저장했습니다")
         }
     }
 
-    /// Shows a brief success/failure message in place of the spinner, then
-    /// dismisses on its own shortly after — so tapping PlaceCards always
-    /// ends with a visible result instead of the sheet just closing. Waits
-    /// out `minimumLoadingDisplaySeconds` first (see its own comment) so
-    /// the "저장 중…" state isn't skipped past before it can be read.
+    /// Shows the result in place of the spinner, then dismisses on its own
+    /// shortly after — so tapping PinSpots always ends with a visible
+    /// answer instead of the sheet just closing. Waits out
+    /// `minimumLoadingDisplaySeconds` first (see its own comment) so the
+    /// "저장 중…" state isn't skipped past before it can be read.
+    ///
+    /// The result is deliberately louder than the loading state it
+    /// replaces — a bigger, bolder line, and the checkmark on its own line
+    /// above the message — because this is the one moment the user is
+    /// actually looking for confirmation that the share landed.
     private func finish(success: Bool, message: String) {
         let elapsed = Date().timeIntervalSince(viewDidLoadTime)
         let remainingFloor = max(0, Self.minimumLoadingDisplaySeconds - elapsed)
@@ -198,7 +217,9 @@ final class ShareViewController: UIViewController {
             guard let self else { return }
             spinner.stopAnimating()
             spinner.isHidden = true
-            statusLabel.text = (success ? "✓ " : "✗ ") + message
+            statusLabel.font = .preferredFont(forTextStyle: .headline)
+            statusLabel.textColor = success ? .systemGreen : .systemRed
+            statusLabel.text = (success ? "✓\n" : "✗\n") + message
 
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.resultDisplaySeconds) { [weak self] in
                 self?.extensionContext?.completeRequest(returningItems: nil)
