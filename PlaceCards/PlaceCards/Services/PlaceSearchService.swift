@@ -99,17 +99,32 @@ final class GooglePlacesService: PlaceSearchService {
         self.session = session
     }
 
-    func search(query: String, coordinates: Coordinates? = nil) async throws -> [PlaceSearchResult] {
-        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+    /// Everything a card is built from. `places.rating`, `places.priceLevel`
+    /// and `places.regularOpeningHours` are Enterprise-tier fields, so this
+    /// whole request bills at the Enterprise rate — the right trade here,
+    /// since it's the one call that has to come back with enough to fill a
+    /// card. See `geocodeFieldMask` for the case where it isn't.
+    private static let searchFieldMask = "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.internationalPhoneNumber,places.websiteUri,places.primaryTypeDisplayName,places.photos,places.priceLevel,places.regularOpeningHours"
 
+    /// A geocode reads exactly one thing: the coordinate. `places.location`
+    /// is an Essentials-tier field, and the field mask is what picks the
+    /// SKU, so asking for only this bills the request at Essentials rather
+    /// than the Enterprise rate `searchFieldMask` commands.
+    ///
+    /// The per-call difference is a few percent; the allowance is not.
+    /// Essentials SKUs carry a far larger monthly no-cost allowance than
+    /// Enterprise ones, so this stops geocodes from spending the same small
+    /// Enterprise allowance the real place lookups need — one verification
+    /// used to consume two of those, since `resolveGroundTruth` geocodes
+    /// the address and then searches for the place.
+    private static let geocodeFieldMask = "places.location"
+
+    private func searchTextRequest(query: String, coordinates: Coordinates?, fieldMask: String) throws -> URLRequest {
         let url = URL(string: "https://places.googleapis.com/v1/places:searchText")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
-        request.setValue(
-            "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.internationalPhoneNumber,places.websiteUri,places.primaryTypeDisplayName,places.photos,places.priceLevel,places.regularOpeningHours",
-            forHTTPHeaderField: "X-Goog-FieldMask"
-        )
+        request.setValue(fieldMask, forHTTPHeaderField: "X-Goog-FieldMask")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         var body: [String: Any] = [
@@ -125,7 +140,15 @@ final class GooglePlacesService: PlaceSearchService {
             ]
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
 
+    func search(query: String, coordinates: Coordinates? = nil) async throws -> [PlaceSearchResult] {
+        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+        let request = try searchTextRequest(
+            query: query, coordinates: coordinates, fieldMask: Self.searchFieldMask
+        )
         let (data, response) = try await session.data(for: request)
         try Self.validate(response: response, data: data)
 
@@ -135,15 +158,29 @@ final class GooglePlacesService: PlaceSearchService {
 
     /// Best-effort coordinates for a plain address string, used to verify
     /// a name-searched place is actually near the address it's supposed
-    /// to be at (see `PlaceCardViewModel.search(rowID:)`). Reuses Text
+    /// to be at (see `PlaceCardViewModel.search(rowID:)`). Uses Text
     /// Search (`searchText`) with the address itself as the query, taking
     /// its top result's location, rather than calling the separate
     /// Geocoding API — that would need its own API enablement in the
     /// user's Google Cloud project on top of Places, for a lookup Text
     /// Search already resolves well enough for this purpose.
+    ///
+    /// Sends `geocodeFieldMask` rather than going through `search` — the
+    /// full mask would have this billing at the Enterprise rate to read a
+    /// latitude and a longitude, decoding a rating, a price level and a
+    /// week of opening hours only to throw them away.
     func geocodeAddress(_ address: String) async throws -> Coordinates? {
-        let results = try await search(query: address, coordinates: nil)
-        return results.first?.coordinates
+        guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
+
+        let request = try searchTextRequest(
+            query: address, coordinates: nil, fieldMask: Self.geocodeFieldMask
+        )
+        let (data, response) = try await session.data(for: request)
+        try Self.validate(response: response, data: data)
+
+        let decoded = try JSONDecoder().decode(GeocodeResponse.self, from: data)
+        guard let location = decoded.places?.first?.location else { return nil }
+        return Coordinates(latitude: location.latitude, longitude: location.longitude)
     }
 
     func details(placeId: String) async throws -> PlaceDetails {
@@ -209,6 +246,21 @@ final class GooglePlacesService: PlaceSearchService {
 
 private struct GooglePlacesSearchResponse: Decodable {
     let places: [GooglePlace]?
+}
+
+/// The response to a `geocodeFieldMask` request. A separate model rather
+/// than reusing `GooglePlace`, whose `id` is non-optional — that mask asks
+/// for no id at all, so decoding it as a `GooglePlace` would throw.
+private struct GeocodeResponse: Decodable {
+    struct Place: Decodable {
+        struct Location: Decodable {
+            let latitude: Double
+            let longitude: Double
+        }
+        let location: Location?
+    }
+
+    let places: [Place]?
 }
 
 /// Google's `regularOpeningHours` object, shared by the Text Search and the
