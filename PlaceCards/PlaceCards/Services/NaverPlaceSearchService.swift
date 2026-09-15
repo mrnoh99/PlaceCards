@@ -104,8 +104,9 @@ private struct NaverLocalItem: Decodable {
     let mapx: String?
     let mapy: String?
 
-    /// No rating/review count/photo — this API simply doesn't return
-    /// them, unlike Google Places. Left `nil` rather than guessed.
+    /// No rating/review count/photo/opening hours — this API simply
+    /// doesn't return them, unlike Google Places. Left `nil` rather than
+    /// guessed.
     /// `telephone` is also effectively always empty under API HUB (its own
     /// docs say the field is "kept for compatibility" but returns no
     /// value) — `resolvedPhone` below still checks it rather than dropping
@@ -133,7 +134,9 @@ private struct NaverLocalItem: Decodable {
             category: category?.strippingInvisibleFormatCharacters(),
             priceLevel: nil,
             photoName: nil,
-            isFromGooglePlaces: false
+            isFromGooglePlaces: false,
+            hoursDetail: nil,
+            openingPeriods: nil
         )
     }
 }

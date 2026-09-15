@@ -28,6 +28,19 @@ struct PlaceSearchResult: Identifiable {
     /// Google place at all), not silently return wrong data, but it's
     /// still wasted network traffic worth skipping outright.
     let isFromGooglePlaces: Bool
+    /// Day-label -> hours-text, as shown in the card's 영업시간 list.
+    /// Google returns this in the same Text Search response as everything
+    /// else above, because `search`'s field mask asks for
+    /// `places.regularOpeningHours` — so a card built from a search result
+    /// already has its hours and needs no separate Place Details call.
+    /// `nil` for a Naver-verified result (`NaverLocalItem.toSearchResult()`
+    /// — Naver's local search API has no equivalent field) or when Google
+    /// has no hours on file for the place.
+    let hoursDetail: [String: String]?
+    /// The structured form of `hoursDetail` — see `OpeningPeriod`. Comes
+    /// from the same `regularOpeningHours` object, so it costs nothing
+    /// extra to carry, and is what makes "지금 영업 중" answerable.
+    let openingPeriods: [OpeningPeriod]?
 }
 
 struct PlaceDetails {
@@ -94,7 +107,7 @@ final class GooglePlacesService: PlaceSearchService {
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         request.setValue(
-            "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.internationalPhoneNumber,places.websiteUri,places.primaryTypeDisplayName,places.photos,places.priceLevel",
+            "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.internationalPhoneNumber,places.websiteUri,places.primaryTypeDisplayName,places.photos,places.priceLevel,places.regularOpeningHours",
             forHTTPHeaderField: "X-Goog-FieldMask"
         )
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -198,6 +211,59 @@ private struct GooglePlacesSearchResponse: Decodable {
     let places: [GooglePlace]?
 }
 
+/// Google's `regularOpeningHours` object, shared by the Text Search and the
+/// Place Details response models below — both return the exact same shape,
+/// and asking Text Search for it (see `search`'s field mask) is what lets a
+/// card be built from a single request instead of a search *and* a details
+/// call. `regularOpeningHours` is an Enterprise-SKU field either way, and
+/// the search request is already Enterprise for `rating`/`priceLevel`, so
+/// adding it there costs nothing while the details call it replaces was a
+/// billable request of its own.
+private struct GoogleOpeningHours: Decodable {
+    /// Google omits `minute` when it's zero, and omits `close`
+    /// entirely for a place that never closes.
+    struct Point: Decodable {
+        let day: Int
+        let hour: Int
+        let minute: Int?
+    }
+    struct Period: Decodable {
+        let open: Point?
+        let close: Point?
+    }
+
+    let weekdayDescriptions: [String]?
+    let periods: [Period]?
+
+    /// Each `weekdayDescriptions` line is `"<day>: <hours>"` — split on the
+    /// first colon only, since the hours half contains colons of its own
+    /// ("월요일: 09:00~18:00").
+    var hoursDetail: [String: String]? {
+        guard let weekdayDescriptions else { return nil }
+        var map: [String: String] = [:]
+        for line in weekdayDescriptions {
+            let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2 {
+                map[parts[0]] = parts[1]
+            }
+        }
+        return map
+    }
+
+    var openingPeriods: [OpeningPeriod]? {
+        let mapped: [OpeningPeriod]? = periods?.compactMap { period in
+            guard let open = period.open else { return nil }
+            return OpeningPeriod(
+                openDay: open.day,
+                openMinute: open.hour * 60 + (open.minute ?? 0),
+                closeDay: period.close?.day,
+                closeMinute: period.close.map { $0.hour * 60 + ($0.minute ?? 0) }
+            )
+        }
+        return (mapped?.isEmpty ?? true) ? nil : mapped
+    }
+}
+
 private struct GooglePlace: Decodable {
     struct DisplayName: Decodable { let text: String }
     struct Location: Decodable { let latitude: Double; let longitude: Double }
@@ -220,6 +286,7 @@ private struct GooglePlace: Decodable {
     /// know about yet) fails that lookup and becomes `nil` instead of
     /// failing the whole decode.
     let priceLevel: String?
+    let regularOpeningHours: GoogleOpeningHours?
 
     // Google Places' response text for a mixed-script (Korean + Latin/
     // numeric) name/address routinely embeds bidi direction-control
@@ -239,66 +306,31 @@ private struct GooglePlace: Decodable {
             category: primaryTypeDisplayName?.text.strippingInvisibleFormatCharacters(),
             priceLevel: priceLevel.flatMap(PriceLevel.init(rawValue:)),
             photoName: photos?.first?.name,
-            isFromGooglePlaces: true
+            isFromGooglePlaces: true,
+            hoursDetail: regularOpeningHours?.hoursDetail,
+            openingPeriods: regularOpeningHours?.openingPeriods
         )
     }
 }
 
 private struct GooglePlaceDetail: Decodable {
-    struct OpeningHours: Decodable {
-        /// Google omits `minute` when it's zero, and omits `close`
-        /// entirely for a place that never closes.
-        struct Point: Decodable {
-            let day: Int
-            let hour: Int
-            let minute: Int?
-        }
-        struct Period: Decodable {
-            let open: Point?
-            let close: Point?
-        }
-
-        let weekdayDescriptions: [String]?
-        let periods: [Period]?
-    }
     struct Location: Decodable { let latitude: Double; let longitude: Double }
     struct Photo: Decodable { let name: String }
 
     let rating: Double?
     let userRatingCount: Int?
-    let regularOpeningHours: OpeningHours?
+    let regularOpeningHours: GoogleOpeningHours?
     let websiteUri: String?
     let internationalPhoneNumber: String?
     let location: Location?
     let photos: [Photo]?
 
     func toPlaceDetails() -> PlaceDetails {
-        var hours: [String: String]?
-        if let descriptions = regularOpeningHours?.weekdayDescriptions {
-            var map: [String: String] = [:]
-            for line in descriptions {
-                let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-                if parts.count == 2 {
-                    map[parts[0]] = parts[1]
-                }
-            }
-            hours = map
-        }
-        let periods: [OpeningPeriod]? = regularOpeningHours?.periods?.compactMap { period in
-            guard let open = period.open else { return nil }
-            return OpeningPeriod(
-                openDay: open.day,
-                openMinute: open.hour * 60 + (open.minute ?? 0),
-                closeDay: period.close?.day,
-                closeMinute: period.close.map { $0.hour * 60 + ($0.minute ?? 0) }
-            )
-        }
-
-        return PlaceDetails(
+        PlaceDetails(
             rating: rating,
             reviewCount: userRatingCount,
-            hoursDetail: hours,
-            openingPeriods: (periods?.isEmpty ?? true) ? nil : periods,
+            hoursDetail: regularOpeningHours?.hoursDetail,
+            openingPeriods: regularOpeningHours?.openingPeriods,
             amenities: [],
             website: websiteUri,
             phone: internationalPhoneNumber,
