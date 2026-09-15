@@ -5,7 +5,13 @@ import Foundation
 /// (`SharedImportStore`) so something shared right after opening a map app
 /// can be offered as "add this to the card you just opened the map for"
 /// instead of always routing through "pick a board, create a new card"
-/// (`SharedPhotoBoardPickerSheet`/`SharedLinkBoardPickerSheet`). Plain
+/// (`SharedPhotoBoardPickerSheet`/`SharedLinkBoardPickerSheet`).
+///
+/// Recorded only where opening a map plausibly means "let me look this
+/// place up" — deliberately not for Tmap, whose whole purpose is
+/// turn-by-turn navigation: tapping it means the user is driving there,
+/// and anything they share during or after that trip has no particular
+/// reason to be about this card. Plain
 /// `UserDefaults` — this only needs to survive the app being backgrounded/
 /// suspended while the user is in the map app, not to be shared with the
 /// Share Extension process itself (that only ever writes the photo/link,

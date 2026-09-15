@@ -136,7 +136,14 @@ struct AddPlaceCardView: View {
                     } else {
                         Button("추가 (".localized + "\(viewModel.selectedRowCount)" + ")") {
                             Task {
+                                let expected = viewModel.selectedRowCount
                                 let created = await viewModel.createCards(source: Self.defaultSource)
+                                // Anything short of what was asked for leaves
+                                // this screen open with `viewModel
+                                // .errorMessage` showing, so the user can
+                                // retry — dismissing regardless used to hide
+                                // a save that silently produced nothing.
+                                guard created.count == expected else { return }
                                 // Only when it resolves to exactly one card —
                                 // several rows (a screenshot naming multiple
                                 // places) has no single "the" card to jump to.
@@ -371,6 +378,16 @@ struct AddPlaceCardView: View {
                 TextField("주소".localized, text: row.address)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                // The row is excluded from the "추가 (N)" count while it's
+                // in this state (`PlaceCandidateRow.isSaveable`), which
+                // would otherwise look like the button is simply broken —
+                // this says what's actually wrong and what to do about it.
+                if row.wrappedValue.looksLikeUnresolvedLink {
+                    Text("이 링크에서 장소 정보를 아직 찾지 못했습니다. 아래 검색을 다시 눌러보거나, 장소명을 직접 입력해주세요.".localized)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
 
                 // Whatever the AI scan found beyond name/address (a
                 // hashtag, a one-line impression) — editable here since

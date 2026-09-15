@@ -67,6 +67,28 @@ struct PlaceCandidateRow: Identifiable {
     /// name is edited, since it no longer describes what's typed.
     var chosenResult: PlaceSearchResult?
     var isSearching = false
+
+    /// Whether this row's name is still just the raw link it was seeded
+    /// with. A shared link starts out as the whole URL in `name` (see
+    /// `AddPlaceCardView.init`), and `search(rowID:)` replaces it with
+    /// whatever `resolveSharedPlace` parsed out — but when nothing can be
+    /// recovered (offline, a short link that won't expand, an unsupported
+    /// host) that function hands the input straight back, leaving the URL
+    /// sitting in the name field. Saving then produced a card literally
+    /// named `https://maps.app.goo.gl/…`, which is never what anyone
+    /// wants, so a row in this state can't be saved until the user
+    /// retries the search or types a name themselves.
+    var looksLikeUnresolvedLink: Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.lowercased().hasPrefix("http") else { return false }
+        return !trimmed.contains(where: \.isWhitespace)
+    }
+
+    /// A row worth turning into a card: actually named, and named with
+    /// something other than an unresolved link.
+    var isSaveable: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && !looksLikeUnresolvedLink
+    }
 }
 
 @MainActor
@@ -128,7 +150,7 @@ final class PlaceCardViewModel: ObservableObject {
     }
 
     var selectedRowCount: Int {
-        candidateRows.filter { $0.selected && !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }.count
+        candidateRows.filter { $0.selected && $0.isSaveable }.count
     }
 
     /// Runs every selected image through the user's chosen AI provider in
@@ -728,7 +750,7 @@ final class PlaceCardViewModel: ObservableObject {
         defer { isSaving = false }
 
         let rowsToCreate = Array(candidateRows.enumerated()).filter {
-            $0.element.selected && !$0.element.name.trimmingCharacters(in: .whitespaces).isEmpty
+            $0.element.selected && $0.element.isSaveable
         }
 
         // Each row's own card creation (a Google-verified row's best-effort
@@ -776,7 +798,17 @@ final class PlaceCardViewModel: ObservableObject {
             results.append(contentsOf: batch)
         }
 
-        return results.sorted { $0.0 < $1.0 }.compactMap { $0.1 }
+        let created = results.sorted { $0.0 < $1.0 }.compactMap { $0.1 }
+        // `createPlaceCard(from:)` is `try?`'d above, so a row whose photo
+        // couldn't be written to disk just comes back `nil`. Without this
+        // the caller had no way to tell — `AddPlaceCardView` dismissed on
+        // the mere fact that saving *ran*, so "추가 (3)" could save nothing
+        // at all and still close as if it had worked.
+        let failedCount = rowsToCreate.count - created.count
+        if failedCount > 0 {
+            errorMessage = "\(failedCount)" + "개 장소를 저장하지 못했습니다. 기기 저장 공간을 확인한 뒤 다시 시도해주세요.".localized
+        }
+        return created
     }
 
     /// `note` is whatever the AI scan found worth keeping beyond name/

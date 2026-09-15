@@ -143,11 +143,13 @@ struct PlaceCardListRow: View {
                             openURL(url)
                         }
                     }
+                    // No `MapOpenContext.recordMapOpen` here, unlike every
+                    // other entry above: Tmap is turn-by-turn navigation,
+                    // so tapping it means "take me there", not "let me
+                    // look this place up and share something back". See
+                    // `MapOpenContext`'s own doc comment.
                     if let url = TmapOpener.url(for: card) {
-                        Button("Tmap") {
-                            MapOpenContext.recordMapOpen(cardID: card.id)
-                            openURL(url)
-                        }
+                        Button("Tmap") { openURL(url) }
                     }
                 } label: {
                     Image(systemName: "map")

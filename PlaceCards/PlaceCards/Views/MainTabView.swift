@@ -36,6 +36,17 @@ struct MainTabView: View {
     /// Instagram post/reel — see `SharedLinkParser.isInstagramLink`.
     @State private var isPresentingInstagramGuidanceAlert = false
 
+    /// Set when the user rejects the "이 카드에 추가할까요?" guess
+    /// (`MapScreenshotImportSheet`/`MapLinkImportSheet`'s "다른 장소예요"
+    /// action) — read back in that sheet's own `onDismiss` to hand the
+    /// still-pending share to the normal board-picker flow instead of
+    /// letting it evaporate. Routed through `onDismiss` rather than
+    /// presented directly from inside the sheet, since the replacement is
+    /// a sheet off this same view and the outgoing one has to be fully
+    /// gone before it can present.
+    @State private var wantsNewCardFromPendingPhoto = false
+    @State private var wantsNewCardFromPendingLink = false
+
     /// Shown once, right after a cold-launch auto-restore from
     /// `CloudBackupService` actually found and applied something — see
     /// `restoreFromCloudIfNeeded()`.
@@ -84,8 +95,10 @@ struct MainTabView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 checkForSharedImage()
-                AutoBackupService.runIfDue(storageService: storageService)
-                Task { await CloudBackupService.backup(storageService: storageService) }
+                Task {
+                    await AutoBackupService.runIfDue(storageService: storageService)
+                    await CloudBackupService.backup(storageService: storageService)
+                }
             } else if newPhase == .background {
                 Task { await CloudBackupService.backup(storageService: storageService) }
             }
@@ -102,7 +115,7 @@ struct MainTabView: View {
             // finished, rather than in line ahead of the state change
             // above.
             Task {
-                AutoBackupService.runIfDue(storageService: storageService)
+                await AutoBackupService.runIfDue(storageService: storageService)
                 await CloudBackupService.backup(storageService: storageService)
             }
         }
@@ -112,9 +125,20 @@ struct MainTabView: View {
                     .environmentObject(navigation)
             }
         }
-        .sheet(item: $pendingMapScreenshotCard) { card in
+        .sheet(
+            item: $pendingMapScreenshotCard,
+            onDismiss: {
+                guard wantsNewCardFromPendingPhoto else { return }
+                wantsNewCardFromPendingPhoto = false
+                presentShortly { isPresentingSharedImportSheet = true }
+            }
+        ) { card in
             if let pendingSharedImageData {
-                MapScreenshotImportSheet(card: card, imageData: pendingSharedImageData) { _ in }
+                MapScreenshotImportSheet(
+                    card: card,
+                    imageData: pendingSharedImageData,
+                    onCreateNewInstead: { wantsNewCardFromPendingPhoto = true }
+                ) { _ in }
             }
         }
         .sheet(isPresented: $isPresentingSharedLinkSheet) {
@@ -123,15 +147,37 @@ struct MainTabView: View {
                     .environmentObject(navigation)
             }
         }
-        .sheet(item: $pendingMapLinkCard) { card in
+        .sheet(
+            item: $pendingMapLinkCard,
+            onDismiss: {
+                guard wantsNewCardFromPendingLink else { return }
+                wantsNewCardFromPendingLink = false
+                presentShortly { isPresentingSharedLinkSheet = true }
+            }
+        ) { card in
             if let pendingLinkText {
-                MapLinkImportSheet(card: card, linkText: pendingLinkText) { _ in }
+                MapLinkImportSheet(
+                    card: card,
+                    linkText: pendingLinkText,
+                    onCreateNewInstead: { wantsNewCardFromPendingLink = true }
+                ) { _ in }
             }
         }
         .alert("iCloud에서 복원됨".localized, isPresented: $showingCloudRestoreAlert) {
             Button("확인".localized, role: .cancel) {}
         } message: {
             Text("iCloud에서 이전 백업을 찾아 게시판과 장소를 자동으로 복원했습니다.".localized)
+        }
+        .alert(
+            "저장된 데이터를 읽지 못했습니다".localized,
+            isPresented: Binding(
+                get: { storageService.loadFailureMessage != nil },
+                set: { if !$0 { storageService.acknowledgeLoadFailure() } }
+            )
+        ) {
+            Button("확인".localized, role: .cancel) { storageService.acknowledgeLoadFailure() }
+        } message: {
+            Text(storageService.loadFailureMessage ?? "")
         }
         .alert("인스타그램 링크는 자동으로 인식할 수 없어요".localized, isPresented: $isPresentingInstagramGuidanceAlert) {
             Button("확인".localized, role: .cancel) {}
@@ -165,8 +211,8 @@ struct MainTabView: View {
     /// iCloud snapshot happens to exist from some other install.
     private func restoreFromCloudIfNeeded() async {
         guard storageService.boards.isEmpty else { return }
-        guard await CloudBackupService.hasRestorableBackup() else { return }
-        await CloudBackupService.restoreIfAvailable(storageService: storageService)
+        guard let backup = await CloudBackupService.loadRestorableBackup() else { return }
+        try? await BackupService.restore(backup, storageService: storageService)
         showingCloudRestoreAlert = true
     }
 

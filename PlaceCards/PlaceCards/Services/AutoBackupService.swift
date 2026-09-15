@@ -28,14 +28,21 @@ enum AutoBackupService {
     /// Writes a fresh backup to the chosen folder right now, regardless
     /// of the interval — used by both "지금 백업" (manual, in Settings)
     /// and `runIfDue` once it's decided a run is actually due.
+    /// `async` because `BackupService.exportData` reads and base64-encodes
+    /// every photo in the library off the main actor now (see its own doc
+    /// comment) — done inline on the main actor, a due backup froze the UI
+    /// for the whole encode at launch and on every foreground transition.
+    /// The security-scoped access has to be held across the write, so it's
+    /// opened only once the data is actually in hand rather than around
+    /// the export too.
     @MainActor
     @discardableResult
-    static func runNow(storageService: StorageService) -> Bool {
+    static func runNow(storageService: StorageService) async -> Bool {
         guard let folderURL = resolveFolderURL() else { return false }
+        guard let data = try? await BackupService.exportData(storageService: storageService) else { return false }
+
         let accessed = folderURL.startAccessingSecurityScopedResource()
         defer { if accessed { folderURL.stopAccessingSecurityScopedResource() } }
-
-        guard let data = try? BackupService.exportData(storageService: storageService) else { return false }
         let fileURL = folderURL.appendingPathComponent(BackupService.filename() + ".json")
         do {
             try data.write(to: fileURL, options: .atomic)
@@ -51,7 +58,7 @@ enum AutoBackupService {
     /// transition — a no-op unless automatic backup is on *and* the
     /// configured interval has actually elapsed since the last run.
     @MainActor
-    static func runIfDue(storageService: StorageService) {
+    static func runIfDue(storageService: StorageService) async {
         let settings = BackupFolderSettings.shared
         guard settings.autoBackupEnabled else { return }
         let intervalSeconds = TimeInterval(settings.autoBackupIntervalDays) * 24 * 60 * 60
@@ -59,6 +66,6 @@ enum AutoBackupService {
            Date.now.timeIntervalSince(lastAutoBackupAt) < intervalSeconds {
             return
         }
-        runNow(storageService: storageService)
+        await runNow(storageService: storageService)
     }
 }

@@ -261,7 +261,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var backupSection: some View {
         Section {
-            Button("전체 백업".localized) { startBackup() }
+            Button("전체 백업".localized) { Task { await startBackup() } }
             Button("백업에서 복원".localized, role: .destructive) { showingRestoreImporter = true }
             if let backupMessage {
                 Text(backupMessage)
@@ -298,7 +298,7 @@ struct SettingsView: View {
             isPresented: $showingRestoreConfirm,
             titleVisibility: .visible
         ) {
-            Button("복원".localized, role: .destructive) { performRestore() }
+            Button("복원".localized, role: .destructive) { Task { await performRestore() } }
             Button("취소".localized, role: .cancel) { restorePendingURL = nil }
         } message: {
             Text("되돌릴 수 없습니다.".localized)
@@ -343,9 +343,11 @@ struct SettingsView: View {
                 }
 
                 Button("지금 백업".localized) {
-                    autoBackupMessage = AutoBackupService.runNow(storageService: storageService)
-                        ? "선택한 폴더에 백업했습니다.".localized
-                        : "폴더에 쓰지 못했습니다 — 아래에서 폴더를 다시 선택해주세요.".localized
+                    Task {
+                        autoBackupMessage = await AutoBackupService.runNow(storageService: storageService)
+                            ? "선택한 폴더에 백업했습니다.".localized
+                            : "폴더에 쓰지 못했습니다 — 아래에서 폴더를 다시 선택해주세요.".localized
+                    }
                 }
                 Button("폴더 변경…".localized) { showingBackupFolderPicker = true }
                 Button("자동 백업 끄기".localized, role: .destructive) { backupFolderSettings.clearFolder() }
@@ -402,23 +404,33 @@ struct SettingsView: View {
         }
     }
 
-    private func startBackup() {
+    private func startBackup() async {
         do {
-            backupDocument = BackupDocument(data: try BackupService.exportData(storageService: storageService))
+            backupDocument = BackupDocument(data: try await BackupService.exportData(storageService: storageService))
             showingBackupExporter = true
         } catch {
             backupMessage = "백업을 준비하지 못했습니다.".localized
         }
     }
 
-    private func performRestore() {
+    /// The file's own bytes are read while the security-scoped access is
+    /// still held; applying it (`BackupService.restore`, which decodes and
+    /// writes every embedded photo off the main actor) happens after,
+    /// since it only ever touches this app's own container.
+    private func performRestore() async {
         guard let url = restorePendingURL else { return }
         restorePendingURL = nil
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        let data: Data
         do {
-            let data = try Data(contentsOf: url)
-            try BackupService.restore(from: data, storageService: storageService)
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            data = try Data(contentsOf: url)
+        } catch {
+            backupMessage = "그 파일에서 복원하지 못했습니다.".localized
+            return
+        }
+        do {
+            try await BackupService.restore(from: data, storageService: storageService)
             backupMessage = "백업에서 복원했습니다.".localized
         } catch {
             backupMessage = (error as? BackupService.BackupError)?.errorDescription ?? "그 파일에서 복원하지 못했습니다.".localized
