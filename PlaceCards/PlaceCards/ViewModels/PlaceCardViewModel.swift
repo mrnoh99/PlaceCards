@@ -854,8 +854,10 @@ final class PlaceCardViewModel: ObservableObject {
         card.applyScannedDetails(details)
 
         if card.hoursDetail?.isEmpty ?? true, result.isFromGooglePlaces,
-           let hoursDetail = await fetchGoogleHoursDetail(placeId: result.id), !hoursDetail.isEmpty {
+           let details = await fetchGoogleHoursDetail(placeId: result.id),
+           let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
             card.hoursDetail = hoursDetail
+            card.openingPeriods = details.openingPeriods
         }
 
         for image in images {
@@ -914,10 +916,13 @@ final class PlaceCardViewModel: ObservableObject {
     /// only needs the same Google Places API key `search`/`photoData`
     /// already use. Silently skipped (returns `nil`) on any failure,
     /// same as `fetchOfficialPhoto` above.
-    private func fetchGoogleHoursDetail(placeId: String) async -> [String: String]? {
+    /// Returns the whole details payload rather than just the hours text —
+    /// the structured `openingPeriods` riding along with it is what makes
+    /// "지금 영업 중" answerable later, and it arrives in the same response.
+    private func fetchGoogleHoursDetail(placeId: String) async -> PlaceDetails? {
         guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }
         let googleService = GooglePlacesService(apiKey: apiKey)
-        return try? await googleService.details(placeId: placeId).hoursDetail
+        return try? await googleService.details(placeId: placeId)
     }
 
     /// Used by two callers that would otherwise end up with no photo at

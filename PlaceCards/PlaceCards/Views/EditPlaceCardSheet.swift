@@ -105,6 +105,12 @@ struct EditPlaceCardSheet: View {
 
     @State private var isRefreshingGoogleDetails = false
     @State private var googleRefreshMessage: String?
+    /// Structured opening hours staged by a Google refresh, written in
+    /// `save()` next to the hours text they belong to — same
+    /// stage-then-persist shape as `fetchedGooglePhotoData` below, and for
+    /// the same reason (`card` is a `let`, so nothing can be persisted
+    /// mid-session).
+    @State private var fetchedOpeningPeriods: [OpeningPeriod]?
     /// Staged by `refreshFromGooglePlaceDetails()` when the card has no
     /// photo yet and Google has one — a plain `let card` has nowhere to
     /// actually persist a downloaded photo mid-session (unlike every other
@@ -168,7 +174,7 @@ struct EditPlaceCardSheet: View {
         _recommendedMenu = State(initialValue: card.recommendedMenu ?? "")
         _suggestedDuration = State(initialValue: card.suggestedDuration ?? "")
         _admissionFee = State(initialValue: card.admissionFee ?? "")
-        _hoursEntries = State(initialValue: (card.hoursDetail ?? [:]).sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) })
+        _hoursEntries = State(initialValue: WeekdayLabel.sortedByWeekday(card.hoursDetail ?? [:]).map { HoursEntry(day: $0.key, hours: $0.value) })
         _externalLinkEntries = State(initialValue: card.externalLinks)
         _tagsText = State(initialValue: card.tags.joined(separator: ", "))
         _amenitiesText = State(initialValue: card.amenities.joined(separator: ", "))
@@ -1195,7 +1201,7 @@ struct EditPlaceCardSheet: View {
             filledFields.append("카테고리".localized)
         }
         if hoursEntries.isEmpty, let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
-            hoursEntries = hoursDetail.sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) }
+            hoursEntries = WeekdayLabel.sortedByWeekday(hoursDetail).map { HoursEntry(day: $0.key, hours: $0.value) }
             filledFields.append("영업시간".localized)
         }
         if closingTime.trimmingCharacters(in: .whitespaces).isEmpty, let value = details.closingTime, !value.isEmpty {
@@ -1264,7 +1270,10 @@ struct EditPlaceCardSheet: View {
             filledFields.append("웹사이트".localized)
         }
         if hoursEntries.isEmpty, let hoursDetail = details.hoursDetail, !hoursDetail.isEmpty {
-            hoursEntries = hoursDetail.sorted { $0.key < $1.key }.map { HoursEntry(day: $0.key, hours: $0.value) }
+            hoursEntries = WeekdayLabel.sortedByWeekday(hoursDetail).map { HoursEntry(day: $0.key, hours: $0.value) }
+            // Staged alongside the text it describes, so `save()` keeps the
+            // two in step — see its own comment.
+            fetchedOpeningPeriods = details.openingPeriods
             filledFields.append("영업시간".localized)
         }
         if let merged = mergeCommaList(details.amenities, into: amenitiesText) {
@@ -1408,6 +1417,17 @@ struct EditPlaceCardSheet: View {
             hoursDetail[day] = hours
         }
         updated.hoursDetail = hoursDetail.isEmpty ? nil : hoursDetail
+        // `openingPeriods` is what drives the "영업 중"/"영업 종료" badge,
+        // so it must never outlive the text it was supposed to describe:
+        // a refresh brings a matching set along (`fetchedOpeningPeriods`),
+        // untouched hours keep the card's existing one, and hours the user
+        // has actually retyped drop it — better no badge at all than a
+        // confident one contradicting the hours shown right beneath it.
+        if let fetchedOpeningPeriods {
+            updated.openingPeriods = fetchedOpeningPeriods
+        } else if updated.hoursDetail != card.hoursDetail {
+            updated.openingPeriods = nil
+        }
 
         updated.externalLinks = externalLinkEntries.compactMap { entry in
             let platform = entry.platform.trimmingCharacters(in: .whitespaces)

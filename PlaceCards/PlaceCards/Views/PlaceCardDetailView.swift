@@ -177,9 +177,11 @@ struct PlaceCardDetailView: View {
                             WrapTagsView(tags: card.dietaryOptions)
                         }
 
-                        if !card.visitDates.isEmpty {
-                            visitDatesDisplaySection
-                        }
+                        // Shown even with no visits yet — it's where the
+                        // "오늘 방문" button lives, and hiding it until a
+                        // visit already exists left no way to record the
+                        // first one short of the edit sheet.
+                        visitDatesDisplaySection
 
                         if !card.externalLinks.isEmpty {
                             externalLinksDisplaySection
@@ -369,6 +371,32 @@ struct PlaceCardDetailView: View {
         .buttonStyle(.bordered)
     }
 
+    /// "지금 갈 수 있나?" answered directly, instead of leaving the user to
+    /// read a seven-row table and work it out — the one question that
+    /// actually matters while standing outside somewhere. Computed from
+    /// `openingPeriods`, so it only appears for a card whose hours came
+    /// from Google and haven't since been hand-edited (see that property's
+    /// own doc comment); evaluated as the view is built, which is accurate
+    /// enough for a screen the user has just opened.
+    @ViewBuilder
+    private var openStateBadge: some View {
+        if let state = card.openingPeriods?.openState(at: Date()) {
+            switch state {
+            case .open(let closingSoon):
+                Label(
+                    closingSoon ? "곧 영업 종료".localized : "영업 중".localized,
+                    systemImage: closingSoon ? "clock.badge.exclamationmark" : "clock.badge.checkmark"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(closingSoon ? .orange : .green)
+            case .closed:
+                Label("영업 종료".localized, systemImage: "clock.badge.xmark")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var hasHoursInfo: Bool {
         card.hoursDetail?.isEmpty == false || card.closingTime?.isEmpty == false || card.holidays?.isEmpty == false
             || card.reservationInfo?.isEmpty == false || card.recommendedMenu?.isEmpty == false
@@ -380,8 +408,9 @@ struct PlaceCardDetailView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("영업 정보".localized)
                 .font(.headline)
+            openStateBadge
             if let hoursDetail = card.hoursDetail, !hoursDetail.isEmpty {
-                ForEach(hoursDetail.sorted(by: { $0.key < $1.key }), id: \.key) { day, hours in
+                ForEach(WeekdayLabel.sortedByWeekday(hoursDetail), id: \.key) { day, hours in
                     HStack {
                         Text(day).foregroundStyle(.secondary)
                         Spacer()
@@ -425,12 +454,31 @@ struct PlaceCardDetailView: View {
 
     @ViewBuilder
     private var visitDatesDisplaySection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("방문 날짜".localized)
-                .font(.headline)
-            Text(card.visitDates.sorted(by: >).map { $0.formatted(date: .abbreviated, time: .omitted) }.joined(separator: ", "))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("방문 날짜".localized)
+                    .font(.headline)
+                Spacer()
+                if hasVisitToday {
+                    Label("오늘 방문함".localized, systemImage: "checkmark.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(.green)
+                } else {
+                    Button(action: addVisitToday) {
+                        Label("오늘 방문".localized, systemImage: "plus.circle")
+                    }
+                    .font(.subheadline)
+                }
+            }
+            if card.visitDates.isEmpty {
+                Text("아직 방문 기록이 없습니다.".localized)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(card.visitDates.sorted(by: >).map { $0.formatted(date: .abbreviated, time: .omitted) }.joined(separator: ", "))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -614,9 +662,43 @@ struct PlaceCardDetailView: View {
         storageService.save(card)
     }
 
+    /// Marking a place visited also records *when*, which is the whole
+    /// point of keeping visit history and was previously only reachable by
+    /// opening the edit sheet, adding a date row and saving — five taps for
+    /// the one thing a user does immediately after walking out of a place.
+    /// So `isVisited` and `visitDates` no longer drift apart by default:
+    /// people who only ever tap the checkmark still end up able to answer
+    /// "언제 갔었지?".
+    ///
+    /// Only ever adds, never removes: un-checking says "this isn't somewhere
+    /// I've been" about the flag, which is not a reason to erase a visit
+    /// they previously recorded — that stays the edit sheet's job.
     private func toggleVisited() {
         card.isVisited.toggle()
+        if card.isVisited {
+            recordVisitToday()
+        }
         storageService.save(card)
+    }
+
+    /// Today's date, unless it's already logged — tapping twice in one day
+    /// shouldn't pile up duplicates.
+    private func recordVisitToday() {
+        let today = Date()
+        let calendar = Calendar.current
+        guard !card.visitDates.contains(where: { calendar.isDate($0, inSameDayAs: today) }) else { return }
+        card.visitDates.append(today)
+        card.visitDates.sort()
+    }
+
+    private func addVisitToday() {
+        recordVisitToday()
+        if !card.isVisited { card.isVisited = true }
+        storageService.save(card)
+    }
+
+    private var hasVisitToday: Bool {
+        card.visitDates.contains { Calendar.current.isDateInToday($0) }
     }
 
     private func setCoverPhoto(_ item: MediaItem) {

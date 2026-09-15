@@ -2,16 +2,26 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Binding var hasCompletedOnboarding: Bool
+    /// Read by `MainTabView` right after onboarding finishes, to open the
+    /// Settings tab when the user chose "지금 설정하기". A stored flag
+    /// rather than a direct call because `AppNavigation` doesn't exist yet
+    /// while this screen is up — it's created by `MainTabView`, which only
+    /// appears once `hasCompletedOnboarding` flips.
+    @AppStorage("pendingOpenAIKeySetup") private var pendingOpenAIKeySetup = false
     @State private var step = 0
 
     private let steps: [(systemImage: String, title: String, description: String)] = [
         ("mappin.and.ellipse", "PinSpots",
          "지도 앱, SNS, 직접 찍은 사진에서 발견한 장소를 하나의 카드로 모아보세요.".localized),
-        ("photo.on.rectangle.angled", "사진으로 바로 추가".localized,
-         "스크린샷이나 사진을 넣으면 AI가 장소명을 찾아주고, Google 지도 정보로 자동 보강됩니다.".localized),
-        ("key", "API 키는 내 것만".localized,
-         "Google, Claude/ChatGPT/Gemini API 키를 설정에서 등록하세요. 키는 이 기기의 키체인에만 저장됩니다.".localized)
+        ("square.and.arrow.down", "공유로 바로 담기".localized,
+         "Google 지도나 네이버 지도에서 장소를 공유하면 바로 카드가 됩니다. 별도 설정 없이 지금 바로 쓸 수 있어요.".localized),
+        ("photo.on.rectangle.angled", "사진에서 AI로 찾기".localized,
+         "스크린샷을 넣으면 AI가 장소명을 읽어옵니다. 이 기능만 AI API 키가 필요하며, 키는 이 기기의 키체인에만 저장됩니다.".localized)
     ]
+
+    /// The AI-key step is the last one, and the only one that ends in a
+    /// choice rather than "다음" — see `finalStepActions`.
+    private var isFinalStep: Bool { step == steps.count - 1 }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -41,18 +51,45 @@ struct OnboardingView: View {
                 }
             }
 
-            Button(step < steps.count - 1 ? "다음".localized : "시작하기".localized) {
-                if step < steps.count - 1 {
-                    step += 1
-                } else {
-                    hasCompletedOnboarding = true
-                }
+            if isFinalStep {
+                finalStepActions
+            } else {
+                Button("다음".localized) { step += 1 }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.bottom, 40)
+            }
+        }
+        .padding()
+    }
+
+    /// Two ways out, not one — the AI key is genuinely optional (sharing a
+    /// place in from a map app needs nothing), and sending everyone to a
+    /// settings screen to paste an API key before they have seen a single
+    /// screen of the app is how a first run gets abandoned. "나중에" is
+    /// the plain-text option so it reads as a real choice rather than a
+    /// thing to feel bad about.
+    @ViewBuilder
+    private var finalStepActions: some View {
+        VStack(spacing: 12) {
+            Button("지금 설정하기".localized) {
+                pendingOpenAIKeySetup = true
+                hasCompletedOnboarding = true
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .padding(.bottom, 40)
+
+            Button("나중에".localized) {
+                pendingOpenAIKeySetup = false
+                hasCompletedOnboarding = true
+            }
+            .controlSize(.large)
+
+            Text("나중에 설정 탭에서 언제든 등록할 수 있습니다.".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
-        .padding()
+        .padding(.bottom, 40)
     }
 }
 
