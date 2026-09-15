@@ -21,6 +21,11 @@ struct MapScreenshotImportSheet: View {
 
     @State private var card: PlaceCard
     let imageData: Data
+    /// Called when the user says this share isn't about the offered card
+    /// after all — the caller is expected to route the very same shared
+    /// photo into the ordinary "pick a board, create a new card" flow
+    /// (`SharedPhotoBoardPickerSheet`). See `showCreateNewInstead`.
+    var onCreateNewInstead: () -> Void
     var onApplied: (PlaceCard) -> Void
 
     @EnvironmentObject private var storageService: StorageService
@@ -42,13 +47,23 @@ struct MapScreenshotImportSheet: View {
     @State private var pendingSuggestedTags: [String] = []
     @State private var isConfirmingSuggestedTags = false
 
-    init(card: PlaceCard, imageData: Data, onApplied: @escaping (PlaceCard) -> Void) {
+    init(
+        card: PlaceCard, imageData: Data,
+        onCreateNewInstead: @escaping () -> Void = {},
+        onApplied: @escaping (PlaceCard) -> Void
+    ) {
         _card = State(initialValue: card)
         self.imageData = imageData
+        self.onCreateNewInstead = onCreateNewInstead
         self.onApplied = onApplied
     }
 
     private var previewImage: UIImage? { UIImage(data: imageData) }
+
+    /// Offered only before anything has been applied — once the photo has
+    /// been attached to this card, starting a second card from it would
+    /// just create the duplicate this flow exists to avoid.
+    private var showCreateNewInstead: Bool { !didProcess && !isProcessing }
 
     var body: some View {
         NavigationStack {
@@ -79,6 +94,19 @@ struct MapScreenshotImportSheet: View {
                         Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, AI로 읽어 비어 있는 이름·주소를 채웁니다.".localized)
                     } else {
                         Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가합니다. (AI 제공자가 등록되어 있지 않아 정보는 자동으로 읽지 않습니다 — 설정에서 등록하면 이용할 수 있습니다.)".localized)
+                    }
+                }
+
+                // See `MapLinkImportSheet`'s identical section for why this
+                // exists: without it, a wrong `MapOpenContext` guess left
+                // "취소" as the only way out, which discarded the shared
+                // photo outright and sent the user back to re-share it.
+                if showCreateNewInstead {
+                    Section {
+                        Button("다른 장소예요 — 새 카드로 추가".localized) {
+                            onCreateNewInstead()
+                            dismiss()
+                        }
                     }
                 }
 

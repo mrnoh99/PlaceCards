@@ -21,6 +21,11 @@ struct MapLinkImportSheet: View {
 
     @State private var card: PlaceCard
     let linkText: String
+    /// Called when the user says this share isn't about the offered card
+    /// after all — the caller is expected to route the very same shared
+    /// link into the ordinary "pick a board, create a new card" flow
+    /// (`SharedLinkBoardPickerSheet`). See `showCreateNewInstead`.
+    var onCreateNewInstead: () -> Void
     var onApplied: (PlaceCard) -> Void
 
     @EnvironmentObject private var storageService: StorageService
@@ -32,11 +37,21 @@ struct MapLinkImportSheet: View {
     @State private var pendingParsed: ParsedSharedPlace?
     @State private var isConfirmingNameChange = false
 
-    init(card: PlaceCard, linkText: String, onApplied: @escaping (PlaceCard) -> Void) {
+    init(
+        card: PlaceCard, linkText: String,
+        onCreateNewInstead: @escaping () -> Void = {},
+        onApplied: @escaping (PlaceCard) -> Void
+    ) {
         _card = State(initialValue: card)
         self.linkText = linkText
+        self.onCreateNewInstead = onCreateNewInstead
         self.onApplied = onApplied
     }
+
+    /// Offered only before anything has been applied — once the merge has
+    /// run, the link is already on this card and starting a second card
+    /// from it would just create the duplicate this flow exists to avoid.
+    private var showCreateNewInstead: Bool { !didProcess && !isProcessing }
 
     var body: some View {
         NavigationStack {
@@ -55,6 +70,25 @@ struct MapLinkImportSheet: View {
                     Text("이 카드에 추가할까요?".localized)
                 } footer: {
                     Text("\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 지도 링크의 정보(이름·주소·좌표)를 이 카드에 채웁니다.".localized)
+                }
+
+                // This whole screen rests on a guess (`MapOpenContext`:
+                // the user opened a map for some card recently, so this
+                // share is probably about that same card). When the guess
+                // is wrong, "취소" used to be the only way out — and it
+                // threw the share away entirely, since the Share Extension
+                // hands each one over exactly once, forcing the user back
+                // into the other app to share again. This keeps the link
+                // and sends it through the normal new-card flow instead,
+                // which is what makes a wrong guess cheap enough to be
+                // worth making at all.
+                if showCreateNewInstead {
+                    Section {
+                        Button("다른 장소예요 — 새 카드로 추가".localized) {
+                            onCreateNewInstead()
+                            dismiss()
+                        }
+                    }
                 }
 
                 if let statusMessage {

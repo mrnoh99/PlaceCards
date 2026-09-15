@@ -358,11 +358,10 @@ struct PlaceCardDetailView: View {
                     openURL(url)
                 }
             }
+            // Navigation, not place lookup — see `PlaceCardListRow`'s
+            // identical comment on this same button.
             if let url = TmapOpener.url(for: card) {
-                Button("Tmap") {
-                    MapOpenContext.recordMapOpen(cardID: card.id)
-                    openURL(url)
-                }
+                Button("Tmap") { openURL(url) }
             }
         } label: {
             Label("지도에서 열기".localized, systemImage: "map")

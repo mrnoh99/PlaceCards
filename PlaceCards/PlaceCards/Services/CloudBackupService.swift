@@ -4,7 +4,7 @@ import Foundation
 /// Backup/Restore and folder-schedule features — ported from Peragra's own
 /// `CloudBackupService`. Not triggered by any button; `MainTabView` calls
 /// it on every foreground/background transition, and calls
-/// `restoreIfAvailable` once at cold launch (only when local storage is
+/// `loadRestorableBackup` once at cold launch (only when local storage is
 /// still empty, so a legitimately empty first run is never clobbered) —
 /// a last-resort safety net for "I reinstalled the app / got a new
 /// phone and never made a manual backup."
@@ -72,29 +72,51 @@ enum CloudBackupService {
         let currentFingerprint = fingerprint(for: storageService)
         guard currentFingerprint != lastBackedUpFingerprint else { return }
         guard let containerURL = await resolveContainerDocumentsURL() else { return }
-        guard let data = try? BackupService.exportData(storageService: storageService) else { return }
-        try? FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
-        let fileURL = containerURL.appendingPathComponent(filename)
-        try? data.write(to: fileURL, options: .atomic)
+        guard let data = try? await BackupService.exportData(storageService: storageService) else { return }
+        await Task.detached(priority: .utility) {
+            try? FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+            try? data.write(to: containerURL.appendingPathComponent(filename), options: .atomic)
+        }.value
         lastBackedUpFingerprint = currentFingerprint
     }
 
-    /// Whether a real, non-empty snapshot exists — checked before
-    /// `restoreIfAvailable` actually applies anything, and before
-    /// `MainTabView` shows its "iCloud에서 복원됨" alert.
-    static func hasRestorableBackup() async -> Bool {
-        guard let containerURL = await resolveContainerDocumentsURL() else { return false }
+    /// The snapshot itself, decoded, or `nil` when there's nothing
+    /// restorable (no container, no file, undecodable, or an empty
+    /// backup). Returns the decoded payload rather than just a yes/no so
+    /// the caller can hand it straight to
+    /// `BackupService.restore(_:storageService:)` — this used to be a
+    /// `hasRestorableBackup()` bool that fully decoded the document (every
+    /// photo's base64 bytes included) only to check `boards.isEmpty`, and
+    /// then a separate `restoreIfAvailable` that read and decoded the exact
+    /// same document all over again, both at cold launch with the startup
+    /// intro screen held up behind them.
+    static func loadRestorableBackup() async -> BackupService.BackupData? {
+        guard let containerURL = await resolveContainerDocumentsURL() else { return nil }
         let fileURL = containerURL.appendingPathComponent(filename)
-        guard let data = try? Data(contentsOf: fileURL),
-              let decoded = try? BackupService.decode(data) else { return false }
-        return !decoded.boards.isEmpty
+        return await Task.detached(priority: .utility) { () -> BackupService.BackupData? in
+            // On a device that has never opened this file, iCloud keeps it
+            // as a metadata-only placeholder until something asks for the
+            // real bytes — `Data(contentsOf:)` alone just fails there. That
+            // is exactly the "new phone / reinstall" case this whole
+            // service exists for, so the download is requested and waited
+            // on rather than treated as "no backup".
+            if !FileManager.default.fileExists(atPath: fileURL.path) {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: fileURL)
+                for _ in 0..<Int(downloadWaitSeconds * 10) {
+                    if FileManager.default.fileExists(atPath: fileURL.path) { break }
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                }
+            }
+            guard let data = try? Data(contentsOf: fileURL),
+                  let decoded = try? BackupService.decode(data),
+                  !decoded.boards.isEmpty else { return nil }
+            return decoded
+        }.value
     }
 
-    @MainActor
-    static func restoreIfAvailable(storageService: StorageService) async {
-        guard let containerURL = await resolveContainerDocumentsURL() else { return }
-        let fileURL = containerURL.appendingPathComponent(filename)
-        guard let data = try? Data(contentsOf: fileURL) else { return }
-        try? BackupService.restore(from: data, storageService: storageService)
-    }
+    /// How long `loadRestorableBackup()` waits for iCloud to materialize a
+    /// placeholder file before giving up — long enough for a snapshot to
+    /// come down on a normal connection, short enough that a device with
+    /// no usable iCloud never holds the launch screen up for it.
+    private static let downloadWaitSeconds: TimeInterval = 10
 }

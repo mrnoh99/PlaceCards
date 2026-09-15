@@ -373,8 +373,25 @@ extension PlaceCard {
     /// Ported from Peragra's `Place.merge(with:context:)`, adapted to
     /// PlaceCards' own fields (photos are combined since PlaceCards models
     /// those on the card itself, unlike Peragra's `Place`).
+    /// Every field a duplicate might be the only holder of is covered here
+    /// — deliberately, and it needs to stay that way as fields are added.
+    /// A merge is irreversible (`FindDuplicatesSheet` removes the
+    /// duplicates immediately afterward) and the user is told their
+    /// information is being moved onto the surviving card, so any field
+    /// left out is silent, permanent loss of something they had. This
+    /// previously covered only about a third of the struct, dropping —
+    /// among others — `googlePlaceId`/`naverVerified` (so merging a
+    /// confirmed card into an unconfirmed one *unconfirmed* the place) and
+    /// `externalLinks` (which `FindDuplicatesSheet`'s own on-screen text
+    /// explicitly promises to move).
     mutating func merge(with duplicates: [PlaceCard]) {
         guard !duplicates.isEmpty else { return }
+
+        // Whether the *surviving* card brought any photo of its own, read
+        // before the merge loop below appends the duplicates' — decides
+        // whether a duplicate's explicit cover-photo pick is worth
+        // adopting further down.
+        let hadOwnMedia = !media.allItems.isEmpty
 
         if phone == nil { phone = duplicates.compactMap(\.phone).first }
         if website == nil { website = duplicates.compactMap(\.website).first }
@@ -382,8 +399,31 @@ extension PlaceCard {
         if category == nil { category = duplicates.compactMap(\.category).first }
         if rating == nil { rating = duplicates.compactMap(\.rating).first }
         if reviewCount == nil { reviewCount = duplicates.compactMap(\.reviewCount).first }
+        if myRating == nil { myRating = duplicates.compactMap(\.myRating).first }
+        if priceLevel == nil { priceLevel = duplicates.compactMap(\.priceLevel).first }
+        if wouldRevisit == nil { wouldRevisit = duplicates.compactMap(\.wouldRevisit).first }
+        if closingTime == nil { closingTime = duplicates.compactMap(\.closingTime).first }
+        if holidays == nil { holidays = duplicates.compactMap(\.holidays).first }
+        if reservationInfo == nil { reservationInfo = duplicates.compactMap(\.reservationInfo).first }
+        if recommendedMenu == nil { recommendedMenu = duplicates.compactMap(\.recommendedMenu).first }
+        if suggestedDuration == nil { suggestedDuration = duplicates.compactMap(\.suggestedDuration).first }
+        if admissionFee == nil { admissionFee = duplicates.compactMap(\.admissionFee).first }
+        if discoverySource == nil { discoverySource = duplicates.compactMap(\.discoverySource).first }
+        if hoursDetail?.isEmpty ?? true {
+            hoursDetail = duplicates.compactMap(\.hoursDetail).first { !$0.isEmpty }
+        }
         if memo?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
             memo = duplicates.compactMap(\.memo).first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        }
+
+        // "장소확정" survives a merge in either direction — a duplicate
+        // having been matched against a real Google/Naver listing is a
+        // fact about the place, not about which copy the user happened to
+        // keep, and re-confirming by hand afterward is work they already
+        // did once.
+        if googlePlaceId == nil { googlePlaceId = duplicates.compactMap(\.googlePlaceId).first }
+        if naverVerified != true, duplicates.contains(where: { $0.naverVerified == true }) {
+            naverVerified = true
         }
 
         if address.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -406,11 +446,36 @@ extension PlaceCard {
             for amenity in duplicate.amenities where !amenities.contains(amenity) {
                 amenities.append(amenity)
             }
+            for award in duplicate.awards where !awards.contains(award) {
+                awards.append(award)
+            }
+            for option in duplicate.dietaryOptions where !dietaryOptions.contains(option) {
+                dietaryOptions.append(option)
+            }
+            // Matched on the URL rather than the whole entry: `ExternalLink`
+            // mints a fresh `id` per instance, so two copies of the same
+            // link are never `==` even when they point at the identical page.
+            for link in duplicate.externalLinks where !externalLinks.contains(where: { $0.url == link.url }) {
+                externalLinks.append(link)
+            }
+            for date in duplicate.visitDates where !visitDates.contains(date) {
+                visitDates.append(date)
+            }
             media.mapScreenshots.append(contentsOf: duplicate.media.mapScreenshots)
             media.officialPhotos.append(contentsOf: duplicate.media.officialPhotos)
             media.onsitePhotos.append(contentsOf: duplicate.media.onsitePhotos)
             media.receivedPhotos.append(contentsOf: duplicate.media.receivedPhotos)
             sources.append(contentsOf: duplicate.sources)
+        }
+
+        visitDates.sort()
+
+        // Only when the surviving card had no photo of its own to pick
+        // from — otherwise its own `coverPhoto` fallback already resolves
+        // to one of its own photos, which is the more likely intent than
+        // promoting a merged-in card's pick to represent the result.
+        if coverPhotoID == nil, !hadOwnMedia {
+            coverPhotoID = duplicates.compactMap(\.coverPhotoID).first
         }
     }
 }

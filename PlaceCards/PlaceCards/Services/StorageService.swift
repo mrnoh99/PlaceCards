@@ -10,6 +10,12 @@ final class StorageService: ObservableObject {
     @Published private(set) var boards: [Board] = []
     @Published private(set) var placeCards: [PlaceCard] = []
 
+    /// Set when a file on disk existed but could not be decoded — see
+    /// `decodeOrQuarantine`. Surfaced by `MainTabView` as an alert: silently
+    /// starting empty is the one outcome this must never have, since the
+    /// very next `save()` would persist that empty state over everything.
+    @Published private(set) var loadFailureMessage: String?
+
     private let boardsFileURL: URL
     private let placeCardsFileURL: URL
 
@@ -19,6 +25,10 @@ final class StorageService: ObservableObject {
         placeCardsFileURL = directory.appendingPathComponent(placeCardsFileName)
         loadBoards()
         loadPlaceCards()
+    }
+
+    func acknowledgeLoadFailure() {
+        loadFailureMessage = nil
     }
 
     // MARK: - Boards
@@ -113,11 +123,37 @@ final class StorageService: ObservableObject {
 
     private func loadBoards() {
         guard let data = try? Data(contentsOf: boardsFileURL) else { return }
+        guard let decoded = decodeOrQuarantine([Board].self, from: data, at: boardsFileURL) else { return }
+        boards = decoded
+    }
+
+    /// Decodes a storage file, or — when the file exists but won't decode —
+    /// moves it aside and reports it, rather than the old `try?` that left
+    /// the in-memory array empty and carried on. That silence was the
+    /// dangerous part: an empty array is indistinguishable from a genuine
+    /// first run, so the very next `save()` would `persist…()` it straight
+    /// over a file whose data was still perfectly intact — one unreadable
+    /// field turning into total, unrecoverable loss. Keeping the original
+    /// bytes under a timestamped name means the data is still there to
+    /// recover from, and leaving `loadFailureMessage` set means the user
+    /// finds out now (`MainTabView`'s alert) instead of discovering an
+    /// empty library on their own. `SourceType.unsplashSearch`'s own doc
+    /// comment describes exactly this failure mode.
+    private func decodeOrQuarantine<T: Decodable>(_ type: T.Type, from data: Data, at url: URL) -> T? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        if let decoded = try? decoder.decode([Board].self, from: data) {
-            boards = decoded
-        }
+        if let decoded = try? decoder.decode(type, from: data) { return decoded }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        let quarantineURL = url
+            .deletingLastPathComponent()
+            .appendingPathComponent("\(url.deletingPathExtension().lastPathComponent)-corrupt-\(formatter.string(from: Date())).json")
+        try? FileManager.default.moveItem(at: url, to: quarantineURL)
+        loadFailureMessage = "저장된 데이터 일부를 읽지 못했습니다. 원본 파일은 \"".localized
+            + quarantineURL.lastPathComponent
+            + "\"(으)로 보관해 두었으니 덮어쓰지 않았습니다. 백업에서 복원하거나 지원에 문의해주세요.".localized
+        return nil
     }
 
     private func persistBoards() {
@@ -128,20 +164,34 @@ final class StorageService: ObservableObject {
     }
 
     /// Every loaded card is re-sanitized for invisible Unicode format
-    /// characters (`PlaceCard.strippingInvisibleFormatCharacters()`) and
-    /// the cleaned result written straight back — a no-op re-write for a
-    /// card that was already clean, but the only way an already-saved
-    /// card that predates that stripping (or came through a source path
-    /// that missed a field) ever actually gets fixed, since nothing else
-    /// re-touches a card's text once it's saved.
+    /// characters (`PlaceCard.strippingInvisibleFormatCharacters()`) — the
+    /// only way an already-saved card that predates that stripping (or
+    /// came through a source path that missed a field) ever actually gets
+    /// fixed, since nothing else re-touches a card's text once it's saved.
+    ///
+    /// The cleaned result is only written back when there was actually
+    /// something to clean. This used to re-encode and re-write the entire
+    /// library on every single launch, including the overwhelmingly common
+    /// case where nothing changed at all — pure launch-time cost for a
+    /// byte-identical file. Whether anything needs stripping is decided by
+    /// scanning the raw JSON for a format-category scalar, which is far
+    /// cheaper than the encode it avoids (and `PlaceCard: Equatable`
+    /// compares ids only, so comparing the cards themselves would never
+    /// have detected it).
     private func loadPlaceCards() {
         guard let data = try? Data(contentsOf: placeCardsFileURL) else { return }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        if let decoded = try? decoder.decode([PlaceCard].self, from: data) {
-            placeCards = decoded.map { $0.strippingInvisibleFormatCharacters() }
-            persistPlaceCards()
+        guard let decoded = decodeOrQuarantine([PlaceCard].self, from: data, at: placeCardsFileURL) else { return }
+        guard Self.containsInvisibleFormatCharacters(data) else {
+            placeCards = decoded
+            return
         }
+        placeCards = decoded.map { $0.strippingInvisibleFormatCharacters() }
+        persistPlaceCards()
+    }
+
+    private static func containsInvisibleFormatCharacters(_ data: Data) -> Bool {
+        guard let text = String(data: data, encoding: .utf8) else { return false }
+        return text.unicodeScalars.contains { $0.properties.generalCategory == .format }
     }
 
     private func persistPlaceCards() {

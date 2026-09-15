@@ -307,7 +307,7 @@ private struct ExportBoardMenu: View {
     var body: some View {
         Menu {
             Button {
-                copyAsText()
+                Task { await copyAsText() }
             } label: {
                 Label("텍스트로 복사".localized, systemImage: "doc.on.doc")
             }
@@ -320,19 +320,19 @@ private struct ExportBoardMenu: View {
             Label("내보내기".localized, systemImage: "square.and.arrow.up")
         }
         .tint(.blue)
-        .task { prepareFile() }
+        .task { await prepareFile() }
     }
 
-    private func prepareFile() {
-        guard let data = try? BackupService.exportBoard(board, storageService: storageService) else { return }
+    private func prepareFile() async {
+        guard let data = try? await BackupService.exportBoard(board, storageService: storageService) else { return }
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(BackupService.boardFilename(for: board))
         try? data.write(to: url, options: .atomic)
         exportFileURL = url
     }
 
-    private func copyAsText() {
-        guard let data = try? BackupService.exportBoard(board, storageService: storageService),
+    private func copyAsText() async {
+        guard let data = try? await BackupService.exportBoard(board, storageService: storageService),
               let text = String(data: data, encoding: .utf8) else { return }
         UIPasteboard.general.string = text
     }
