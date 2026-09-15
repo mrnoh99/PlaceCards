@@ -249,7 +249,7 @@ struct MapLinkImportSheet: View {
             card.hoursDetail = hoursDetail
             filledFields.append("영업시간".localized)
         }
-        if card.media.allItems.isEmpty, let photoName = match.photoName,
+        if !card.media.hasNonScreenshotPhoto, let photoName = match.photoName,
            let photoData = try? await googleService.photoData(photoName: photoName),
            let fileName = try? MediaStore.saveImage(data: photoData) {
             card.media.officialPhotos.append(MediaItem(localPath: fileName, source: .googleDirectLookup))
