@@ -162,9 +162,9 @@ struct SharedLinkBoardPickerSheet: View {
                 Text("공유한 목록".localized)
             } footer: {
                 // Google's own "N places" count is the only way to tell
-                // that the list thumbnail this was read out of didn't
-                // carry a pin for every entry — never silently import a
-                // subset as if it were the whole list.
+                // that the share didn't carry every entry — a subset is
+                // fine to import, but never silently: without this the
+                // missing places would just quietly not exist.
                 if !list.isComplete {
                     Text(partialImportNotice(list))
                 }
@@ -199,6 +199,15 @@ struct SharedLinkBoardPickerSheet: View {
         }
     }
 
+    /// States the limit and stops there — it doesn't ask the user to go
+    /// chase the remainder. What a shared list hands over is what gets
+    /// imported; the places Google leaves out of the share simply aren't
+    /// recoverable from it (see `GoogleMapsListParser`), so turning that
+    /// into a chore for the user would be worse than saying so plainly.
+    /// The cap is Google's and measured at 20, but the number is taken
+    /// from what actually arrived rather than written into the sentence,
+    /// so this stays true if that ever changes.
+    ///
     /// Built in separate statements rather than one `+` chain inside the
     /// view body — the type checker gives up on a chain this long there
     /// ("unable to type-check this expression in reasonable time"), which
@@ -207,9 +216,9 @@ struct SharedLinkBoardPickerSheet: View {
     private func partialImportNotice(_ list: SharedPlaceList) -> String {
         let stated = "\(list.statedCount ?? list.places.count)"
         let recovered = "\(list.places.count)"
-        let prefix = "이 목록의 ".localized
-        let middle = "개 장소 중 ".localized
-        let suffix = "개만 가져올 수 있었습니다. 나머지는 목록을 캡처해서 사진으로 추가해주세요.".localized
+        let prefix = "이 목록 ".localized
+        let middle = "개 중 ".localized
+        let suffix = "개를 가져옵니다. 구글이 공유 링크에 담아 보내는 최대 개수입니다.".localized
         return prefix + stated + middle + recovered + suffix
     }
 
