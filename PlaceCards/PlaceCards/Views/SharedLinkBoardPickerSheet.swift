@@ -166,9 +166,7 @@ struct SharedLinkBoardPickerSheet: View {
                 // carry a pin for every entry — never silently import a
                 // subset as if it were the whole list.
                 if !list.isComplete {
-                    Text("이 목록의 ".localized + "\(list.statedCount ?? list.places.count)"
-                        + "개 장소 중 ".localized + "\(list.places.count)"
-                        + "개만 가져올 수 있었습니다. 나머지는 목록을 캡처해서 사진으로 추가해주세요.".localized)
+                    Text(partialImportNotice(list))
                 }
             }
 
@@ -176,7 +174,7 @@ struct SharedLinkBoardPickerSheet: View {
                 TextField("게시판 이름".localized, text: $listBoardName)
             }
 
-            Section("가져올 장소 (".localized + "\(list.places.count)" + "개)".localized) {
+            Section(placesSectionTitle(list)) {
                 ForEach(list.places) { place in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(place.name)
@@ -199,6 +197,27 @@ struct SharedLinkBoardPickerSheet: View {
                 Text("가져온 장소는 Google에서 하나씩 확인해 평점·연락처·영업시간·사진까지 채웁니다. 장소 수만큼 본인의 Google Places API 키가 사용됩니다.".localized)
             }
         }
+    }
+
+    /// Built in separate statements rather than one `+` chain inside the
+    /// view body — the type checker gives up on a chain this long there
+    /// ("unable to type-check this expression in reasonable time"), which
+    /// is the same reason `MapScreenshotImportSheet.nameChangeAlertMessage`
+    /// exists as its own property.
+    private func partialImportNotice(_ list: SharedPlaceList) -> String {
+        let stated = "\(list.statedCount ?? list.places.count)"
+        let recovered = "\(list.places.count)"
+        let prefix = "이 목록의 ".localized
+        let middle = "개 장소 중 ".localized
+        let suffix = "개만 가져올 수 있었습니다. 나머지는 목록을 캡처해서 사진으로 추가해주세요.".localized
+        return prefix + stated + middle + recovered + suffix
+    }
+
+    private func placesSectionTitle(_ list: SharedPlaceList) -> String {
+        let prefix = "가져올 장소 (".localized
+        let count = "\(list.places.count)"
+        let suffix = "개)".localized
+        return prefix + count + suffix
     }
 
     /// Creates the board, then hands the list to `AddPlaceCardView` — which
