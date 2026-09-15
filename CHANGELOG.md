@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### 2026-09-15 (169차) — 권한이 있는데도 "현재 위치를 가져오지 못했습니다"가 뜨던 버그 수정
+사용자 제보: "거리별 정렬 from here 를 선택하면 나타난다. 사용중 위치
+정보 확인 중인데…" — 설정에서 위치 권한이 "사용하는 동안"으로 켜져
+있는데도 실패 얼럿이 뜸.
+#### Fixed
+- `Services/LocationService.swift`: **`requestLocation()`이 한 번의
+  fetch에서 두 번 호출**되던 것이 원인. iOS 14부터 delegate를 지정하는
+  순간 `locationManagerDidChangeAuthorization`이 이미 가진 상태를
+  알리려 즉시 호출되는데, 이 코드는 `fetch()`에서 한 번, 그 콜백에서
+  또 한 번 요청했음. `requestLocation()`은 진행 중인 요청이 있으면 그걸
+  취소하고 **취소된 쪽을 `didFailWithError`로 보고**하는데, 그 실패가
+  곧바로 전체 fetch를 `nil`로 끝내버렸음 — 타임아웃도 기다리지 않고
+  즉시, 권한과 신호가 멀쩡해도 실패한 이유. 요청을 fetch당 정확히 한
+  번만 보내도록 가드 추가.
+#### Changed
+- `Services/LocationService.swift`: 답을 내놓는 것을 우선하도록 조정 —
+  5분 이내의 캐시된 위치가 있으면 즉시 사용(장소를 거리순으로 나열하는
+  데는 갓 잡은 미터 단위 정확도가 필요 없음), 실패·타임아웃 시에는
+  오래된 캐시라도 사용, `desiredAccuracy`를 기본값
+  `kCLLocationAccuracyBest`에서 `kCLLocationAccuracyHundredMeters`로
+  낮춤(실내 LTE에서 best는 기다릴 수 없을 만큼 오래 걸리고 이 용도엔
+  의미 없음), 타임아웃 8초 → 10초. 이제 `nil`이 나오는 경우는 권한이
+  실제로 거부됐거나 기기가 한 번도 위치를 잡은 적 없을 때뿐.
+
 ### 2026-09-15 (168차) — 빌드 번호 2로 올림
 사용자 요청: "build 2 로 올려라".
 #### Changed

@@ -16,11 +16,30 @@ import CoreLocation
 /// guidance is main-thread) — off that thread its delegate callbacks can
 /// simply never fire, which silently produced exactly this bug: "현재
 /// 위치" never resolves a coordinate, distance never shows, and the
-/// 8-second timeout is all that ever ends the wait.
+/// timeout is all that ever ends the wait.
+///
+/// Answering at all is treated as the goal: a cached position is preferred
+/// to making the user wait, a stale one is preferred to failing, and only
+/// a genuinely denied permission or a device that has never had a fix
+/// produces `nil`. "현재 위치를 가져오지 못했습니다" should be a rarity,
+/// not the normal outcome of tapping "기준: 현재 위치".
 @MainActor
 final class LocationService: NSObject, CLLocationManagerDelegate {
+    /// How old a cached fix may be and still answer "현재 위치". Sorting
+    /// saved places by distance does not need a metre-accurate, just-taken
+    /// fix — a position from the last few minutes orders a list of
+    /// restaurants identically — so a cached one is preferred over making
+    /// the user wait for the radio.
+    private static let cachedLocationMaxAge: TimeInterval = 5 * 60
+    /// Generous enough to cover a cold GPS fix indoors, and only ever
+    /// reached when there is no cached fix to fall back on.
+    private static let fetchTimeout: TimeInterval = 10
+
     private let manager = CLLocationManager()
     private var continuation: CheckedContinuation<Coordinates?, Never>?
+    /// `requestLocation()` must be issued exactly once per fetch — see
+    /// `requestLocationOnce()`.
+    private var hasRequestedLocation = false
 
     static func currentLocation() async -> Coordinates? {
         let service = LocationService()
@@ -43,6 +62,11 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     private func fetch() async -> Coordinates? {
         await withCheckedContinuation { continuation in
             self.continuation = continuation
+            // The default is `kCLLocationAccuracyBest`, which indoors on
+            // cellular can take far longer than anyone will wait — and
+            // buys nothing here, since this only ever orders saved places
+            // by how far away they are.
+            manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
             manager.delegate = self
             switch manager.authorizationStatus {
             case .notDetermined:
@@ -59,12 +83,45 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
                 // nil, so it was silently dropped every time.
                 manager.requestWhenInUseAuthorization()
             case .authorizedWhenInUse, .authorizedAlways:
-                manager.requestLocation()
-                startTimeout()
+                requestLocationOnce()
             default:
                 finish(with: nil)
             }
         }
+    }
+
+    /// Issues the one-shot fix, at most once per fetch, after first taking
+    /// any recent cached position instead.
+    ///
+    /// The guard is the fix for "권한이 있는데도 현재 위치를 가져오지
+    /// 못했습니다": since iOS 14 `locationManagerDidChangeAuthorization` is
+    /// called *immediately* when a delegate is assigned, to report the
+    /// status the manager already has. So an already-authorized fetch
+    /// asked for a location twice — once here, once from that callback —
+    /// and `requestLocation()` cancels any request already in flight and
+    /// reports the cancelled one through `didFailWithError`. That failure
+    /// then ended the whole fetch with `nil` almost instantly, which is
+    /// why this failed immediately rather than after the timeout, and why
+    /// it failed even with permission granted and a good signal.
+    private func requestLocationOnce() {
+        guard !hasRequestedLocation else { return }
+        hasRequestedLocation = true
+
+        if let cached = manager.location,
+           -cached.timestamp.timeIntervalSinceNow <= Self.cachedLocationMaxAge {
+            finish(with: cached.coordinates)
+            return
+        }
+        manager.requestLocation()
+        startTimeout()
+    }
+
+    /// Whatever position the system still has, however old — worth
+    /// answering with when the alternative is telling the user their
+    /// location is simply unavailable. Only consulted once a live fix has
+    /// already failed or timed out.
+    private var staleCachedCoordinates: Coordinates? {
+        manager.location?.coordinates
     }
 
     /// A denied/restricted authorization never calls back, and even an
@@ -73,16 +130,16 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     /// started once a location fix has actually been requested, not
     /// while still waiting on the permission dialog.
     private func startTimeout() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
-            self?.finish(with: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.fetchTimeout) { [weak self] in
+            guard let self else { return }
+            finish(with: staleCachedCoordinates)
         }
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
-            manager.requestLocation()
-            startTimeout()
+            requestLocationOnce()
         case .denied, .restricted:
             finish(with: nil)
         default:
@@ -92,18 +149,29 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.first else {
-            finish(with: nil)
+            finish(with: staleCachedCoordinates)
             return
         }
-        finish(with: Coordinates(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude))
+        finish(with: location.coordinates)
     }
 
+    /// A one-shot request that couldn't produce a fresh fix isn't the same
+    /// as having no idea where the device is — `CLError.locationUnknown`
+    /// in particular means "not yet", not "never". Falls back to whatever
+    /// position the system still holds rather than reporting failure while
+    /// a perfectly usable one sits there.
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        finish(with: nil)
+        finish(with: staleCachedCoordinates)
     }
 
     private func finish(with coordinate: Coordinates?) {
         continuation?.resume(returning: coordinate)
         continuation = nil
+    }
+}
+
+private extension CLLocation {
+    var coordinates: Coordinates {
+        Coordinates(latitude: coordinate.latitude, longitude: coordinate.longitude)
     }
 }
