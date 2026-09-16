@@ -53,6 +53,7 @@ struct SettingsView: View {
                 backupSection
                 autoBackupSection
                 infoSection
+                creditFooter
             }
             .scrollDismissesKeyboard(.interactively)
             .keyboardDoneButton()
@@ -394,6 +395,31 @@ struct SettingsView: View {
             allowedContentTypes: [.folder],
             onCompletion: handleBackupFolderPicked
         )
+    }
+
+    /// The build's own credit line, at the very bottom of the last screen
+    /// — the conventional place for one, and the only screen a person
+    /// goes looking for a version number.
+    @ViewBuilder
+    private var creditFooter: some View {
+        Section {
+            Text(Self.creditLine)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+    }
+
+    /// Read from the bundle rather than written out here, so the numbers
+    /// can never drift from the build they are printed on. Not localized:
+    /// a name and two version numbers read the same in either language.
+    private static var creditLine: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "-"
+        let build = info?["CFBundleVersion"] as? String ?? "-"
+        return "Developed by JaiSung NOH MD 2026, Ver(\(version)) Build(\(build))"
     }
 
     @ViewBuilder

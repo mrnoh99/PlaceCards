@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### 2026-09-16 (181차) — 설정 하단 크레딧 줄
+사용자 요청: "화면 아래에 매우 작을 글씨로 credit 넣어라 Developed by
+JaiSung NOH MD 2026, Ver() Build()".
+#### Added
+- `Views/SettingsView.swift`: 설정 화면 맨 아래에 크레딧 한 줄을
+  `caption2`·연한 회색·가운데 정렬로 추가함. 버전과 빌드는 하드코딩하지
+  않고 번들에서 읽음(`CFBundleShortVersionString`,
+  `CFBundleVersion`) — 적어둔 숫자가 실제 빌드와 어긋날 일이 없게 함.
+  현재 표시: `Developed by JaiSung NOH MD 2026, Ver(1.0) Build(4)`.
+  이름과 숫자뿐이라 번역 대상에서 제외함.
 ### 2026-09-16 (180차) — CSV 내보내기
 기획 3.3(Export 상세 정의: JSON/CSV) 미구현 항목 → 사용자 요청
 "a 항목을 진행해라".
