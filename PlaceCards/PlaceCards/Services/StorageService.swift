@@ -19,6 +19,16 @@ final class StorageService: ObservableObject {
     private let boardsFileURL: URL
     private let placeCardsFileURL: URL
 
+    /// Does the encoding and the file write, off this main actor — see
+    /// `LibraryFileWriter`.
+    private let writer = LibraryFileWriter()
+    /// Handed to the writer with every snapshot so it can tell a stale one
+    /// from a current one. `Task { }` gives no ordering guarantee between
+    /// two tasks created back to back, so without this an older snapshot
+    /// could reach the writer after a newer one and overwrite it.
+    private var boardsGeneration = 0
+    private var placeCardsGeneration = 0
+
     init(boardsFileName: String = "boards.json", placeCardsFileName: String = "placecards.json") {
         let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         boardsFileURL = directory.appendingPathComponent(boardsFileName)
@@ -108,8 +118,22 @@ final class StorageService: ObservableObject {
         }
         boards = newBoards
         placeCards = newPlaceCards
-        persistBoards()
-        persistPlaceCards()
+        // Written straight through rather than queued. Restoring a backup
+        // is rare, user-initiated and high-stakes — the one write worth
+        // blocking on, since losing it would mean the user watched a
+        // restore succeed and then found their library unchanged.
+        persistNow()
+    }
+
+    /// Writes both files immediately, on this actor, bypassing the queue.
+    /// Used for a backup restore (above) and when the app leaves the
+    /// foreground: a queued write is the one that might not get to run
+    /// before the process is suspended or killed, and the in-memory arrays
+    /// are already the newest state, so nothing is needed from the queue
+    /// to write them.
+    func persistNow() {
+        encodeAndWriteJSON(boards, to: boardsFileURL)
+        encodeAndWriteJSON(placeCards, to: placeCardsFileURL)
     }
 
     func search(query: String, tags: [String] = []) -> [PlaceCard] {
@@ -157,10 +181,11 @@ final class StorageService: ObservableObject {
     }
 
     private func persistBoards() {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(boards) else { return }
-        try? data.write(to: boardsFileURL, options: .atomic)
+        boardsGeneration += 1
+        let generation = boardsGeneration
+        let snapshot = boards
+        let url = boardsFileURL
+        Task { await writer.writeBoards(snapshot, generation: generation, to: url) }
     }
 
     /// Every loaded card is re-sanitized for invisible Unicode format
@@ -195,9 +220,55 @@ final class StorageService: ObservableObject {
     }
 
     private func persistPlaceCards() {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(placeCards) else { return }
-        try? data.write(to: placeCardsFileURL, options: .atomic)
+        placeCardsGeneration += 1
+        let generation = placeCardsGeneration
+        let snapshot = placeCards
+        let url = placeCardsFileURL
+        Task { await writer.writePlaceCards(snapshot, generation: generation, to: url) }
+    }
+}
+
+/// Encoding and writing one storage file. Kept at file scope so both the
+/// background writer and `StorageService.persistNow()` can call it without
+/// either having to reach into the other's isolation.
+private func encodeAndWriteJSON<Value: Encodable>(_ value: Value, to url: URL) {
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    guard let data = try? encoder.encode(value) else { return }
+    try? data.write(to: url, options: .atomic)
+}
+
+/// Where a save actually hits the disk, away from the main actor.
+///
+/// A save used to encode the *entire* library and rewrite the whole file
+/// synchronously, on the main actor, and `save(_:)` is called from 29
+/// places — ten of them in the detail screen alone, on things as ordinary
+/// as toggling "✓ 방문". With a thousand cards of forty-odd fields each
+/// that is a megabyte or more of JSON encoded on the main thread for one
+/// tap, and a twenty-five card import did the whole thing twenty-five
+/// times over. None of that work belongs on the thread drawing the UI.
+///
+/// Being an actor also serializes the writes, so two saves can never be
+/// interleaved mid-file. What it deliberately does not do is delay
+/// anything: there is no debounce window during which a termination would
+/// lose the last edit. Instead each snapshot carries a generation, and one
+/// that arrives after a newer one has already been written is dropped —
+/// which keeps the file correct under `Task`'s unordered scheduling and,
+/// as a side effect, skips the encode entirely for snapshots a burst has
+/// already superseded.
+private actor LibraryFileWriter {
+    private var newestBoardsGeneration = 0
+    private var newestPlaceCardsGeneration = 0
+
+    func writeBoards(_ boards: [Board], generation: Int, to url: URL) {
+        guard generation > newestBoardsGeneration else { return }
+        newestBoardsGeneration = generation
+        encodeAndWriteJSON(boards, to: url)
+    }
+
+    func writePlaceCards(_ placeCards: [PlaceCard], generation: Int, to url: URL) {
+        guard generation > newestPlaceCardsGeneration else { return }
+        newestPlaceCardsGeneration = generation
+        encodeAndWriteJSON(placeCards, to: url)
     }
 }
