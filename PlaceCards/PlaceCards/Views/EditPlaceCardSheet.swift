@@ -1526,6 +1526,9 @@ struct EditPlaceCardSheet: View {
 }
 
 #Preview {
-    EditPlaceCardSheet(card: PlaceCard(boardId: "preview", name: "샘플 카페".localized, address: "서울시 강남구".localized)) { _ in }
-        .environmentObject(StorageService())
+    EditPlaceCardSheet(
+        card: PlaceCard(boardId: "preview", name: "샘플 카페".localized, address: "서울시 강남구".localized),
+        onSave: { _ in }
+    )
+    .environmentObject(StorageService())
 }
