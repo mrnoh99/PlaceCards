@@ -96,7 +96,7 @@ enum Localization {
         "\"(으)로 보이는데, 현재 이름 \"": "\", but the current name is \"",
         "\"과 다릅니다. 이름을 바꿀까요?": "\". Change the name?",
         "\"을 삭제할까요?": "\"?",
-        "\"지도\" 탭에서 Naver 지도를 선택했을 때만 사용됩니다. NAVER Cloud Platform Maps 애플리케이션의 Client ID이며, Secret은 필요 없습니다.": "Only used when Naver Maps is selected in the \"Map\" tab. This is the Client ID of a NAVER Cloud Platform Maps application — no Secret is needed.",
+        "\"지도\" 탭에서 Naver 지도를 선택했을 때만 사용됩니다. NAVER Cloud Platform Maps 애플리케이션의 Client ID이며, Secret은 필요 없습니다. 지도가 뜨는 페이지는 이 앱이 아니라 mrnoh99.github.io에서 불러오므로, 콘솔의 해당 Application 설정에서 Web 서비스 URL에 반드시 \"mrnoh99.github.io\"를 등록해야 합니다 — 등록하지 않으면 Client ID는 통과해도 지도 타일이 전부 실패합니다.": "Only used when Naver Maps is selected in the \"Map\" tab. This is the Client ID of a NAVER Cloud Platform Maps application — no Secret is needed. The map page itself is loaded from mrnoh99.github.io rather than from this app, so you must register \"mrnoh99.github.io\" as the Web Service URL in that Application's console settings — without it, the Client ID will validate but every map tile will still fail to load.",
         "\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, AI로 읽어 비어 있는 이름·주소를 채웁니다.": "This card was recently opened via \"Open in Map\". The photo you just shared will be added to it, and AI will read it to fill in a blank name/address.",
         "\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 지도 링크의 정보(이름·주소·좌표)를 이 카드에 채웁니다.": "This card was recently opened via \"Open in Map\". Info from the map link you just shared (name, address, coordinates) will be filled into it.",
         "(키 없음)": "(no key)",
