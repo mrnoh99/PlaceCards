@@ -50,24 +50,24 @@ enum SharedImportStore {
 
     /// Written by the Share Extension at every branch of its handling
     /// (found/not found, load error, unreadable data, success) — since the
-    /// extension has no visible console once installed on-device, this is
-    /// the only way to see *why* a share didn't produce a pending image
-    /// (as opposed to `isAppGroupAvailable`, which only says whether the
-    /// container itself resolves). Read-only from the app side via
-    /// `lastDebugStatus()`; not cleared automatically so it always shows
-    /// the most recent share attempt, successful or not.
+    /// extension has no visible console once installed on-device, this
+    /// file is the only way to see *why* a share didn't produce a pending
+    /// image (as opposed to `isAppGroupAvailable`, which only says whether
+    /// the container itself resolves). Overwritten each time, so it always
+    /// holds the most recent attempt, successful or not.
+    ///
+    /// Read out of band — the App Group container, via Xcode's device
+    /// container download or the Files app — rather than from anywhere in
+    /// the app. Settings used to print it as a "마지막 공유 시도" row,
+    /// which showed an end user a developer's log line they had no use
+    /// for; this is a diagnostic for whoever is debugging the extension,
+    /// and that person has the container.
     static func recordDebugStatus(_ message: String) {
         guard let url = containerURL?.appendingPathComponent(debugStatusFileName) else { return }
         let formatter = DateFormatter()
         formatter.dateFormat = "MM/dd HH:mm:ss"
         let stamped = "\(formatter.string(from: Date())) — \(message)"
         try? stamped.data(using: .utf8)?.write(to: url, options: .atomic)
-    }
-
-    static func lastDebugStatus() -> String? {
-        guard let url = containerURL?.appendingPathComponent(debugStatusFileName),
-              let data = try? Data(contentsOf: url) else { return nil }
-        return String(data: data, encoding: .utf8)
     }
 
     /// Called by the Share Extension when the shared item is a link or

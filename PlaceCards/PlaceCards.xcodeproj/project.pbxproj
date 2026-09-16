@@ -71,6 +71,10 @@
 		00A104C99F70F9113A78C329 /* OpeningHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6C /* OpeningHours.swift */; };
 		D3A70C5182E491B60F27AD14 /* TakeoutImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E15B82D4C037FA9D8E1620B /* TakeoutImport.swift */; };
 		5C81D4A70E23B96F4A1D7C28 /* CSVExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E349F16D08C2A5913FE04B /* CSVExport.swift */; };
+		A1U5C0UNT3R0001BU11DF1LE /* APIUsageCounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1U5C0UNT3R0001F113R3F00 /* APIUsageCounter.swift */; };
+		13GA1D0C5000002BU11DF1LE /* LegalDocuments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13GA1D0C5000002F113R3F00 /* LegalDocuments.swift */; };
+		13GA1D0CV13W03BU11DF1LE0 /* LegalDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13GA1D0CV13W03F113R3F000 /* LegalDocumentView.swift */; };
+		53771NG5D3TA11V4BU11DF11 /* SettingsDetailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53771NG5D3TA11V4F113R3F0 /* SettingsDetailViews.swift */; };
 		9E2C7A4B1D6F88034C51A0D7 /* ScreenshotPlaceScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F8D61C25A9B47E0B2D4188C /* ScreenshotPlaceScanner.swift */; };
 		00A104C99F70F9113A78C328 /* GoogleMapsListParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6B /* GoogleMapsListParser.swift */; };
 		0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */; };
@@ -147,6 +151,10 @@
 		74B4C3C6D38A815385431E6C /* OpeningHours.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpeningHours.swift; sourceTree = "<group>"; };
 		6E15B82D4C037FA9D8E1620B /* TakeoutImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TakeoutImport.swift; sourceTree = "<group>"; };
 		B7E349F16D08C2A5913FE04B /* CSVExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVExport.swift; sourceTree = "<group>"; };
+		A1U5C0UNT3R0001F113R3F00 /* APIUsageCounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIUsageCounter.swift; sourceTree = "<group>"; };
+		13GA1D0C5000002F113R3F00 /* LegalDocuments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalDocuments.swift; sourceTree = "<group>"; };
+		13GA1D0CV13W03F113R3F000 /* LegalDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalDocumentView.swift; sourceTree = "<group>"; };
+		53771NG5D3TA11V4F113R3F0 /* SettingsDetailViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsDetailViews.swift; sourceTree = "<group>"; };
 		3F8D61C25A9B47E0B2D4188C /* ScreenshotPlaceScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotPlaceScanner.swift; sourceTree = "<group>"; };
 		74B4C3C6D38A815385431E6B /* GoogleMapsListParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleMapsListParser.swift; sourceTree = "<group>"; };
 		4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapScreenshotImportSheet.swift; sourceTree = "<group>"; };
@@ -258,6 +266,8 @@
 				74B4C3C6D38A815385431E6C /* OpeningHours.swift */,
 				6E15B82D4C037FA9D8E1620B /* TakeoutImport.swift */,
 				B7E349F16D08C2A5913FE04B /* CSVExport.swift */,
+				A1U5C0UNT3R0001F113R3F00 /* APIUsageCounter.swift */,
+				13GA1D0C5000002F113R3F00 /* LegalDocuments.swift */,
 				3F8D61C25A9B47E0B2D4188C /* ScreenshotPlaceScanner.swift */,
 				74B4C3C6D38A815385431E6B /* GoogleMapsListParser.swift */,
 				726A7E627D6573ABD7C7C9D7 /* BackupService.swift */,
@@ -292,6 +302,8 @@
 				0C52B78DCED0AEF583183D0C /* PlaceStatusFilterBar.swift */,
 				D94DFE07EC36E69E89F46838 /* PlacesMapView.swift */,
 				D653EFB11B5C301823C1537D /* SettingsView.swift */,
+				13GA1D0CV13W03F113R3F000 /* LegalDocumentView.swift */,
+				53771NG5D3TA11V4F113R3F0 /* SettingsDetailViews.swift */,
 				BEB68110D01336958AFF00A2 /* AddPlaceCardView.swift */,
 				28732237551808CD8B7EE6F7 /* PlaceCardDetailView.swift */,
 				5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */,
@@ -489,6 +501,10 @@
 				00A104C99F70F9113A78C329 /* OpeningHours.swift in Sources */,
 				D3A70C5182E491B60F27AD14 /* TakeoutImport.swift in Sources */,
 				5C81D4A70E23B96F4A1D7C28 /* CSVExport.swift in Sources */,
+				A1U5C0UNT3R0001BU11DF1LE /* APIUsageCounter.swift in Sources */,
+				13GA1D0C5000002BU11DF1LE /* LegalDocuments.swift in Sources */,
+				13GA1D0CV13W03BU11DF1LE0 /* LegalDocumentView.swift in Sources */,
+				53771NG5D3TA11V4BU11DF11 /* SettingsDetailViews.swift in Sources */,
 				9E2C7A4B1D6F88034C51A0D7 /* ScreenshotPlaceScanner.swift in Sources */,
 				00A104C99F70F9113A78C328 /* GoogleMapsListParser.swift in Sources */,
 				0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */,

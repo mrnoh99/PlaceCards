@@ -186,6 +186,7 @@ final class GooglePlacesService: PlaceSearchService {
         )
         let (data, response) = try await session.data(for: request)
         try Self.validate(response: response, data: data)
+        APIUsageCounter.record(.googleTextSearch)
 
         let decoded = try JSONDecoder().decode(GooglePlacesSearchResponse.self, from: data)
         return (decoded.places ?? []).map { $0.toSearchResult() }
@@ -212,6 +213,11 @@ final class GooglePlacesService: PlaceSearchService {
         )
         let (data, response) = try await session.data(for: request)
         try Self.validate(response: response, data: data)
+        // Counted as a search, not a kind of its own: Google bills and
+        // quotas a geocode as the same `SearchTextRequest` method, so
+        // splitting them here would make the number stop matching the
+        // quota the user actually set.
+        APIUsageCounter.record(.googleTextSearch)
 
         let decoded = try JSONDecoder().decode(GeocodeResponse.self, from: data)
         guard let location = decoded.places?.first?.location else { return nil }
@@ -235,6 +241,7 @@ final class GooglePlacesService: PlaceSearchService {
 
         let (data, response) = try await session.data(for: request)
         try Self.validate(response: response, data: data)
+        APIUsageCounter.record(.googlePlaceDetails)
 
         let decoded = try JSONDecoder().decode(GooglePlaceDetail.self, from: data)
         return decoded.toPlaceDetails()
@@ -263,6 +270,10 @@ final class GooglePlacesService: PlaceSearchService {
         struct PhotoMediaResponse: Decodable { let photoUri: String }
         let (data, response) = try await session.data(for: request)
         try Self.validate(response: response, data: data)
+        // Only this first request is counted. The second one below fetches
+        // the bytes from googleusercontent with no key on it at all, and
+        // is not a billable Places request.
+        APIUsageCounter.record(.googlePhoto)
 
         let decoded = try JSONDecoder().decode(PhotoMediaResponse.self, from: data)
         guard let photoURL = URL(string: decoded.photoUri) else {

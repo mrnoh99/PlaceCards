@@ -19,6 +19,56 @@ import Foundation
 /// nil) rather than crashing.
 enum CloudBackupService {
     private static let filename = "placecards_auto_backup.json"
+    private static let isEnabledKey = "cloudBackupEnabled"
+
+    /// Whether the silent snapshot is allowed to run at all.
+    ///
+    /// This used to have no switch and no disclosure: it wrote the entire
+    /// library — every photo's bytes included, since `BackupService`
+    /// started embedding those — into iCloud on every foreground and
+    /// background transition, and the user was told only if it ever
+    /// restored something. The data goes to the user's own iCloud account
+    /// rather than any server of ours, which is why it stays on by
+    /// default (turning it off for everyone would silently retire the
+    /// safety net that people who reinstall or change phones are already
+    /// relying on, without them asking for that either). What was
+    /// actually missing was the user being able to see it and say no, so
+    /// Settings now shows it, explains what goes there, and can turn it
+    /// off — which also deletes what is already stored.
+    static var isEnabled: Bool {
+        // `object(forKey:)`, not `bool(forKey:)` — the latter reads an
+        // unset key as `false`, which would read as "the user turned this
+        // off" for every install that predates the switch.
+        UserDefaults.standard.object(forKey: isEnabledKey) as? Bool ?? true
+    }
+
+    @MainActor
+    static func setEnabled(_ enabled: Bool) async {
+        UserDefaults.standard.set(enabled, forKey: isEnabledKey)
+        if enabled {
+            // Forget what was last written so re-enabling actually
+            // produces a snapshot on the next transition, rather than
+            // matching a fingerprint left over from before and skipping.
+            lastBackedUpFingerprint = nil
+        } else {
+            await deleteStoredBackup()
+        }
+    }
+
+    /// Removes the snapshot from iCloud. Turning the setting off has to
+    /// take the already-stored copy with it — otherwise "off" would only
+    /// mean "stop adding to it", and the library sitting in iCloud from
+    /// before would stay there with no way to remove it from inside the
+    /// app.
+    @MainActor
+    static func deleteStoredBackup() async {
+        guard let containerURL = await resolveContainerDocumentsURL() else { return }
+        let fileURL = containerURL.appendingPathComponent(filename)
+        await Task.detached(priority: .utility) {
+            try? FileManager.default.removeItem(at: fileURL)
+        }.value
+        lastBackedUpFingerprint = nil
+    }
 
     /// Resolving the ubiquity container URL can block for a long time on
     /// first launch, so this is only ever done off the main thread — and
@@ -69,6 +119,7 @@ enum CloudBackupService {
     /// just means this particular snapshot didn't happen.
     @MainActor
     static func backup(storageService: StorageService) async {
+        guard isEnabled else { return }
         let currentFingerprint = fingerprint(for: storageService)
         guard currentFingerprint != lastBackedUpFingerprint else { return }
         guard let containerURL = await resolveContainerDocumentsURL() else { return }
@@ -91,6 +142,7 @@ enum CloudBackupService {
     /// same document all over again, both at cold launch with the startup
     /// intro screen held up behind them.
     static func loadRestorableBackup() async -> BackupService.BackupData? {
+        guard isEnabled else { return nil }
         guard let containerURL = await resolveContainerDocumentsURL() else { return nil }
         let fileURL = containerURL.appendingPathComponent(filename)
         return await Task.detached(priority: .utility) { () -> BackupService.BackupData? in

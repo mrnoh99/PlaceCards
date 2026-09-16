@@ -57,6 +57,12 @@ enum AIProviderChain {
             let provider = AIProviderFactory.create(type: candidate.type, apiKey: candidate.apiKey)
             do {
                 let result = try await operation(provider)
+                // Counted here rather than inside each provider so one
+                // user-initiated scan counts once, no matter how many
+                // providers the chain had to walk past to serve it — a
+                // provider that threw is the case least likely to have
+                // been billed for anything.
+                APIUsageCounter.record(.aiRequest)
                 return (result, candidate.type, index > 0)
             } catch {
                 lastError = error

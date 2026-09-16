@@ -77,12 +77,19 @@ enum ScanResultLanguage: String, Codable, CaseIterable, Identifiable {
     /// Reads the saved response-language choice without needing an
     /// instance, mirroring `SettingsViewModel.currentProviderPriority()` —
     /// looked up right before building a prompt.
+    ///
+    /// Until the user picks one, this follows the device rather than
+    /// defaulting to Korean. It used to be Korean unconditionally, which
+    /// was defensible while the app's own language also started Korean;
+    /// now that the UI follows iOS (see `AppLanguage.current()`), someone
+    /// on an English phone would have got an English app filling their
+    /// cards with Korean categories and notes.
     static func current() -> ScanResultLanguage {
         if let stored = UserDefaults.standard.string(forKey: defaultsKey),
            let language = ScanResultLanguage(rawValue: stored) {
             return language
         }
-        return .korean
+        return AppLanguage.current() == .korean ? .korean : .english
     }
 
     func save() {
