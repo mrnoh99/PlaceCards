@@ -88,8 +88,14 @@ private extension AppLanguage {
 }
 
 /// Talks to the Google Places API (New) directly from the app, using the
-/// user's own API key (BYOK). Google's terms allow direct client calls when
-/// the key is restricted to the app's bundle ID.
+/// user's own API key (BYOK).
+///
+/// Every request identifies the bundle it came from — see
+/// `authorize(_:)`, without which a bundle-ID restriction on the key
+/// cannot be enforced at all. Google's own guidance is that a proxy
+/// server is the safer shape for web-service calls from a mobile client;
+/// this is the restriction that is actually available to a direct
+/// caller, not a claim that it is equivalent.
 final class GooglePlacesService: PlaceSearchService {
     private let apiKey: String
     private let session: URLSession
@@ -119,11 +125,30 @@ final class GooglePlacesService: PlaceSearchService {
     /// the address and then searches for the place.
     private static let geocodeFieldMask = "places.location"
 
+    /// Stamps the key and the bundle identifier onto a request.
+    ///
+    /// The bundle header is the half that was missing. An "iOS apps" key
+    /// restriction in the Cloud console is defined for the Maps SDK; a
+    /// REST call to `places.googleapis.com` is only checked against it
+    /// when the request says which bundle it came from, via
+    /// `X-Ios-Bundle-Identifier`. Without it, turning that restriction on
+    /// either rejects every call or protects nothing — so the key was
+    /// effectively unrestricted no matter what the console said.
+    ///
+    /// Harmless the other way round: a key with no application
+    /// restriction ignores the header entirely.
+    private func authorize(_ request: inout URLRequest) {
+        request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
+        if let bundleIdentifier = Bundle.main.bundleIdentifier {
+            request.setValue(bundleIdentifier, forHTTPHeaderField: "X-Ios-Bundle-Identifier")
+        }
+    }
+
     private func searchTextRequest(query: String, coordinates: Coordinates?, fieldMask: String) throws -> URLRequest {
         let url = URL(string: "https://places.googleapis.com/v1/places:searchText")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
+        authorize(&request)
         request.setValue(fieldMask, forHTTPHeaderField: "X-Goog-FieldMask")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
@@ -192,7 +217,7 @@ final class GooglePlacesService: PlaceSearchService {
         ]
         var request = URLRequest(url: components.url!)
         request.httpMethod = "GET"
-        request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
+        authorize(&request)
         request.setValue(
             "rating,userRatingCount,regularOpeningHours,websiteUri,internationalPhoneNumber,location,photos",
             forHTTPHeaderField: "X-Goog-FieldMask"
@@ -213,15 +238,20 @@ final class GooglePlacesService: PlaceSearchService {
         guard !apiKey.isEmpty else { throw PlaceCardsError.apiKeyMissing }
 
         var components = URLComponents(string: "https://places.googleapis.com/v1/\(photoName)/media")!
+        // The key moves out of the query string and into the header with
+        // everything else, so this call carries the bundle identifier too
+        // — a `key=` parameter has nowhere to put one.
         components.queryItems = [
-            URLQueryItem(name: "key", value: apiKey),
             URLQueryItem(name: "maxWidthPx", value: String(maxWidthPx)),
             URLQueryItem(name: "skipHttpRedirect", value: "true")
         ]
         guard let url = components.url else { throw PlaceCardsError.networkError("잘못된 사진 URL".localized) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        authorize(&request)
 
         struct PhotoMediaResponse: Decodable { let photoUri: String }
-        let (data, response) = try await session.data(from: url)
+        let (data, response) = try await session.data(for: request)
         try Self.validate(response: response, data: data)
 
         let decoded = try JSONDecoder().decode(PhotoMediaResponse.self, from: data)

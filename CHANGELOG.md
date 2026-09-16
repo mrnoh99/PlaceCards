@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### 2026-09-16 (182차) — API 키에 번들 ID를 실어 보내도록 수정
+Google Cloud Console 설정법을 정리하며 공식 문서를 확인하던 중 발견 →
+사용자 요청 "2, 3 진행해라".
+#### Fixed
+- `Services/PlaceSearchService.swift`: **키 제한이 실제로는 걸리지 않던
+  문제.** 클래스 주석은 "번들 ID로 키를 제한하면 직접 호출이 안전하다"고
+  적혀 있었지만, 앱이 보내는 헤더는 `X-Goog-Api-Key`·`X-Goog-FieldMask`·
+  `Content-Type` 셋뿐이고 **`X-Ios-Bundle-Identifier`가 없었음.**
+  - Google 공식 문서(API Security Best Practices) 기준, Console의
+    "iOS apps" 키 제한은 **Maps SDK for iOS용**이고,
+    `places.googleapis.com` 같은 **웹 서비스 REST 호출에는 요청이 자기
+    번들을 밝혀야** 대조가 됨.
+  - 따라서 지금까지는 Console에서 번들 제한을 켜면 **모든 호출이
+    거부되거나, 제한이 적용되지 않아 키가 사실상 무방비**인 둘 중
+    하나였음 — 주석이 설명하는 보안 모델이 성립하지 않았음.
+  - 키와 번들 ID를 함께 찍는 `authorize(_:)`를 두고 키가 나가는 세 곳
+    (검색·상세·사진) 전부를 그것으로 통일함. 애플리케이션 제한이 없는
+    키는 이 헤더를 무시하므로 반대 방향으로는 무해함.
+  - 사진 호출은 키를 쿼리스트링(`key=`)으로 보내고 있었는데 헤더로
+    옮김 — `key=` 파라미터에는 번들 ID를 실을 자리가 없음. 사진 바이트를
+    받아오는 두 번째 요청(googleusercontent)에는 종전대로 키를 싣지 않음.
+  - 주석도 정정함: Google은 모바일에서의 웹 서비스 직접 호출에 대해
+    **프록시 서버**를 권장함. 이 헤더는 직접 호출자가 쓸 수 있는 최선의
+    제한이지, 프록시와 동등하다는 뜻이 아님.
+
 ### 2026-09-16 (181차) — 설정 하단 크레딧 줄
 사용자 요청: "화면 아래에 매우 작을 글씨로 credit 넣어라 Developed by
 JaiSung NOH MD 2026, Ver() Build()".
