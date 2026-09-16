@@ -44,6 +44,11 @@ struct EditPlaceCardSheet: View {
 
     let card: PlaceCard
     var onSave: (PlaceCard) -> Void
+    /// Called after the card is actually deleted (`deleteCard()`), on top
+    /// of this sheet dismissing itself — the caller (`PlaceCardDetailView`)
+    /// is still showing the now-gone card underneath, so it needs its own
+    /// signal to dismiss too rather than being left stranded on stale data.
+    var onDelete: () -> Void = {}
 
     @EnvironmentObject private var storageService: StorageService
     @Environment(\.dismiss) private var dismiss
@@ -149,9 +154,12 @@ struct EditPlaceCardSheet: View {
     @State private var pendingSuggestedTags: [String] = []
     @State private var isConfirmingSuggestedTags = false
 
-    init(card: PlaceCard, onSave: @escaping (PlaceCard) -> Void) {
+    @State private var isConfirmingDelete = false
+
+    init(card: PlaceCard, onSave: @escaping (PlaceCard) -> Void, onDelete: @escaping () -> Void = {}) {
         self.card = card
         self.onSave = onSave
+        self.onDelete = onDelete
         _name = State(initialValue: card.name)
         _category = State(initialValue: card.category ?? "")
         _address = State(initialValue: card.address)
@@ -227,6 +235,7 @@ struct EditPlaceCardSheet: View {
                     amenitiesSection
                     memoSection
                 }
+                deleteSection
             }
             .scrollDismissesKeyboard(.interactively)
             .keyboardDoneButton()
@@ -443,9 +452,27 @@ struct EditPlaceCardSheet: View {
     private var visitDatesSection: some View {
         Section {
             ForEach(Array(visitDates.enumerated()), id: \.offset) { index, _ in
-                DatePicker(
-                    "방문 날짜".localized, selection: $visitDates[index], displayedComponents: .date
-                )
+                HStack {
+                    DatePicker(
+                        "방문 날짜".localized, selection: $visitDates[index], displayedComponents: .date
+                    )
+                    // A swipe-to-delete on `.onDelete` below still works,
+                    // but a `DatePicker` row's own tap target leaves little
+                    // room to discover that — an explicit button (same
+                    // `xmark.circle.fill` `photoImportSection` already uses
+                    // to remove a picked photo) makes removing a date a
+                    // direct tap instead of a gesture the user has to guess
+                    // exists. `.borderless` keeps this its own tap target
+                    // rather than the whole row acting as one button.
+                    Button {
+                        visitDates.remove(at: index)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("방문 날짜 삭제".localized)
+                }
             }
             .onDelete { visitDates.remove(atOffsets: $0) }
             Button("+ 방문 날짜 추가".localized) {
@@ -552,6 +579,32 @@ struct EditPlaceCardSheet: View {
             Text("메모".localized)
         } footer: {
             Text("위 항목 어디에도 맞지 않는 정보를 자유롭게 적어두는 곳입니다.".localized)
+        }
+    }
+
+    /// Last section on the screen, on its own — deleting the whole card is
+    /// nothing like the field edits above it, so it doesn't share a
+    /// section with any of them. `role: .destructive` is what actually
+    /// renders this red (the system's own destructive-action styling, not
+    /// a hardcoded color), matching every other delete button in this app
+    /// (`GalleryView`'s card/photo delete, `PhotoViewerSheet`'s own).
+    @ViewBuilder
+    private var deleteSection: some View {
+        Section {
+            Button(role: .destructive) {
+                isConfirmingDelete = true
+            } label: {
+                Text("카드 삭제".localized)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+        .confirmationDialog(
+            "\"" + card.name + "\"을 삭제할까요?".localized,
+            isPresented: $isConfirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button("삭제".localized, role: .destructive) { deleteCard() }
+            Button("취소".localized, role: .cancel) {}
         }
     }
 
@@ -1458,6 +1511,16 @@ struct EditPlaceCardSheet: View {
 
         storageService.save(updated)
         onSave(updated)
+        dismiss()
+    }
+
+    /// `onDelete()` fires before `dismiss()` (not after) — the caller
+    /// (`PlaceCardDetailView`) is a separate screen underneath this sheet,
+    /// so its own dismissal doesn't depend on this sheet's animation
+    /// having started first.
+    private func deleteCard() {
+        storageService.delete(card)
+        onDelete()
         dismiss()
     }
 }
