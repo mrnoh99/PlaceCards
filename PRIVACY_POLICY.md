@@ -93,7 +93,7 @@ iCloud 사본은 설정에서 "iCloud에 자동 보관"을 끄면 삭제됩니�
 
 이 방침이 바뀌면 앱 업데이트와 함께 이 화면의 내용이 갱신되고 상단 날짜가 바뀝니다.
 
-문의: (배포 전 연락처를 입력하세요)
+문의: jsnoh2010@gmail.com
 
 ---
 
@@ -185,4 +185,4 @@ This app is not directed at children and collects no personal information at all
 
 If this policy changes, this screen is updated along with the app and the date at the top changes with it.
 
-Contact: (add a contact address before release)
+Contact: jsnoh2010@gmail.com

@@ -40,13 +40,13 @@ enum LegalDocuments {
     private static let lastUpdatedKorean = "2026년 9월 16일"
     private static let lastUpdatedEnglish = "16 September 2026"
 
-    /// Left for the developer to fill in before submitting to the App
-    /// Store — a policy has to name a way to reach someone, and guessing
-    /// an address here would publish a contact route that may not be
-    /// monitored. `SettingsView` shows this verbatim, so an unfilled
-    /// placeholder is visible rather than silent.
-    private static let contactKorean = "문의: (배포 전 연락처를 입력하세요)"
-    private static let contactEnglish = "Contact: (add a contact address before release)"
+    /// The address a person reaches the developer at, which a policy has
+    /// to name. Published deliberately: it appears in both documents, in
+    /// the app and in the copies at the repository root, so it is a
+    /// contact route that has to stay monitored.
+    private static let contactAddress = "jsnoh2010@gmail.com"
+    private static let contactKorean = "문의: " + contactAddress
+    private static let contactEnglish = "Contact: " + contactAddress
 
     static func privacyPolicy(for language: AppLanguage) -> LegalDocument {
         switch language {

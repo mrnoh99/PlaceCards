@@ -40,7 +40,7 @@ PinSpots는 지도 앱·SNS·직접 찍은 사진에서 발견한 장소를 카�
 
 약관이 바뀌면 앱 업데이트와 함께 이 화면의 내용이 갱신되고 상단 날짜가 바뀝니다. 변경 후 앱을 계속 사용하면 변경된 약관에 동의한 것으로 봅니다.
 
-문의: (배포 전 연락처를 입력하세요)
+문의: jsnoh2010@gmail.com
 
 ---
 
@@ -82,4 +82,4 @@ To the extent permitted by applicable law, the developer is not liable for damag
 
 If these terms change, this screen is updated along with the app and the date at the top changes with it. Continuing to use the app after a change means accepting the revised terms.
 
-Contact: (add a contact address before release)
+Contact: jsnoh2010@gmail.com
