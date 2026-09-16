@@ -114,6 +114,15 @@ struct SettingsView: View {
             Text("장소 확인과 평점·사진·영업시간 채우기에 사용됩니다. 키가 없어도 공유로 장소를 담을 수 있지만, 그 정보들은 비어 있게 됩니다.".localized)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            // The "지도" tab's Google option quietly reuses this same
+            // key, and needs a second API enabled on it — a user who
+            // enabled only Places API (New) gets a blank map there with
+            // nothing pointing back here. The restriction half is the
+            // sharper trap: locking the key to "iOS apps" is the obvious
+            // safety move and is exactly what blacks that map out.
+            Text("\"지도\" 탭의 Google 지도도 이 키로 그려집니다 — Cloud Console에서 Places API (New)와 Maps JavaScript API를 함께 활성화해주세요. 키의 애플리케이션 제한은 \"없음\"으로 두고(iOS 앱 제한을 걸면 웹뷰로 뜨는 Google 지도가 차단됩니다), 대신 API별 일일 할당량으로 사용량을 막는 것을 권합니다.".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

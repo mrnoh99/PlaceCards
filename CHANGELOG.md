@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### 2026-09-16 (184차) — Google 키 설정 방식을 문서화 (제한 대신 할당량)
+사용자 질문 "앱내 구글 지도는 무엇으로 그리는가?" → 선택지 A
+("애플리케이션 제한 없이 두고 할당량으로만 방어") 채택.
+#### Changed
+- `README.md`, `Views/SettingsView.swift`, `Services/Localization.swift`:
+  **Google 키 하나가 서로 다른 두 방식으로 호출된다는 사실과, 그래서
+  애플리케이션 제한을 걸 수 없다는 점을 문서화함.** 장소 검색·상세·사진은
+  Places API (New)를 `URLSession`으로 부르고, "지도" 탭의 Google 지도는
+  **Maps JavaScript API를 `WKWebView`에 띄워** 그림. 전자는
+  `X-Ios-Bundle-Identifier`(#38)로 "iOS 앱" 제한에 걸리고 후자는 referer로
+  "HTTP 리퍼러" 제한에 걸리는데, **키 하나에는 제한을 한 종류만** 지정할 수
+  있음 — "iOS 앱"을 고르면 지도 탭이 백지가 됨. 그래서 권장 설정은
+  *제한 없음 + API별 일일 할당량*이며, README에 그 할당량 표(미사용 메서드
+  0회 포함)와 예산 알림 권고를 실었음.
+  - Maps JavaScript API를 켜지 않으면 **지도 탭의 Google 옵션만** 10초 뒤
+    오류 문구로 바뀌고 나머지는 멀쩡해서 원인을 찾기 어려움 — 설정 화면의
+    Google 키 항목에도 같은 안내를 붙임.
+  - 별도의 **Geocoding API는 쓰지 않음**을 명시함. 주소→좌표도
+    `places:searchText`가 처리하므로 활성화할 필요가 없고, 지오코딩
+    트래픽은 `SearchTextRequest` 할당량에 함께 계산됨(자동 검증 1행 = 2회).
+- `Services/PlaceSearchService.swift`, `Views/GoogleMapWebView.swift`:
+  두 호출 지점 주석에 이 충돌을 교차 기록함. `authorize(_:)`의 번들 헤더는
+  그대로 둠 — 비용이 없고, 키를 둘로 나누거나 지도 탭을 쓰지 않는 구성에서는
+  실제로 제한이 동작하게 해주는 부분임.
+
 ### 2026-09-16 (183차) — Google Takeout 가져오기 (API 호출 0)
 기획의 "방법 3: Google Takeout 배치" 미구현 항목 → 사용자 요청
 "2, 3 진행해라".

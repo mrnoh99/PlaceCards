@@ -136,6 +136,7 @@ enum Localization {
         "\"과 다릅니다. 이름을 바꿀까요?": "\". Change the name?",
         "\"을 삭제할까요?": "\"?",
         "\"지도\" 탭에서 Naver 지도를 선택했을 때만 사용됩니다. NAVER Cloud Platform Maps 애플리케이션의 Client ID이며, Secret은 필요 없습니다.": "Only used when Naver Maps is selected in the \"Map\" tab. This is the Client ID of a NAVER Cloud Platform Maps application — no Secret is needed.",
+        "\"지도\" 탭의 Google 지도도 이 키로 그려집니다 — Cloud Console에서 Places API (New)와 Maps JavaScript API를 함께 활성화해주세요. 키의 애플리케이션 제한은 \"없음\"으로 두고(iOS 앱 제한을 걸면 웹뷰로 뜨는 Google 지도가 차단됩니다), 대신 API별 일일 할당량으로 사용량을 막는 것을 권합니다.": "The Google map in the \"Map\" tab is drawn with this key too — enable both Places API (New) and the Maps JavaScript API in the Cloud console. Leave the key's application restriction set to \"None\" (an \"iOS apps\" restriction blocks the Google map, which loads in a web view) and cap usage with per-API daily quotas instead.",
         "\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, AI로 읽어 비어 있는 이름·주소를 채웁니다.": "This card was recently opened via \"Open in Map\". The photo you just shared will be added to it, and AI will read it to fill in a blank name/address.",
         "\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 지도 링크의 정보(이름·주소·좌표)를 이 카드에 채웁니다.": "This card was recently opened via \"Open in Map\". Info from the map link you just shared (name, address, coordinates) will be filled into it.",
         "(키 없음)": "(no key)",
