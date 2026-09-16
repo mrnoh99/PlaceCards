@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+### 2026-09-16 (178차) — 키보드가 안 닫히던 화면, 침묵하던 Google 키, Kakao 출처 표기
+기획 문서·업로드 자료 재검토에서 나온 항목 → 사용자 요청 "a 항목을 진행해라".
+#### Fixed
+- `Views/ImportBoardSheet.swift`: **여러 줄 입력에서 키보드를 닫을 수
+  없던 문제.** 텍스트 입력이 있는 화면 10개 중 이 화면만
+  `scrollDismissesKeyboard`·`keyboardDoneButton()`이 빠져 있었고, 하필
+  앱에서 유일하게 `TextEditor`(여러 줄)를 쓰는 화면이라 **리턴 키가
+  줄바꿈이어서 닫을 방법이 없었음.** 바로 아래 "붙여넣은 텍스트 확인"
+  버튼이 키보드에 가렸음. 나머지 6개 화면과 같은 조합으로 맞춤.
+  (`CategoryPickerSheet`·`GalleryView`의 입력란은 `.alert` 안이라
+  알림 버튼으로 닫히고, `SharedLinkBoardPickerSheet`는 한 줄 필드임을
+  확인함.)
+#### Changed
+- `Views/SettingsView.swift`, `Views/MapLinkImportSheet.swift`:
+  **Google 키가 없을 때 아무 말도 하지 않던 것을 고침.** 키가 없어도
+  공유로 장소는 담기기 때문에 겉보기엔 정상이고, 평점·사진·영업시간만
+  조용히 비어 있어 **사용자가 이유를 알 방법이 없었음.**
+  - 설정의 Google Places API 섹션에 설명을 넣음 — 아래 Naver 두 섹션은
+    둘 다 설명이 있는데 정작 앱이 가장 많이 기대는 키만 아무 설명이
+    없었음.
+  - 링크 가져오기에서 키가 없어 보강을 건너뛸 때 그 사실을 알림.
+    (카드 저장 자체는 종전대로 성공함 — 빈칸의 이유만 설명함.)
+- `Models/MediaModels.swift`: `kakaoDirectLookup`을 **문서화**함.
+  처음엔 죽은 코드라 삭제를 제안했으나, 이 enum에는 "케이스를 지우지
+  말 것" 규약이 있음(`unsplashSearch` 주석) — 저장된 카드의
+  `MediaItem.source`가 비옵셔널이라 케이스를 지우면 디코딩이 깨져
+  라이브러리 전체가 날아감. 이력을 확인한 결과 **어떤 버전에서도 이
+  값이 생성된 적이 없고**(`allCases`도 미사용이라 사용자가 고를 경로도
+  없음) 표시될 일이 없으므로, 삭제 대신 "이 앱은 Kakao API를 쓰지
+  않는다 — Kakao 지원은 딥링크뿐이고 그건 저장 제한 대상이 아니다"를
+  주석으로 남김. `kakaoMapScreenshot`·`kakaoMapShare`도 동일하게 미생성
+  상태임을 확인함.
 ### 2026-09-16 (177차) — 저장이 메인 스레드를 막던 문제 수정
 기획 문서 재검토에서 나온 항목(기획 3.2 "500, 1000, 5000개 저장 시 성능")
 → 사용자 요청 "a 항목을 진행해라".

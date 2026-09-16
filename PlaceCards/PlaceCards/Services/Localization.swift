@@ -387,6 +387,8 @@ enum Localization {
         "이름이 다릅니다": "Name Doesn't Match",
         "이미지를 처리할 수 없습니다.": "Couldn't process the image.",
         "이미지에서 장소를 찾지 못했습니다. 다른 사진으로 다시 시도해주세요.": "No places were found in the image. Please try again with different photos.",
+        "장소 확인과 평점·사진·영업시간 채우기에 사용됩니다. 키가 없어도 공유로 장소를 담을 수 있지만, 그 정보들은 비어 있게 됩니다.": "Used to confirm a place and fill in its rating, photo and opening hours. You can still save places by sharing them in without a key — those fields just stay empty.",
+        "설정에서 Google Places API 키를 등록하면 평점·사진·영업시간도 함께 채웁니다.": "Register a Google Places API key in Settings to fill in the rating, photo and opening hours too.",
         "사진에서 장소 이름을 읽지 못했습니다. 지도 앱의 장소 화면이나, 장소를 번호로 나열한 목록 이미지에서 가장 잘 동작합니다. 설정에서 AI 키를 등록하면 더 복잡한 사진도 읽을 수 있습니다.": "Couldn't read a place name from the photo. This works best on a screenshot of a map app's place screen, or an image listing places by number. Register an AI key in Settings to read busier photos too.",
         "나머지 ": "The other ",
         "곳은 목록에서 직접 검색할 수 있습니다.": " can be searched from the list yourself.",
