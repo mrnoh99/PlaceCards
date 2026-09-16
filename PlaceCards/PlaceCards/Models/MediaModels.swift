@@ -14,6 +14,12 @@ enum SourceType: String, Codable, CaseIterable {
     case naverDirectLookup
     case kakaoDirectLookup
 
+    /// A place read out of the user's own Google Takeout export
+    /// (`TakeoutImport`). Distinct from `googleMapShare`: nothing was
+    /// shared and no Google API was called — the file the user downloaded
+    /// already held the name and address.
+    case googleTakeout
+
     case onsitePhoto
     case receivedPhoto
 
@@ -40,6 +46,7 @@ enum SourceType: String, Codable, CaseIterable {
         case .googleDirectLookup: return "Google Places API"
         case .naverDirectLookup: return "Naver API"
         case .kakaoDirectLookup: return "Kakao API"
+        case .googleTakeout: return "Google Takeout"
         case .onsitePhoto: return "현장 촬영".localized
         case .receivedPhoto: return "전달받은 사진".localized
         case .instagramScreenshot: return "인스타그램 스크린샷".localized
