@@ -12,7 +12,7 @@ final class MapViewModel: ObservableObject {
     /// well-known MapKit bug (tiles/gestures can get stuck non-responsive).
     /// This is the same `Map(position:)` composable API that fix already
     /// switched to there.
-    @Published var cameraPosition: MapCameraPosition = .region(Self.defaultRegion)
+    @Published var cameraPosition: MapCameraPosition = .region(MapViewModel.defaultRegion)
 
     private static let defaultRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.5665, longitude: 126.9780),
