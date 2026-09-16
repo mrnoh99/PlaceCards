@@ -33,10 +33,12 @@ struct PlaceCardListRow: View {
                     HStack(spacing: 8) {
                         Button(action: toggleVisited) {
                             Image(systemName: card.isVisited ? "checkmark.circle.fill" : "checkmark.circle")
+                                .accessibilityLabel(card.isVisited ? "방문 표시 해제".localized : "방문으로 표시".localized)
                                 .foregroundStyle(card.isVisited ? .green : .secondary)
                         }
                         Button(action: toggleFavorite) {
                             Image(systemName: card.isFavorite ? "star.fill" : "star")
+                                .accessibilityLabel(card.isFavorite ? "즐겨찾기 해제".localized : "즐겨찾기에 추가".localized)
                                 .foregroundStyle(card.isFavorite ? .yellow : .secondary)
                         }
                     }
@@ -115,6 +117,7 @@ struct PlaceCardListRow: View {
             if let callURL = card.callURL {
                 Button { openURL(callURL) } label: {
                     Image(systemName: "phone")
+                        .accessibilityLabel("전화 걸기".localized)
                 }
             }
             if card.hasAnyMapLink {
@@ -153,16 +156,19 @@ struct PlaceCardListRow: View {
                     }
                 } label: {
                     Image(systemName: "map")
+                        .accessibilityLabel("지도에서 열기".localized)
                 }
             }
             if let website = card.website, let url = URL(string: website) {
                 Button { openURL(url) } label: {
                     Image(systemName: "link")
+                        .accessibilityLabel("웹사이트 열기".localized)
                 }
             }
             if let instagramURL = card.instagramURL, let url = URL(string: instagramURL) {
                 Button { openURL(url) } label: {
                     Image(systemName: "camera")
+                        .accessibilityLabel("인스타그램 열기".localized)
                         .foregroundStyle(.pink)
                 }
             }

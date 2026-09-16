@@ -103,6 +103,7 @@ struct CategoryPickerSheet: View {
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark")
+                        .accessibilityLabel("선택됨".localized)
                         .foregroundStyle(Color.accentColor)
                 }
             }

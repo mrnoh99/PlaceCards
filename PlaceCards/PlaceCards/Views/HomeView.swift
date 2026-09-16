@@ -303,6 +303,7 @@ private struct ExportBoardMenu: View {
     let board: Board
     let storageService: StorageService
     @State private var exportFileURL: URL?
+    @State private var csvFileURL: URL?
 
     var body: some View {
         Menu {
@@ -316,6 +317,14 @@ private struct ExportBoardMenu: View {
                     Label("파일로 공유".localized, systemImage: "square.and.arrow.up")
                 }
             }
+            // The JSON above restores this app and nothing else. One board
+            // is usually one trip, which is exactly the unit someone wants
+            // in a spreadsheet, so the CSV sits right next to it.
+            if let csvFileURL {
+                ShareLink(item: csvFileURL) {
+                    Label("CSV로 공유".localized, systemImage: "tablecells")
+                }
+            }
         } label: {
             Label("내보내기".localized, systemImage: "square.and.arrow.up")
         }
@@ -324,11 +333,18 @@ private struct ExportBoardMenu: View {
     }
 
     private func prepareFile() async {
-        guard let data = try? await BackupService.exportBoard(board, storageService: storageService) else { return }
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent(BackupService.boardFilename(for: board))
-        try? data.write(to: url, options: .atomic)
-        exportFileURL = url
+        if let data = try? await BackupService.exportBoard(board, storageService: storageService) {
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent(BackupService.boardFilename(for: board))
+            try? data.write(to: url, options: .atomic)
+            exportFileURL = url
+        }
+
+        let csv = CSVExport.csv(boards: [board], placeCards: storageService.placeCards(inBoard: board.id))
+        let csvURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(CSVExport.filename(board: board))
+        try? csv.write(to: csvURL, options: .atomic)
+        csvFileURL = csvURL
     }
 
     private func copyAsText() async {

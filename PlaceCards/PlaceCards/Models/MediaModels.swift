@@ -12,6 +12,18 @@ enum SourceType: String, Codable, CaseIterable {
 
     case googleDirectLookup
     case naverDirectLookup
+    /// Never produced, and never will be: this app talks to no Kakao API.
+    /// Kakao's local API forbids persisting its structured results, which
+    /// is why the plan dropped it, and Kakao support here is limited to
+    /// opening a place in Kakao Map by deep link (`KakaoMapOpener`) —
+    /// which stores nothing and is outside that restriction.
+    ///
+    /// Kept rather than deleted for the same reason as `unsplashSearch`
+    /// below: removing a case from this enum is how a saved card stops
+    /// decoding. Nothing in any version ever assigned this one, so no
+    /// stored card can carry it, but the rule holds for the enum as a
+    /// whole and a never-rendered case costs nothing. `kakaoMapScreenshot`
+    /// and `kakaoMapShare` above are unassigned for the same reason.
     case kakaoDirectLookup
 
     /// A place read out of the user's own Google Takeout export
@@ -45,6 +57,8 @@ enum SourceType: String, Codable, CaseIterable {
         case .kakaoMapShare: return "카카오맵 공유".localized
         case .googleDirectLookup: return "Google Places API"
         case .naverDirectLookup: return "Naver API"
+        // Unreachable — see the case's own comment. Named for what it
+        // would have meant, not for anything this app does.
         case .kakaoDirectLookup: return "Kakao API"
         case .googleTakeout: return "Google Takeout"
         case .onsitePhoto: return "현장 촬영".localized
