@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### 2026-09-16 (176차) — 빌드 번호 4로 올림
+사용자 요청: "빌드번호 올려라".
+#### Changed
+- `PlaceCards.xcodeproj/project.pbxproj`: `CURRENT_PROJECT_VERSION`을
+  3 → 4로(앱·공유 확장의 Debug/Release 네 곳). `MARKETING_VERSION`은
+  1.0 그대로. 빌드 3 이후 172~175차(#28~#31)가 들어감 — Places 상세 호출
+  제거, 온디바이스 OCR, 인스타 목록 인식과 자동 검증 상한, 지오코딩
+  Essentials 티어 하향.
+
 ### 2026-09-15 (175차) — 주소 지오코딩이 Enterprise 요금으로 청구되던 문제 수정
 사용자 요청: 비용 절감 진행. (사진 지연 호출을 검토했으나 목록·갤러리가
 카드마다 썸네일을 그려서 절약이 0임을 확인하고, 더 큰 건으로 전환함.)
