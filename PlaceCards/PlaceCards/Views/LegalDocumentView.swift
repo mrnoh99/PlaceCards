@@ -7,21 +7,21 @@ import SwiftUI
 /// read, not settings to operate, and a grouped list's row separators
 /// would break paragraphs into unrelated-looking chunks.
 struct LegalDocumentView: View {
-    /// Which document to show, resolved at render time rather than passed
-    /// in already-built, so switching the app language re-reads it in the
-    /// new language.
+    /// Which document to show. Resolved at render time rather than passed
+    /// in already-built, so the caller doesn't have to know which language
+    /// the device is in.
     enum Kind {
         case privacyPolicy
         case termsOfService
     }
 
     let kind: Kind
-    @ObservedObject private var localization = LocalizationObserver.shared
 
     private var document: LegalDocument {
+        let language = AppLanguage.current()
         switch kind {
-        case .privacyPolicy: return LegalDocuments.privacyPolicy(for: localization.language)
-        case .termsOfService: return LegalDocuments.termsOfService(for: localization.language)
+        case .privacyPolicy: return LegalDocuments.privacyPolicy(for: language)
+        case .termsOfService: return LegalDocuments.termsOfService(for: language)
         }
     }
 

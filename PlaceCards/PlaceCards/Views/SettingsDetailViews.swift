@@ -116,11 +116,10 @@ struct AIProviderSettingsView: View {
             uploadNoticeSection
             keysSection
             prioritySection
-            responseLanguageSection
         }
         .scrollDismissesKeyboard(.interactively)
         .keyboardDoneButton()
-        .navigationTitle("AI 이미지 분석".localized)
+        .navigationTitle("AI 제공자".localized)
         .navigationBarTitleDisplayMode(.inline)
         .settingsStatusAlert(viewModel: viewModel)
     }
@@ -233,19 +232,6 @@ struct AIProviderSettingsView: View {
             Text("우선순위".localized)
         } footer: {
             Text("사진 스캔 시 이 순서대로 시도합니다. 키가 등록되지 않은 제공자는 건너뜁니다.".localized)
-        }
-    }
-
-    @ViewBuilder
-    private var responseLanguageSection: some View {
-        Section {
-            Picker("AI 응답 언어".localized, selection: $viewModel.scanResultLanguage) {
-                ForEach(ScanResultLanguage.allCases) { language in
-                    Text(language.displayName).tag(language)
-                }
-            }
-        } footer: {
-            Text("사진 스캔으로 채워지는 카테고리·메모 같은 텍스트를 어떤 언어로 작성할지 정합니다. 앱 화면 자체의 언어에는 영향을 주지 않습니다.".localized)
         }
     }
 

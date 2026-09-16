@@ -5,61 +5,26 @@ import SwiftUI
 /// only controls the language AI-generated scan/search text is written in.
 /// Currently Korean (the app's native-written language, always available
 /// with no translation lookup) and English.
-enum AppLanguage: String, CaseIterable, Identifiable, Codable {
+///
+/// Decided by the device, not by a picker in this app. Settings used to
+/// carry its own "앱 언어" choice, which meant a person who had already
+/// told iOS what language they read had to tell this app too — and could
+/// end up with the two disagreeing. iOS relaunches an app when its
+/// language changes, so this is also constant for the lifetime of a
+/// process, which is what let the whole runtime language-switching
+/// apparatus (an observable holding the choice, and a `.id()` remount of
+/// the entire view tree at the app root) go away with it.
+enum AppLanguage: String {
     case korean
     case english
 
-    var id: String { rawValue }
-
-    /// Always shown in its own language regardless of the current app
-    /// language — like every language picker, this labels each choice in
-    /// a way a reader of *that* language recognizes, not a translation of
-    /// the label itself.
-    var displayName: String {
-        switch self {
-        case .korean: return "한국어"
-        case .english: return "English"
-        }
-    }
-
-    private static let defaultsKey = "appLanguage"
-
-    /// Reads the saved app-language choice without needing an instance —
-    /// `String.localized` calls this directly (see below), so it has to
-    /// work from anywhere, not just from a SwiftUI view holding
-    /// `LocalizationObserver`.
+    /// Resolved from the device's preferred languages each time it is
+    /// asked — there is no stored copy to keep in sync. Anything that
+    /// isn't Korean resolves to English, this app's only other
+    /// translation, rather than to Korean: someone reading neither is far
+    /// likelier to get by in English.
     static func current() -> AppLanguage {
-        if let stored = UserDefaults.standard.string(forKey: defaultsKey),
-           let language = AppLanguage(rawValue: stored) {
-            return language
-        }
-        return .korean
-    }
-
-    func save() {
-        UserDefaults.standard.set(rawValue, forKey: Self.defaultsKey)
-    }
-}
-
-/// Held at the app root (`ContentView`) purely so changing the app
-/// language can force the *entire* view tree to remount via `.id(...)` —
-/// simplest way to make every already-written `"...".localized` call site
-/// (there's no other hook into a plain string literal's rendering) pick up
-/// a change immediately, without threading `@AppStorage`/`@EnvironmentObject`
-/// into every one of the ~30 view files that call `.localized`.
-@MainActor
-final class LocalizationObserver: ObservableObject {
-    static let shared = LocalizationObserver()
-
-    @Published private(set) var language: AppLanguage
-
-    private init() {
-        language = AppLanguage.current()
-    }
-
-    func setLanguage(_ language: AppLanguage) {
-        self.language = language
-        language.save()
+        (Locale.preferredLanguages.first ?? "").hasPrefix("ko") ? .korean : .english
     }
 }
 
@@ -68,12 +33,10 @@ extension String {
     /// falls back to the Korean original (this string itself) when the
     /// app language is Korean, or no translation exists for it yet, so
     /// every UI string can safely call this even before full translation
-    /// coverage. Reads `AppLanguage.current()` directly (not
-    /// `LocalizationObserver.shared`) so it works from any context
-    /// (a `View.body`, a plain service/error type, a #Preview) — the
-    /// `.id(LocalizationObserver.shared.language)` remount at the app
-    /// root is what makes already-rendered UI actually re-evaluate when
-    /// the setting changes; this property itself is just a lookup.
+    /// coverage. Reads `AppLanguage.current()` directly, so it works from
+    /// any context: a `View.body`, a plain service/error type, a
+    /// #Preview. Nothing has to re-render on a language change, because
+    /// iOS relaunches the app when the device language changes.
     var localized: String {
         guard AppLanguage.current() == .english, let translated = Localization.englishTranslations[self] else {
             return self
@@ -122,7 +85,6 @@ enum Localization {
         "만들 게시판": "Board to create",
         "이 목록 가져오기": "Import this list",
         "중단": "Stop",
-        "앱 언어": "App Language",
         "카드 검색": "Search cards",
         "카테고리 검색": "Search categories",
         "카테고리별 보기": "Browse by Category",
@@ -146,7 +108,6 @@ enum Localization {
         "2026년 4월": "April 2026",
         "AI 없이 Google Places API로 이 장소의 영업시간·평점·전화번호·웹사이트 등 비어 있는 항목만 다시 확인합니다. 실제 사진이 없으면(글자판독용으로 올린 스크린샷만 있어도) Google의 대표 사진도 가져옵니다.": "Without AI, re-checks this place's hours, rating, phone, website, and other blank fields straight from the Google Places API. Also pulls Google's own cover photo if there's no real photo yet (even if the only thing there is a screenshot uploaded just for text recognition).",
         "AI 없이 Naver 지역검색 API로 이 장소의 전화번호·웹사이트·카테고리 등 비어 있는 항목만 다시 확인합니다. 평점·영업시간·사진은 Naver 지역검색이 제공하지 않아 채워지지 않습니다.": "Without AI, re-checks this place's phone, website, category, and other blank fields via the Naver local search API. Rating, hours, and photos aren't filled in, since Naver's local search doesn't provide them.",
-        "AI 응답 언어": "AI Response Language",
         "AI가 읽은 정보를 채웠습니다.": "Filled in what AI read.",
         "AI가 태그를 제안했습니다": "AI suggested some tags",
         "AI가 찾은 장소를 검토·수정하세요. \"Google에서 검색\"으로 정확한 주소·평점·연락처를 채울 수 있습니다.": "Review or edit the places AI found. Use \"Search on Google\" to fill in the exact address, rating, and contact info.",
@@ -414,7 +375,6 @@ enum Localization {
         "사진에서 장소 찾기 (": "Find places in photos (",
         "사진에서 찾기": "Find it in a photo",
         "지도 앱 스크린샷은 AI 키 없이 기기에서 바로 인식합니다. 설정에서 AI 키를 등록하면 인스타그램 게시물처럼 복잡한 사진도 읽을 수 있습니다.": "Map app screenshots are recognized right on this device, no AI key needed. Register an AI key in Settings to also read busier photos like Instagram posts.",
-        "지도 앱 스크린샷은 키 없이 기기에서 바로 장소명을 읽습니다. AI 키를 등록하면 인스타그램 게시물처럼 복잡한 사진도 읽고 전화번호·영업시간까지 채웁니다. 키는 이 기기의 키체인에만 저장됩니다.": "Map app screenshots are read right on this device, with no key. Register an AI key and it also reads busier photos like Instagram posts, filling in the phone number and opening hours too. Your key is stored only in this device's keychain.",
         "\"지도에서 열기\"로 최근에 연 카드예요. 방금 공유한 사진을 이 카드에 추가하고, 기기에서 글자를 읽어 비어 있는 이름·주소를 채웁니다. (설정에서 AI 키를 등록하면 전화번호·영업시간 등도 함께 읽습니다.)": "This is the card you most recently opened with \"Open in Maps\". The photo you just shared is added to it, and the text on it is read on this device to fill in a blank name or address. (Register an AI key in Settings to read the phone number, opening hours and more as well.)",
         "인스타그램": "Instagram",
         "인스타그램 URL": "Instagram URL",
@@ -535,8 +495,6 @@ enum Localization {
         "📋 카드 보기": "📋 View Card",
         " · ": " · ",
         "AI 요청": "AI requests",
-        "AI 이미지 분석": "AI Photo Scanning",
-        "AI 키를 등록하면 인스타그램 게시물처럼 주소가 없는 사진도 읽을 수 있습니다. 등록하지 않아도 주소가 함께 보이는 사진은 기기에서 바로 읽습니다.": "Registering an AI key lets the app read photos with no address in them, such as an Instagram post. Without one, photos that show an address alongside the name are still read on this device.",
         "API별 일일 할당량을 직접 거세요": "Set a daily quota for each API",
         "Cloud Console → APIs & Services → Places API (New) → Quotas & System Limits에서 메서드별로 설정합니다. 기본값이 수십만 회라 그대로 두면 노출 금액이 큽니다.\n\n• SearchTextRequest — 200 (장소 검색과 주소 변환이 함께 소비)\n• GetPlaceRequest — 50\n• GetPhotoMediaRequest — 200\n• AutocompletePlacesRequest — 0 (미사용)\n• SearchNearbyRequest — 0 (미사용)\n• SearchMediaRequest — 0 (미사용)\n• SearchReviewPostsRequest — 0 (미사용)\n• Maps JavaScript API → Map loads per day — 200": "Set these per method under Cloud Console → APIs & Services → Places API (New) → Quotas & System Limits. The defaults run to hundreds of thousands of calls, so leaving them alone leaves a lot exposed.\n\n• SearchTextRequest — 200 (place lookup and address conversion share this one)\n• GetPlaceRequest — 50\n• GetPhotoMediaRequest — 200\n• AutocompletePlacesRequest — 0 (unused)\n• SearchNearbyRequest — 0 (unused)\n• SearchMediaRequest — 0 (unused)\n• SearchReviewPostsRequest — 0 (unused)\n• Maps JavaScript API → Map loads per day — 200",
         "Geocoding API는 켜지 않아도 됩니다": "You don't need the Geocoding API",
@@ -559,9 +517,7 @@ enum Localization {
         "두 개의 API를 모두 켜야 합니다": "Both APIs have to be enabled",
         "미설정": "Not set",
         "사용량": "Usage",
-        "사진 스캔으로 채워지는 카테고리·메모 같은 텍스트를 어떤 언어로 작성할지 정합니다. 앱 화면 자체의 언어에는 영향을 주지 않습니다.": "Sets the language for text a photo scan fills in, such as a category or a note. It does not affect the language of the app's own screens.",
         "사진 스캔을 실행하면 선택한 이미지가 아래에서 등록한 제공자에게 업로드됩니다. 업로드된 이미지의 처리·보관은 각 제공자의 정책을 따릅니다. 스캔을 실행하지 않으면 사진은 기기를 떠나지 않습니다.": "Running a photo scan uploads the selected image to whichever provider you register below. How that image is handled and retained is governed by that provider's own policy. If you never run a scan, your photos never leave this device.",
-        "선택 기능": "Optional",
         "애플리케이션 제한은 \"없음\"으로 두세요": "Leave the application restriction set to \"None\"",
         "여러 제공자의 키를 등록해두면, 아래 순서대로 시도하다가 하나가 실패(호출 한도 초과, 오류 등)해도 자동으로 다음 제공자로 넘어갑니다.": "Register keys for more than one provider and the app tries them in the order below, moving on to the next automatically when one fails (rate limit, error, and so on).",
         "예산 알림을 함께 걸어두세요": "Set a budget alert as well",
@@ -582,5 +538,18 @@ enum Localization {
         "키 발급과 설정 방법": "How to get and set up a key",
         "키 유출에 대한 방어가 제한이 아니라 할당량이므로, 결제 계정의 예산 알림(예: $5에 50/90/100%)이 사실상 마지막 안전망입니다.": "Since a leaked key is held back by quotas rather than by a restriction, a budget alert on the billing account (say $5, at 50/90/100%) is effectively the last line of defence.",
         "폴더 자동 백업": "Scheduled Folder Backup",
+        "AI 사진 읽기 — 가장 먼저 설정하세요": "AI Photo Reading — Set This Up First",
+        "AI 제공자": "AI Providers",
+        "AI 키를 등록하면 인스타그램 게시물처럼 주소가 없는 사진에서도 장소를 읽고 전화번호·영업시간까지 채웁니다. 등록하지 않으면 가게 이름과 주소가 함께 보이는 사진만 읽을 수 있습니다. 키는 이 기기의 키체인에만 저장됩니다.": "Register an AI key and the app reads places out of photos with no address in them, such as an Instagram post, filling in phone numbers and opening hours too. Without one, only photos showing a business name alongside its address can be read. Your key is kept in this device's Keychain and nowhere else.",
+        "Google — 지도와 장소 정보": "Google — Maps and Place Information",
+        "Naver — 한국 장소 (선택)": "Naver — Korean Places (Optional)",
+        "네이버 지도에서 공유받은 장소를 Google 대신 Naver로 검증하고, \"지도\" 탭에 네이버 지도를 띄울 수 있습니다. 설정하지 않아도 모든 장소는 Google로 검증됩니다.": "Verifies places shared from Naver Map against Naver instead of Google, and lets the \"Map\" tab show a Naver map. Leave it unset and every place is verified through Google.",
+        "다른 제공자와 우선순위": "Other Providers and Priority",
+        "사진 스캔으로 채워지는 카테고리·메모 같은 정보를 어떤 언어로 가져올지 정합니다. 앱 화면 자체의 언어는 iOS 설정의 언어를 따릅니다.": "Sets the language that information read from photos — a category, a note — comes back in. The app's own screens follow the language set in iOS.",
+        "언어": "Language",
+        "이 앱의 핵심은 사진에서 장소를 찾아내는 것이고, 그 일을 하는 것이 이 키입니다. 등록하면 인스타그램 게시물처럼 주소가 없는 사진에서도 장소를 읽고 전화번호·영업시간까지 채웁니다. 등록하지 않으면 가게 이름과 주소가 함께 보이는 사진만 기기에서 읽을 수 있고, 그 외의 사진에서는 아무것도 얻지 못합니다.": "This app is about finding places in photos, and this key is what does that. Register one and it reads places out of photos with no address in them, such as an Instagram post, filling in phone numbers and opening hours too. Without one, only photos showing a business name alongside its address can be read on this device, and anything else yields nothing at all.",
+        "읽어오는 언어": "Language of results",
+        "제공자": "Provider",
+        "키를 등록하지 않으면 기능이 크게 제한됩니다.": "Without a key, this app can do much less.",
     ]
 }

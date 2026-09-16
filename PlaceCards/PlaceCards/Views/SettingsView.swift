@@ -11,7 +11,6 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     @EnvironmentObject private var storageService: StorageService
-    @ObservedObject private var localization = LocalizationObserver.shared
     @ObservedObject private var usage = APIUsageCounter.shared
 
     @State private var showingBackupExporter = false
@@ -29,11 +28,22 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
+            // Ordered by what a new person should deal with first, not by
+            // how the app is built. Language, then the key that decides
+            // how much of this app works at all, then the map keys —
+            // Naver last, and only where it can be used.
+            // Each section below is a computed property rather than an
+            // inline `Section` here, because the compiler couldn't
+            // type-check this body as one expression once nearly every
+            // literal in it became a non-literal `String` via `.localized`
+            // ("unable to type-check this expression in reasonable time").
+            // Same fix as `EditPlaceCardSheet`.
             Form {
-                appLanguageSection
+                languageSection
+                aiKeySection
                 googlePlacesAPISection
+                naverSection
                 usageSection
-                integrationsSection
                 dataSection
                 legalSection
                 infoSection
@@ -46,24 +56,109 @@ struct SettingsView: View {
         }
     }
 
-    /// Each of these is a computed property rather than an inline
-    /// `Section` in `body` because the compiler couldn't type-check `body`
-    /// as one expression once nearly every literal in it became a
-    /// non-literal `String` via `.localized` ("unable to type-check this
-    /// expression in reasonable time"). Same fix as `EditPlaceCardSheet`.
+    /// Only one language choice is the user's to make here. The app's own
+    /// screens follow iOS, because the person already told iOS what they
+    /// read; what this app can't know is what language they want the
+    /// *place information* it reads back in, which is a different question
+    /// — someone reading a Korean UI may well want notes about a Tokyo
+    /// trip written in Japanese.
     @ViewBuilder
-    private var appLanguageSection: some View {
+    private var languageSection: some View {
         Section {
-            Picker(
-                "앱 언어".localized,
-                selection: Binding(
-                    get: { localization.language },
-                    set: { localization.setLanguage($0) }
-                )
-            ) {
-                ForEach(AppLanguage.allCases) { language in
+            Picker("읽어오는 언어".localized, selection: $viewModel.scanResultLanguage) {
+                ForEach(ScanResultLanguage.allCases) { language in
                     Text(language.displayName).tag(language)
                 }
+            }
+        } header: {
+            Text("언어".localized)
+        } footer: {
+            Text("사진 스캔으로 채워지는 카테고리·메모 같은 정보를 어떤 언어로 가져올지 정합니다. 앱 화면 자체의 언어는 iOS 설정의 언어를 따릅니다.".localized)
+        }
+    }
+
+    /// First, and said plainly: without this key most of what this app is
+    /// for doesn't happen. The field for the provider that would actually
+    /// be used is right here rather than a screen away — registering one
+    /// key is the whole setup for most people, and the other three
+    /// providers, their order and the gateway's model are a row down.
+    @ViewBuilder
+    private var aiKeySection: some View {
+        Section {
+            if !hasAnyAIKey {
+                Label(
+                    "키를 등록하지 않으면 기능이 크게 제한됩니다.".localized,
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.orange)
+            }
+            LabeledContent("제공자".localized, value: primaryAIProvider.displayName)
+            SecureField("API 키".localized, text: providerKeyBinding(primaryAIProvider))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("저장".localized) { viewModel.saveProviderAPIKey(primaryAIProvider) }
+            NavigationLink {
+                AIProviderSettingsView(viewModel: viewModel)
+            } label: {
+                LabeledContent("다른 제공자와 우선순위".localized) {
+                    Text(registeredProviderSummary)
+                }
+            }
+        } header: {
+            Text("AI 사진 읽기 — 가장 먼저 설정하세요".localized)
+        } footer: {
+            Text("이 앱의 핵심은 사진에서 장소를 찾아내는 것이고, 그 일을 하는 것이 이 키입니다. 등록하면 인스타그램 게시물처럼 주소가 없는 사진에서도 장소를 읽고 전화번호·영업시간까지 채웁니다. 등록하지 않으면 가게 이름과 주소가 함께 보이는 사진만 기기에서 읽을 수 있고, 그 외의 사진에서는 아무것도 얻지 못합니다.".localized)
+        }
+    }
+
+    private var hasAnyAIKey: Bool {
+        AIProviderType.allCases.contains { !(viewModel.providerAPIKeys[$0] ?? "").isEmpty }
+    }
+
+    /// Whichever provider a scan would actually reach first: the
+    /// highest-priority one that has a key, or — when none does yet — the
+    /// highest-priority one, which is the provider the key typed in above
+    /// would be saved for.
+    private var primaryAIProvider: AIProviderType {
+        viewModel.providerPriority.first { !(viewModel.providerAPIKeys[$0] ?? "").isEmpty }
+            ?? viewModel.providerPriority.first
+            ?? .claude
+    }
+
+    private func providerKeyBinding(_ provider: AIProviderType) -> Binding<String> {
+        Binding(
+            get: { viewModel.providerAPIKeys[provider] ?? "" },
+            set: { viewModel.providerAPIKeys[provider] = $0 }
+        )
+    }
+
+    /// Naver is a Korean service, its consoles are Korean-only, and its
+    /// local search covers Korean places — offering it on a device that
+    /// has nothing to do with Korea is three credential fields of pure
+    /// noise. Shown for a Korean region *or* a Korean reader, since either
+    /// one alone would miss someone (a Korean speaker abroad; a resident
+    /// whose phone is in English).
+    private var isKoreaRelevant: Bool {
+        if Locale.current.region?.identifier == "KR" { return true }
+        return Locale.preferredLanguages.contains { $0.hasPrefix("ko") }
+    }
+
+    @ViewBuilder
+    private var naverSection: some View {
+        if isKoreaRelevant {
+            Section {
+                NavigationLink {
+                    NaverSettingsView(viewModel: viewModel)
+                } label: {
+                    LabeledContent("Naver 연동".localized) {
+                        Text(naverSummary)
+                    }
+                }
+            } header: {
+                Text("Naver — 한국 장소 (선택)".localized)
+            } footer: {
+                Text("네이버 지도에서 공유받은 장소를 Google 대신 Naver로 검증하고, \"지도\" 탭에 네이버 지도를 띄울 수 있습니다. 설정하지 않아도 모든 장소는 Google로 검증됩니다.".localized)
             }
         }
     }
@@ -82,7 +177,7 @@ struct SettingsView: View {
             Button("저장".localized) { viewModel.saveGoogleAPIKey() }
             NavigationLink("키 발급과 설정 방법".localized) { GoogleAPIHelpView() }
         } header: {
-            Text("Google Places API")
+            Text("Google — 지도와 장소 정보".localized)
         } footer: {
             Text("장소 확인과 평점·사진·영업시간 채우기, 그리고 \"지도\" 탭의 Google 지도에 사용됩니다. 키가 없어도 공유로 장소를 담고 기기 내 사진 읽기를 쓸 수 있지만, 그 정보들은 비어 있게 됩니다.".localized)
         }
@@ -107,33 +202,6 @@ struct SettingsView: View {
             } footer: {
                 Text("이 기기가 보낸 Google Places와 AI 요청 수입니다. 오늘 수치 뒤의 숫자는 이 앱이 권장하는 일일 할당량이며, 실제로 설정된 할당량이 아닙니다. 요금은 각 제공자가 사용자 계정에 직접 청구하므로 실제 금액은 해당 콘솔에서 확인하세요.".localized)
             }
-        }
-    }
-
-    /// Both optional integrations, as one row each. A registered-key count
-    /// rather than a bare chevron, so the state is readable without
-    /// opening it.
-    @ViewBuilder
-    private var integrationsSection: some View {
-        Section {
-            NavigationLink {
-                AIProviderSettingsView(viewModel: viewModel)
-            } label: {
-                LabeledContent("AI 이미지 분석".localized) {
-                    Text(registeredProviderSummary)
-                }
-            }
-            NavigationLink {
-                NaverSettingsView(viewModel: viewModel)
-            } label: {
-                LabeledContent("Naver 연동".localized) {
-                    Text(naverSummary)
-                }
-            }
-        } header: {
-            Text("선택 기능".localized)
-        } footer: {
-            Text("AI 키를 등록하면 인스타그램 게시물처럼 주소가 없는 사진도 읽을 수 있습니다. 등록하지 않아도 주소가 함께 보이는 사진은 기기에서 바로 읽습니다.".localized)
         }
     }
 
