@@ -61,7 +61,26 @@ struct NaverMapWebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
-        webView.scrollView.isScrollEnabled = false
+        // `isScrollEnabled = false` (GoogleMapWebView's own approach) was
+        // tried here too, but it left the map fully frozen — no pan, no
+        // pinch-zoom, everything else (tiles, markers) rendering fine.
+        // Google's JS SDK apparently drives its own drag/pinch handling
+        // regardless of the surrounding UIScrollView, but Naver's touch
+        // gestures got swallowed: with scrolling off, WKWebView's own pan/
+        // pinch gesture recognizers are still present and still grab the
+        // touch, just no longer produce any visible scroll/zoom effect —
+        // starving whatever Naver's SDK listens for underneath. Left
+        // scrolling itself on instead, and closed off the two things it
+        // would otherwise do to this embed page: `bounces` would show a
+        // rubber-band snap at the page's edges (there's nothing to scroll
+        // to — html/body/#map are all a fixed 100%), and native pinch
+        // would zoom the DOM itself rather than the map, fighting Naver's
+        // own zoom. Pinning the zoom range to 1 leaves the pinch gesture
+        // recognizer unable to recognize at all, freeing that touch for
+        // Naver's own handler underneath.
+        webView.scrollView.bounces = false
+        webView.scrollView.minimumZoomScale = 1
+        webView.scrollView.maximumZoomScale = 1
         webView.navigationDelegate = context.coordinator
         webView.configuration.userContentController.add(context.coordinator, name: "selectPlace")
         return webView
