@@ -136,7 +136,17 @@ final class GooglePlacesService: PlaceSearchService {
     /// effectively unrestricted no matter what the console said.
     ///
     /// Harmless the other way round: a key with no application
-    /// restriction ignores the header entirely.
+    /// restriction ignores the header entirely — which is in fact the
+    /// setup this app documents. The "지도" tab's Google map is the Maps
+    /// JavaScript API loaded into a `WKWebView` (see `GoogleMapWebView`)
+    /// on this same key, and a web page is checked by referer, not by
+    /// this header. A key carries only one application restriction, so
+    /// turning on "iOS apps" would protect these calls and black out
+    /// that map. README and Settings therefore ask for an unrestricted
+    /// key held down by per-API daily quotas instead. The header stays
+    /// because it costs nothing and is what makes the restriction work
+    /// for anyone who does turn it on — with a second key for the map,
+    /// or with no use for the Google map at all.
     private func authorize(_ request: inout URLRequest) {
         request.setValue(apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
         if let bundleIdentifier = Bundle.main.bundleIdentifier {

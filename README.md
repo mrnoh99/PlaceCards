@@ -29,12 +29,53 @@ open PlaceCards.xcodeproj
 
 | 키 | 용도 | 발급처 |
 |---|---|---|
-| Google Places API 키 | 장소 검색/평점/영업시간 등 보강 (필수) | Google Cloud Console → Places API (New) 활성화 |
+| Google Places API 키 | 장소 검색/평점/영업시간 등 보강 (필수), "지도" 탭의 Google 지도 표시 | Google Cloud Console → **Places API (New)** + **Maps JavaScript API** 활성화 |
 | AI 제공자 API 키 (Claude/OpenAI/Gemini/Gateway 중 택1) | 스크린샷/사진에서 장소명 추출 (Vision) | Anthropic/OpenAI/Google 각 콘솔, Gateway는 factchat-cloud.mindlogic.ai 계정 |
 | Naver Client ID/Secret (선택) | Naver Local Search로 한글 장소명 검색 보강 | [openapi.naver.com](https://developers.naver.com) → 검색 API |
 | Naver NCP Client ID/Secret (선택) | 주소만 있는 장소의 좌표 보강 (Geocoding) | [NAVER Cloud Platform](https://www.ncloud.com) → Maps → Geocoding |
 
 키는 Keychain에만 저장되며 iCloud로 동기화되지 않습니다. Naver 관련 두 쌍은 서로 다른 개발자 콘솔에서 발급되는 별개의 키입니다.
+
+#### Google 키 하나가 두 가지 방식으로 호출됩니다
+
+Google 키는 **API 두 개**를 켜야 온전히 동작합니다. 장소 검색·상세·사진은
+Places API (New)를 `URLSession`으로 호출하고(`Services/PlaceSearchService.swift`),
+"지도" 탭의 Google 지도는 **Maps JavaScript API를 `WKWebView`에 띄워서**
+그립니다(`Views/GoogleMapWebView.swift`). Maps JavaScript API를 켜지 않으면
+지도 탭의 Google 옵션만 10초 뒤 오류 문구로 바뀝니다 — 나머지 기능은 멀쩡해서
+원인을 찾기 어렵습니다. 별도의 Geocoding API는 **쓰지 않습니다**(주소→좌표도
+Places의 `searchText`로 해결하므로 활성화할 필요가 없습니다).
+
+그래서 **이 키에는 애플리케이션 제한을 걸지 않습니다.** REST 호출은
+`X-Ios-Bundle-Identifier` 헤더로 "iOS 앱" 제한에 걸리고, 웹뷰의 지도는 referer로
+"HTTP 리퍼러" 제한에 걸리는데, 키 하나에는 제한을 **한 종류만** 지정할 수
+있습니다. "iOS 앱"을 고르면 Google 지도 탭이 백지가 됩니다. 권장 설정은:
+
+| 항목 | 값 |
+|---|---|
+| API 제한 | Places API (New), Maps JavaScript API **둘 다** 선택 |
+| 애플리케이션 제한 | **없음** |
+| 일일 할당량 | 아래 표대로 API별로 직접 제한 |
+
+할당량은 Cloud Console → *APIs & Services → Places API (New) → Quotas & System
+Limits*에서 메서드별로 잡습니다. 쓰지 않는 메서드를 0으로 내리는 것이
+핵심입니다(기본값이 수십만 회라 그대로 두면 노출 금액이 큽니다).
+
+| 할당량 (per day) | 권장값 | 비고 |
+|---|---|---|
+| `SearchTextRequest` | 200 | 장소 검색 **과 주소→좌표 변환이 함께** 소비. 자동 검증 1행 = 2회 |
+| `GetPlaceRequest` | 50 | 기본값 125,000 |
+| `GetPhotoMediaRequest` | 200 | |
+| `AutocompletePlacesRequest` | 0 | 미사용 |
+| `SearchNearbyRequest` | 0 | 미사용 |
+| `SearchMediaRequest` | 0 | 미사용 |
+| `SearchReviewPostsRequest` | 0 | 미사용 |
+| Maps JavaScript API → *Map loads per day* | 200 | 해당 API의 Quotas 탭에 이 항목이 보이면 함께 제한 |
+
+키 유출에 대한 방어가 "제한"이 아니라 "할당량"이라는 뜻이므로, 결제 계정에
+예산 알림(예: $5, 50/90/100%)을 함께 걸어두길 권합니다. 키를 둘로 나눠
+(지도용은 리퍼러 제한, Places용은 iOS 앱 제한) 양쪽 다 제한을 거는 구성도
+가능하지만, 앱이 현재 키 입력을 하나만 받으므로 코드 수정이 필요합니다.
 
 ## 프로젝트 구조
 

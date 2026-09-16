@@ -11,6 +11,14 @@ import UIKit
 /// third-party SDKs. Uses the same key as "Google Places API" in
 /// Settings — that Google Cloud project/key needs the "Maps JavaScript
 /// API" enabled too (a checkbox in Google Cloud Console, not a new key).
+///
+/// Sharing that key also decides how it can be locked down. This is a
+/// web page, so Google checks it by referer; the Places REST calls are
+/// checked by `X-Ios-Bundle-Identifier` (`PlaceSearchService`). A key
+/// carries only one application restriction, so restricting it to "iOS
+/// apps" leaves this map permanently blank — the 10-second timeout
+/// below is all the user would see. Hence the documented setup: leave
+/// the key unrestricted and cap it with per-API daily quotas instead.
 struct GoogleMapWebView: UIViewRepresentable {
     struct MarkerPlace: Encodable, Equatable {
         let id: String
