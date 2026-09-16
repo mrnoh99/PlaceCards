@@ -181,6 +181,7 @@ struct PlacesMapView: View {
             } label: {
                 VStack(spacing: 2) {
                     Image(systemName: "mappin.circle.fill")
+                        .accessibilityHidden(true)
                         .font(.title)
                         .foregroundStyle(.red)
                     if calloutCardID != card.id {
