@@ -30,7 +30,9 @@ struct ImportBoardSheet: View {
                     } header: {
                         Text("가져올 내용".localized)
                     } footer: {
-                        Text("기존 게시판·장소는 그대로 두고, 새 게시판으로 추가됩니다.".localized)
+                        Text(isTakeout
+                             ? "Google Takeout에서 읽었습니다. 이름·주소(있으면 좌표)만 담기며, 평점·사진·영업시간은 조회하지 않습니다 — 나중에 카드를 열어 채울 수 있습니다. 기존 게시판·장소는 그대로 둡니다.".localized
+                             : "기존 게시판·장소는 그대로 두고, 새 게시판으로 추가됩니다.".localized)
                     }
                 } else {
                     Section {
@@ -46,6 +48,8 @@ struct ImportBoardSheet: View {
                         Button("파일 선택…".localized) { showingFileImporter = true }
                     } header: {
                         Text("또는 파일에서".localized)
+                    } footer: {
+                        Text("PinSpots 백업 파일과 Google Takeout의 저장한 장소(Saved Places.json, 목록별 CSV)를 모두 읽습니다.".localized)
                     }
                 }
 
@@ -77,7 +81,9 @@ struct ImportBoardSheet: View {
             }
             .fileImporter(
                 isPresented: $showingFileImporter,
-                allowedContentTypes: [.json],
+                // Takeout hands out `Saved Places.json` and one CSV per
+                // saved list, so both types are pickable here.
+                allowedContentTypes: [.json, .commaSeparatedText],
                 onCompletion: handleFilePicked
             )
             .onChange(of: didImport) { _, imported in
@@ -94,6 +100,12 @@ struct ImportBoardSheet: View {
         applyDecoded(data)
     }
 
+    /// Whether the preview came from Takeout, which changes what the
+    /// footer can honestly promise: those cards carry a name, an address
+    /// and (from the GeoJSON form) a coordinate, and nothing else — no
+    /// rating, no photo, no hours, because nothing was looked up.
+    @State private var isTakeout = false
+
     private func handleFilePicked(_ result: Result<URL, Error>) {
         switch result {
         case .success(let url):
@@ -103,19 +115,32 @@ struct ImportBoardSheet: View {
                 errorMessage = "파일을 읽지 못했습니다.".localized
                 return
             }
-            applyDecoded(data)
+            // A Takeout CSV is named after the list it came from, which is
+            // the board name the user is expecting.
+            applyDecoded(data, listName: url.deletingPathExtension().lastPathComponent)
         case .failure:
             errorMessage = "파일을 읽지 못했습니다.".localized
         }
     }
 
-    private func applyDecoded(_ data: Data) {
-        do {
-            preview = try BackupService.decode(data)
+    /// This app's own backup first, then a Google Takeout export. Takeout
+    /// is converted to the same `BackupData` the backup path produces, so
+    /// the preview and the import below work on it unchanged — the only
+    /// difference is where the rows came from.
+    private func applyDecoded(_ data: Data, listName: String? = nil) {
+        if let backup = try? BackupService.decode(data) {
+            preview = backup
+            isTakeout = false
             errorMessage = nil
-        } catch {
-            errorMessage = (error as? BackupService.BackupError)?.errorDescription ?? "게시판 파일이 아닙니다.".localized
+            return
         }
+        if let takeout = TakeoutImport.parse(data, listName: listName) {
+            preview = takeout
+            isTakeout = true
+            errorMessage = nil
+            return
+        }
+        errorMessage = "PinSpots 백업 파일도, Google Takeout 파일도 아닙니다.".localized
     }
 
     private func performImport() {

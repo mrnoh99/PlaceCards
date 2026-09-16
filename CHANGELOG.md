@@ -2,6 +2,42 @@
 
 ## [Unreleased]
 
+### 2026-09-16 (183차) — Google Takeout 가져오기 (API 호출 0)
+기획의 "방법 3: Google Takeout 배치" 미구현 항목 → 사용자 요청
+"2, 3 진행해라".
+#### Added
+- `Services/TakeoutImport.swift`(신규), `Views/ImportBoardSheet.swift`,
+  `Models/MediaModels.swift`: **Takeout으로 내보낸 저장한 장소를 게시판
+  하나로 통째로 가져옴.** 목록 공유(#22)가 할 수 없던 대량 경로임 —
+  그쪽은 목록 미리보기 *이미지*에서 핀을 읽어서 **20곳 근처가 한계**이고
+  이름만 얻으므로 행마다 Places 검증이 필요함. Takeout 파일은 **상한이
+  없고 주소를 이미 갖고 있으며**(GeoJSON은 좌표까지), 그래서
+  **API 호출 0회로** 수백 곳이 들어옴. 비용은 사용자가 나중에 카드를
+  열어 평점·사진을 요청할 때만 발생함.
+  - 두 형식 모두 처리: `Saved Places.json`(GeoJSON FeatureCollection)과
+    목록별 CSV(`Title`/`Note`/`URL`/주소).
+  - **GeoJSON은 좌표를 `[경도, 위도]` 순서로 씁니다** — 이 앱의 다른
+    모든 API와 반대라, 그대로 읽으면 전 장소가 엉뚱한 반구로 감.
+  - **Takeout의 `[0,0]` 버그**(해결 못 한 장소에 0,0을 기록) 차단 —
+    `PhotoMetadata.extractLocation`이 사진 GPS에서 같은 값을 다루는
+    방식과 동일. 주소는 있고 좌표만 없는 카드가, Null Island에 꽂힌
+    카드보다 훨씬 쓸모 있음.
+  - CSV 열은 위치가 아니라 **이름으로** 찾음(Takeout의 열 구성이
+    바뀌어 왔음). BOM도 벗겨냄 — 안 그러면 첫 헤더에 붙어 `title` 조회가
+    실패함.
+  - `CSVReader`(RFC 4180 읽기)를 추가함 — `CSVExport`의 쓰기 짝. 메모에
+    쉼표·따옴표·줄바꿈이 들어오므로 쉼표 분리로는 오독함. 파이썬 표준
+    csv 파서와 4개 케이스 대조 검증함.
+  - **기존 가져오기 화면을 그대로 씀**: Takeout을 `BackupData`로 변환해
+    미리보기·가져오기 경로가 수정 없이 동작함. 파일 선택기에 CSV를
+    추가하고, 파일 이름을 게시판 이름으로 씀(Takeout CSV는 목록 이름으로
+    저장됨).
+  - `SourceType.googleTakeout` 추가 — 공유도 API 조회도 아니었음을
+    출처에 정직하게 남김.
+  - 177차(저장을 메인 스레드 밖으로)가 이걸 실용적으로 만듦:
+    `importBoard`은 카드마다 `save()`를 부르는데, 이제 그 쓰기들이
+    합쳐짐.
+
 ### 2026-09-16 (182차) — API 키에 번들 ID를 실어 보내도록 수정
 Google Cloud Console 설정법을 정리하며 공식 문서를 확인하던 중 발견 →
 사용자 요청 "2, 3 진행해라".
