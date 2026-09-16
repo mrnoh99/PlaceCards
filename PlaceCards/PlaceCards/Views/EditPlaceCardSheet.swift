@@ -675,7 +675,7 @@ struct EditPlaceCardSheet: View {
                     .foregroundStyle(.secondary)
             }
         } header: {
-            Text("사진 추가".localized)
+            Text("사진에서 정보 수집".localized)
         } footer: {
             Text("사진은 저장 시 카드에 추가됩니다. \"AI로 정보 읽어오기\"는 비어 있는 이름·주소를 채우는데, 사진에서 여러 장소가 발견되면 적용하지 않고 알려드리고, 이름이 바뀌는 경우엔 확인 후 적용됩니다.".localized)
         }

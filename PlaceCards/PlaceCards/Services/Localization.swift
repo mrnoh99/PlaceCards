@@ -262,6 +262,7 @@ enum Localization {
         "사진 위치로 보기 (Google)": "View Photo's Location (Google)",
         "사진 위치로 보기 (Naver)": "View Photo's Location (Naver)",
         "사진 추가": "Add Photo",
+        "사진에서 정보 수집": "Collect Info from Photos",
         "사진에서 여러 장소(": "Several places found in the photo (",
         "사진에서 장소 정보를 찾지 못했습니다.": "Couldn't find place info in the photo.",
         "사진에서 새로 채울 정보를 찾지 못했습니다.": "Found nothing new to fill in from the photo.",
