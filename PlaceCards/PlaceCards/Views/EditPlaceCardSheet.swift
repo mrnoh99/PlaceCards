@@ -312,6 +312,7 @@ struct EditPlaceCardSheet: View {
                         }
                     } label: {
                         Image(systemName: "chevron.down.circle")
+                            .accessibilityLabel("기존 카테고리에서 고르기".localized)
                     }
                 }
             }
@@ -576,6 +577,7 @@ struct EditPlaceCardSheet: View {
                                     pickedImageDatas.remove(at: index)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
+                                        .accessibilityLabel("사진 빼기".localized)
                                         .symbolRenderingMode(.palette)
                                         .foregroundStyle(.white, .black.opacity(0.6))
                                 }

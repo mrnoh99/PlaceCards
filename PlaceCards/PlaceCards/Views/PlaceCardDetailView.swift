@@ -69,10 +69,12 @@ struct PlaceCardDetailView: View {
                             HStack(spacing: 12) {
                                 Button(action: toggleVisited) {
                                     Image(systemName: card.isVisited ? "checkmark.circle.fill" : "checkmark.circle")
+                                        .accessibilityLabel(card.isVisited ? "방문 표시 해제".localized : "방문으로 표시".localized)
                                         .foregroundStyle(card.isVisited ? .green : .secondary)
                                 }
                                 Button(action: toggleFavorite) {
                                     Image(systemName: card.isFavorite ? "star.fill" : "star")
+                                        .accessibilityLabel(card.isFavorite ? "즐겨찾기 해제".localized : "즐겨찾기에 추가".localized)
                                         .foregroundStyle(card.isFavorite ? .yellow : .secondary)
                                 }
                             }
@@ -793,6 +795,7 @@ private struct PhotoViewerSheet: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
+                                .accessibilityLabel("더 보기".localized)
                         }
                     }
                 }
@@ -836,6 +839,7 @@ private struct WrapTagsView: View {
                                 onRemove(tag)
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
+                                    .accessibilityLabel("태그 삭제".localized)
                             }
                             .buttonStyle(.plain)
                         }

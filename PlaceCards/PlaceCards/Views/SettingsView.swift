@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var showingBackupExporter = false
     @State private var backupDocument: BackupDocument?
     @State private var showingRestoreImporter = false
+    @State private var showingCSVExporter = false
+    @State private var csvDocument: CSVDocument?
     @State private var showingRestoreConfirm = false
     @State private var restorePendingURL: URL?
     @State private var backupMessage: String?
@@ -104,6 +106,14 @@ struct SettingsView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             Button("저장".localized) { viewModel.saveGoogleAPIKey() }
+            // The two Naver sections below both explain themselves; the
+            // one key the app leans on hardest explained nothing. Without
+            // it a card still saves, so nothing looks broken — the fields
+            // it would have filled are simply blank, with no way to tell
+            // that a missing key is why.
+            Text("장소 확인과 평점·사진·영업시간 채우기에 사용됩니다. 키가 없어도 공유로 장소를 담을 수 있지만, 그 정보들은 비어 있게 됩니다.".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -221,12 +231,14 @@ struct SettingsView: View {
                         viewModel.moveProviderUp(provider)
                     } label: {
                         Image(systemName: "chevron.up")
+                            .accessibilityLabel("위로 이동".localized)
                     }
                     .disabled(index == 0)
                     Button {
                         viewModel.moveProviderDown(provider)
                     } label: {
                         Image(systemName: "chevron.down")
+                            .accessibilityLabel("아래로 이동".localized)
                     }
                     .disabled(index == viewModel.providerPriority.count - 1)
                 }
@@ -263,6 +275,10 @@ struct SettingsView: View {
     private var backupSection: some View {
         Section {
             Button("전체 백업".localized) { Task { await startBackup() } }
+            // A different job from the backup above, not a variant of it:
+            // that file exists to restore this app, embeds every photo as
+            // base64, and no spreadsheet will open it.
+            Button("CSV로 내보내기".localized) { startCSVExport() }
             Button("백업에서 복원".localized, role: .destructive) { showingRestoreImporter = true }
             if let backupMessage {
                 Text(backupMessage)
@@ -283,6 +299,17 @@ struct SettingsView: View {
             switch result {
             case .success: backupMessage = "백업을 저장했습니다.".localized
             case .failure: backupMessage = "백업을 저장하지 못했습니다.".localized
+            }
+        }
+        .fileExporter(
+            isPresented: $showingCSVExporter,
+            document: csvDocument,
+            contentType: .commaSeparatedText,
+            defaultFilename: CSVExport.filename()
+        ) { result in
+            switch result {
+            case .success: backupMessage = "CSV를 저장했습니다.".localized
+            case .failure: backupMessage = "CSV를 저장하지 못했습니다.".localized
             }
         }
         .fileImporter(isPresented: $showingRestoreImporter, allowedContentTypes: [.json]) { result in
@@ -428,6 +455,15 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Synchronous, unlike `startBackup()`: a CSV is text with no photo
+    /// bytes in it, so there is nothing here worth an async hop.
+    private func startCSVExport() {
+        csvDocument = CSVDocument(
+            data: CSVExport.csv(boards: storageService.boards, placeCards: storageService.placeCards)
+        )
+        showingCSVExporter = true
     }
 
     private func startBackup() async {

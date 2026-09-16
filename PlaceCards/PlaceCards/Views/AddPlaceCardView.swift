@@ -225,6 +225,7 @@ struct AddPlaceCardView: View {
                                     pickedImageDatas.remove(at: index)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
+                                        .accessibilityLabel("사진 빼기".localized)
                                         .symbolRenderingMode(.palette)
                                         .foregroundStyle(.white, .black.opacity(0.6))
                                 }
@@ -376,6 +377,7 @@ struct AddPlaceCardView: View {
                 viewModel.toggleSelected(id: row.wrappedValue.id)
             } label: {
                 Image(systemName: row.wrappedValue.selected ? "checkmark.circle.fill" : "circle")
+                    .accessibilityLabel(row.wrappedValue.selected ? "선택 해제".localized : "선택".localized)
                     .foregroundStyle(row.wrappedValue.selected ? Color.accentColor : .secondary)
             }
             .buttonStyle(.plain)
