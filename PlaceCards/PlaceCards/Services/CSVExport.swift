@@ -1,4 +1,8 @@
 import Foundation
+// `FileDocument` (and its Read/WriteConfiguration) live in SwiftUI, not
+// Foundation — same import set as `BackupService`, which declares the
+// equivalent document type for the JSON backup.
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// A spreadsheet of the library, for the thing the whole app is pointed at:
