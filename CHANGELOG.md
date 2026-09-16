@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### 2026-09-16 (181차) — 설정 하단 크레딧 줄
+사용자 요청: "화면 아래에 매우 작을 글씨로 credit 넣어라 Developed by
+JaiSung NOH MD 2026, Ver() Build()".
+#### Added
+- `Views/SettingsView.swift`: 설정 화면 맨 아래에 크레딧 한 줄을
+  `caption2`·연한 회색·가운데 정렬로 추가함. 버전과 빌드는 하드코딩하지
+  않고 번들에서 읽음(`CFBundleShortVersionString`,
+  `CFBundleVersion`) — 적어둔 숫자가 실제 빌드와 어긋날 일이 없게 함.
+  현재 표시: `Developed by JaiSung NOH MD 2026, Ver(1.0) Build(4)`.
+  이름과 숫자뿐이라 번역 대상에서 제외함.
+
 ### 2026-09-15 (175차) — 주소 지오코딩이 Enterprise 요금으로 청구되던 문제 수정
 사용자 요청: 비용 절감 진행. (사진 지연 호출을 검토했으나 목록·갤러리가
 카드마다 썸네일을 그려서 절약이 0임을 확인하고, 더 큰 건으로 전환함.)
