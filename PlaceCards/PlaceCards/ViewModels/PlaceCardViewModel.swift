@@ -736,8 +736,15 @@ final class PlaceCardViewModel: ObservableObject {
             // page itself instead, keeping whatever address/coordinates
             // the URL parse still did yield.
             if let url = parsed.url, let title = await LinkMetadataFetcher.fetchTitle(for: url) {
+                // Google's own page title reads "이름 · 지역" for a Maps
+                // share — see `SharedLinkParser.splitGoogleTitle`'s own
+                // comment for why leaving that unsplit produces a spurious
+                // name mismatch downstream. Naver never reaches this
+                // branch (`parseNaverText` always gives a name), so this
+                // only ever runs for a Google share.
+                let (name, address) = SharedLinkParser.splitGoogleTitle(title)
                 return ResolvedSharedPlace(
-                    name: title, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note,
+                    name: name, address: parsed.address ?? address, coordinates: parsed.coordinates, note: parsed.note,
                     website: nil, source: parsed.source, mapURL: parsed.url
                 )
             }

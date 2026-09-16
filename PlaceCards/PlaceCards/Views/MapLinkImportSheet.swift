@@ -166,9 +166,15 @@ struct MapLinkImportSheet: View {
         // A page's own <title>/og:title (for a shortened goo.gl link) can
         // carry stray formatting the same way a Google Maps URL's own
         // name segment can — stripped for the same reason
-        // `SharedLinkParser.parseGoogleMapsURLPath` strips its own.
+        // `SharedLinkParser.parseGoogleMapsURLPath` strips its own, and
+        // split the same "이름 · 지역" shape that title carries (see
+        // `SharedLinkParser.splitGoogleTitle`) so the location half
+        // doesn't get merged into `name` and trigger a false "이름이
+        // 다릅니다" against an already-correct name.
         if parsed.name == nil, let url = parsed.url, let title = await LinkMetadataFetcher.fetchTitle(for: url) {
-            parsed.name = title.strippingInvisibleFormatCharacters()
+            let (name, address) = SharedLinkParser.splitGoogleTitle(title.strippingInvisibleFormatCharacters())
+            parsed.name = name
+            if parsed.address == nil { parsed.address = address }
         }
         guard let extractedName = parsed.name?.trimmingCharacters(in: .whitespaces).strippingInvisibleFormatCharacters(),
               !extractedName.isEmpty else {
