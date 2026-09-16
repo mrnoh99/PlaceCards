@@ -103,6 +103,14 @@ struct SettingsView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             Button("저장".localized) { viewModel.saveGoogleAPIKey() }
+            // The two Naver sections below both explain themselves; the
+            // one key the app leans on hardest explained nothing. Without
+            // it a card still saves, so nothing looks broken — the fields
+            // it would have filled are simply blank, with no way to tell
+            // that a missing key is why.
+            Text("장소 확인과 평점·사진·영업시간 채우기에 사용됩니다. 키가 없어도 공유로 장소를 담을 수 있지만, 그 정보들은 비어 있게 됩니다.".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

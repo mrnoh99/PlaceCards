@@ -232,7 +232,15 @@ struct MapLinkImportSheet: View {
     /// without this.
     private func enrichFromGooglePlaces() async {
         guard !card.isPlaceConfirmed else { return }
-        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return }
+        // Used to return in silence, which is how a first run without a
+        // key looks like the app simply doesn't fill these fields. The
+        // link import itself succeeded, so the card is saved either way —
+        // this only explains the blanks.
+        guard let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else {
+            let note = "설정에서 Google Places API 키를 등록하면 평점·사진·영업시간도 함께 채웁니다.".localized
+            statusMessage = [statusMessage, note].compactMap { $0 }.joined(separator: "\n")
+            return
+        }
         let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
         let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
