@@ -119,7 +119,7 @@ struct PlacesMapView: View {
             // scroll — matches Home/Gallery/BoardDetailView.
             .searchable(text: $searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "장소 검색".localized)
             // Only the Apple map has a SwiftUI-owned camera
-            // (`viewModel.region`) this can recenter directly — the
+            // (`viewModel.cameraPosition`) this can recenter directly — the
             // Google/Naver maps are WKWebViews with no such hook from
             // here, so for those, matching pins simply being the only
             // ones left on the map (via `visibleCards` above) is the
@@ -128,19 +128,19 @@ struct PlacesMapView: View {
                 guard !newValue.trimmingCharacters(in: .whitespaces).isEmpty,
                       let firstMatch = visibleCards.first else { return }
                 withAnimation {
-                    viewModel.region.center = viewModel.coordinate(for: firstMatch)
+                    viewModel.recenter(on: viewModel.coordinate(for: firstMatch))
                 }
             }
         }
     }
 
     private var appleMap: some View {
-        Map(
-            coordinateRegion: $viewModel.region,
-            annotationItems: visibleCards
-        ) { card in
-            MapAnnotation(coordinate: viewModel.coordinate(for: card)) {
-                appleMapAnnotation(for: card)
+        Map(position: $viewModel.cameraPosition) {
+            ForEach(visibleCards) { card in
+                Annotation(card.name, coordinate: viewModel.coordinate(for: card)) {
+                    appleMapAnnotation(for: card)
+                }
+                .annotationTitles(.hidden)
             }
         }
     }

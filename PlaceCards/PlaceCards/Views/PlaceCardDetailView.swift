@@ -11,6 +11,13 @@ struct PlaceCardDetailView: View {
 
     @EnvironmentObject private var storageService: StorageService
     @Environment(\.openURL) private var openURL
+    /// Pops this screen (a `navigationDestination` push from Home/Gallery)
+    /// or dismisses it (a `fullScreenCover` from the map tab) — SwiftUI
+    /// resolves either correctly through the same call. Only ever used
+    /// after `EditPlaceCardSheet` deletes this card out from under this
+    /// screen (`onDelete` below): there's nothing left here worth staying
+    /// on.
+    @Environment(\.dismiss) private var dismiss
     @State private var isPresentingEdit = false
     @State private var isPresentingPhotoViewer = false
     @State private var photoViewerStartIndex = 0
@@ -263,9 +270,11 @@ struct PlaceCardDetailView: View {
             }
         }
         .sheet(isPresented: $isPresentingEdit) {
-            EditPlaceCardSheet(card: card) { updated in
+            EditPlaceCardSheet(card: card, onSave: { updated in
                 card = updated
-            }
+            }, onDelete: {
+                dismiss()
+            })
         }
         .sheet(isPresented: $isPresentingPhotoViewer) {
             PhotoViewerSheet(

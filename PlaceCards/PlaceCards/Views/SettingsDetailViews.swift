@@ -273,7 +273,7 @@ struct NaverSettingsView: View {
         } header: {
             Text("지도 표시".localized)
         } footer: {
-            Text("\"지도\" 탭에서 Naver 지도를 선택했을 때만 사용됩니다. NAVER Cloud Platform Maps 애플리케이션의 Client ID이며, Secret은 필요 없습니다.".localized)
+            Text("\"지도\" 탭에서 Naver 지도를 선택했을 때만 사용됩니다. NAVER Cloud Platform Maps 애플리케이션의 Client ID이며, Secret은 필요 없습니다. 지도가 뜨는 페이지는 이 앱이 아니라 mrnoh99.github.io에서 불러오므로, 콘솔의 해당 Application 설정에서 Web 서비스 URL에 반드시 \"mrnoh99.github.io\"를 등록해야 합니다 — 등록하지 않으면 Client ID는 통과해도 지도 타일이 전부 실패합니다.".localized)
         }
     }
 

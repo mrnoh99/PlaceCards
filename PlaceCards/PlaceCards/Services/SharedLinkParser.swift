@@ -121,6 +121,23 @@ enum SharedLinkParser {
         )
     }
 
+    /// Google's own page `<title>`/`og:title` for a Maps share reads
+    /// "이름 · 지역, 지역" (a middle dot before the locality) — the same
+    /// name-plus-address shape `parseGoogleMapsURLPath`'s own name segment
+    /// carries, just spelled with " · " instead of a comma. This is the
+    /// fallback `MapLinkImportSheet`/`PlaceCardViewModel.resolveSharedPlace`
+    /// use for a short (`goo.gl`) Google Maps link, whose URL path alone
+    /// has no name to parse — left unsplit, the whole "이름 · 지역" string
+    /// lands in `name` alone, which is exactly why merging a shared link
+    /// back into an already-named card could prompt "이름이 다릅니다" even
+    /// though the actual place name (before the " · ") was identical.
+    static func splitGoogleTitle(_ title: String) -> (name: String, address: String?) {
+        guard let dotRange = title.range(of: " · ") else { return (title, nil) }
+        let name = String(title[..<dotRange.lowerBound]).trimmingCharacters(in: .whitespaces)
+        let addressPart = String(title[dotRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+        return (name.isEmpty ? title : name, addressPart.isEmpty ? nil : addressPart)
+    }
+
     /// Pulls the place name, address, and coordinates straight out of a
     /// full Google Maps URL's own path (`/maps/place/<name>/@<lat>,<lng>,
     /// <zoom>z/...`) — every value Google Maps' own share button already
