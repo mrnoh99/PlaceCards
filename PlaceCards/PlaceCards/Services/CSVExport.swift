@@ -47,6 +47,11 @@ enum CSVExport {
 
     /// Computed, not stored, so the header row follows the app's current
     /// language the same way every other `.localized` call site does.
+    ///
+    /// Translated with one `map` rather than a `.localized` on each
+    /// literal. Worth knowing when auditing `Localization.swift`: a scan
+    /// that looks for the literal `"…".localized` shape will report every
+    /// key below as unused, and they are not.
     private static var headers: [String] {
         [
             "게시판", "이름", "카테고리", "주소", "위도", "경도",

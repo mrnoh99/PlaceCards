@@ -397,7 +397,6 @@ enum Localization {
         "CSV로 공유": "Share as CSV",
         "CSV를 저장했습니다.": "Saved the CSV.",
         "CSV를 저장하지 못했습니다.": "Couldn't save the CSV.",
-        "CSV를 준비하지 못했습니다.": "Couldn't prepare the CSV.",
         "방문으로 표시": "Mark as visited",
         "방문 표시 해제": "Unmark as visited",
         "즐겨찾기에 추가": "Add to favorites",
