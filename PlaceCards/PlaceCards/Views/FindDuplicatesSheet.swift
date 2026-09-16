@@ -82,6 +82,7 @@ struct FindDuplicatesSheet: View {
                 } label: {
                     HStack(alignment: .top) {
                         Image(systemName: card.id == selectedID ? "largecircle.fill.circle" : "circle")
+                            .accessibilityHidden(true)
                             .foregroundStyle(card.id == selectedID ? Color.accentColor : .secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(card.name)

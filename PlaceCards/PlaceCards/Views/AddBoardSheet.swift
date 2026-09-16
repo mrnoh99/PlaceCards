@@ -29,6 +29,8 @@ struct AddBoardSheet: View {
                                 coverIcon = icon
                             } label: {
                                 Image(systemName: icon)
+                                    .accessibilityLabel("표지 아이콘".localized)
+                                    .accessibilityAddTraits(coverIcon == icon ? [.isSelected] : [])
                                     .font(.system(size: 22))
                                     .foregroundStyle(coverIcon == icon ? Color.accentColor : .secondary)
                                     .frame(maxWidth: .infinity, minHeight: 48)
