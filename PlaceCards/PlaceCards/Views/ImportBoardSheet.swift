@@ -55,6 +55,14 @@ struct ImportBoardSheet: View {
                         .foregroundStyle(.red)
                 }
             }
+            // The one text-entry screen that was missing these. It also
+            // has the app's only multi-line `TextEditor`, where they
+            // matter most: a return key inserts a newline there rather
+            // than dismissing, so without a 완료 button there was no way
+            // to put the keyboard away — and it covers the "붙여넣은
+            // 텍스트 확인" button sitting right under the editor.
+            .scrollDismissesKeyboard(.interactively)
+            .keyboardDoneButton()
             .navigationTitle("게시판 가져오기".localized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
