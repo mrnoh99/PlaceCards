@@ -220,12 +220,14 @@ struct SettingsView: View {
                         viewModel.moveProviderUp(provider)
                     } label: {
                         Image(systemName: "chevron.up")
+                            .accessibilityLabel("위로 이동".localized)
                     }
                     .disabled(index == 0)
                     Button {
                         viewModel.moveProviderDown(provider)
                     } label: {
                         Image(systemName: "chevron.down")
+                            .accessibilityLabel("아래로 이동".localized)
                     }
                     .disabled(index == viewModel.providerPriority.count - 1)
                 }
