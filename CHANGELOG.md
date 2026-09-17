@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### 2026-09-17 (190차) — 갈라놨던 Naver 임베드 페이지를 다시 하나로
+사용자 승인 "peragra 변경해도 된다".
+
+189차는 Peragra 말풍선을 건드리지 않으려고 임베드 페이지를 통째로 복사해서
+`placecards-naver-map-embed.html`을 따로 뒀음. Peragra를 바꿔도 된다는
+승인이 나왔으니 사본을 지움 — **한 페이지의 사본 둘이 서로 갈라지는 쪽이 더
+나쁜 문제임.**
+
+#### Changed
+- `web/public/naver-map-embed.html` (Peragra 저장소): 189차의 말풍선
+  디자인을 공용 페이지 본체에 적용하고 사본은 삭제. 앱별 분기는 없음 —
+  한쪽만 보내는 필드에 전부 기본값이 있음:
+  - `strings` 없음 → 영어 기본값(Peragra가 지금까지 보여주던 그대로).
+  - `appleMapUrlString` 없음 → 그 버튼을 안 그림(Peragra는 Apple 지도
+    연동 자체가 없음).
+  - `addressTrusted`가 **`false`일 때만** Google 질의가 이름+여행지로
+    떨어짐. 필드를 아예 안 보내는 PlaceCards는 주소를 그대로 씀 —
+    종전 동작과 같음.
+  - `tripDestination` 없음 → `""`.
+- `Views/NaverMapWebView.swift`: `embedURL`을 공용 페이지로 되돌림.
+- Peragra iOS 앱의 말풍선도 같은 모양이 됨. "📋 View place card"가 채워진
+  "View card" 버튼이 됨.
+
+#### 검증
+Node로 페이지의 마커 클릭 핸들러를 DOM 스텁 위에서 실제로 돌려, 네 가지
+페이로드(Peragra `addressTrusted` true/false, PlaceCards 국내/국외)가 각각
+어떤 버튼과 어떤 Google 질의를 만드는지 확인했음.
+
 ### 2026-09-17 (189차) — 지도 벌룬 셋을 한 모양으로, 애플 지도 추가
 사용자 요청 "지도열기에 구글 네이버 카카오 티맵에 더하여 애플 지도 더해라 /
 애플의 핀 터치 벌룬과 같은 모양으로 구글맵 네이버맵 고쳐라".
