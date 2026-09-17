@@ -49,9 +49,9 @@ enum PlaceCategoryIcon {
     /// Symbols elsewhere in the app) inside a white circular badge, for
     /// the one spot that needs real markup rather than a system image:
     /// the Naver Map marker icon (`NaverMapWebView`/
-    /// `placecards-naver-map-embed.html`). That page takes this string
-    /// and concatenates it directly into the marker's HTML content — its
-    /// payload shape is inherited from Peragra's own embed page, where
+    /// `naver-map-embed.html`). That page takes this string and
+    /// concatenates it directly into the marker's HTML content — its
+    /// payload shape comes from Peragra, which shares the page and where
     /// this field is a literal color emoji character (hence its name),
     /// but nothing requires it to *be* an emoji; any safe inline markup
     /// works the same way, and full-color

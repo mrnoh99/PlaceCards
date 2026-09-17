@@ -10,16 +10,17 @@ import UIKit
 /// origin for resolving relative URLs: the map script initializes fine
 /// against a faked one, but every tile request fails silently.
 ///
-/// The page is PlaceCards' own (`web/public/placecards-naver-map-embed
-/// .html` in the Peragra repo), not the generic `naver-map-embed.html`
-/// next to it: that one is Peragra's iOS app's page — its own
-/// `NaverMapWebView` loads it — so reshaping the marker balloon to match
-/// this app's Apple map callout would have changed Peragra's balloon too.
-/// The copy is served off the same `https://mrnoh99.github.io/Peragra/`
-/// origin, which is what Naver actually checks, so it needs no NCP change
-/// of its own — **but that application's Web Service URL must include
-/// `mrnoh99.github.io` or every tile request will fail the same way
-/// `loadHTMLString` did.**
+/// The page (`web/public/naver-map-embed.html` in the Peragra repo) is
+/// shared with Peragra's own iOS app, which loads it too — **so changing
+/// it changes both apps' marker balloons.** This app briefly kept a fork
+/// of it to avoid that; the fork was dropped once reshaping Peragra's
+/// balloon was approved, since two diverging copies of one page is the
+/// worse problem. The page needs no branch per app: every field only one
+/// of them sends (`strings`, `appleMapUrlString`) has a default there.
+///
+/// **That NCP application's Web Service URL must include
+/// `mrnoh99.github.io`** or every tile request will fail the same way
+/// `loadHTMLString` did.
 ///
 /// The page takes its Naver Client ID, its user-facing labels and its
 /// place data entirely from the JS payload injected below
@@ -31,9 +32,9 @@ struct NaverMapWebView: UIViewRepresentable {
         let address: String
         /// The embed page's marker icon concatenates this directly into
         /// the marker's HTML content (`place.emoji`, in
-        /// `placecards-naver-map-embed.html`). Despite the name (kept to
-        /// match the payload shape the page inherited from Peragra's),
-        /// this is populated
+        /// `naver-map-embed.html`). Despite the name — the shared page's
+        /// payload shape comes from Peragra, where this really is an
+        /// emoji character — this is populated
         /// with `PlacesMapView.naverMarkerContentHTML(for:)` — an
         /// inline-SVG outline icon (`PlaceCategoryIcon.markerGlyphHTML`)
         /// plus the place's own name as a label underneath, not a
@@ -55,10 +56,10 @@ struct NaverMapWebView: UIViewRepresentable {
     }
 
     /// The page's own user-facing labels. Resolved here, via `.localized`,
-    /// because the page has no access to the app's language setting — the
-    /// English defaults it falls back to are for a payload that omits one,
-    /// not the normal path. The button labels are the same short provider
-    /// names the native menu (`MapOpenMenu`) uses.
+    /// because the page has no access to the app's language setting.
+    /// Peragra sends no `strings` at all and gets the page's English
+    /// defaults, which is what it has always shown. The button labels are
+    /// the same short provider names the native menu (`MapOpenMenu`) uses.
     private struct LocalizedStrings: Encodable {
         let loadError = "Naver 지도를 불러오지 못했습니다 — 설정의 Client ID를 확인해주세요.".localized
         let authError = "Naver 지도가 이 Client ID를 거부했습니다 — 설정에서 확인해주세요.".localized
@@ -78,7 +79,7 @@ struct NaverMapWebView: UIViewRepresentable {
     /// "카드 보기" button is tapped, via a JS -> Swift message handler.
     let onSelectPlace: (String) -> Void
 
-    private static let embedURL = URL(string: "https://mrnoh99.github.io/Peragra/placecards-naver-map-embed.html")!
+    private static let embedURL = URL(string: "https://mrnoh99.github.io/Peragra/naver-map-embed.html")!
 
     private struct Payload: Encodable {
         let clientId: String
