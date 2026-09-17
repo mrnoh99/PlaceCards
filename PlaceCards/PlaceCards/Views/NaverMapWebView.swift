@@ -5,20 +5,25 @@ import UIKit
 /// Renders saved place cards on a Naver Map, for the "지도" tab's Naver
 /// option. Unlike `GoogleMapWebView` (which embeds a self-contained HTML
 /// string via `loadHTMLString`), this navigates the WKWebView to a real
-/// page — reusing the same generic, data-driven embed page Peragra
-/// already deployed at
-/// https://mrnoh99.github.io/Peragra/naver-map-embed.html — because
-/// Naver's tile-serving endpoints validate the calling page's actual
-/// origin, and `loadHTMLString(_:baseURL:)` only fakes that origin for
-/// resolving relative URLs: the map script initializes fine against a
-/// faked one, but every tile request fails silently. The page takes its
-/// Naver Client ID and place data entirely from the JS payload injected
-/// below (`window.renderNaverMap`), so it works for PlaceCards' own NCP
-/// application the same way it already does for Peragra's — **but that
-/// application's Web Service URL must include `mrnoh99.github.io`
-/// (or PlaceCards needs its own copy of the page hosted somewhere its
-/// own NCP application allows) or every tile request will fail the same
-/// way `loadHTMLString` did.**
+/// page — because Naver's tile-serving endpoints validate the calling
+/// page's actual origin, and `loadHTMLString(_:baseURL:)` only fakes that
+/// origin for resolving relative URLs: the map script initializes fine
+/// against a faked one, but every tile request fails silently.
+///
+/// The page is PlaceCards' own (`web/public/placecards-naver-map-embed
+/// .html` in the Peragra repo), not the generic `naver-map-embed.html`
+/// next to it: that one is Peragra's iOS app's page — its own
+/// `NaverMapWebView` loads it — so reshaping the marker balloon to match
+/// this app's Apple map callout would have changed Peragra's balloon too.
+/// The copy is served off the same `https://mrnoh99.github.io/Peragra/`
+/// origin, which is what Naver actually checks, so it needs no NCP change
+/// of its own — **but that application's Web Service URL must include
+/// `mrnoh99.github.io` or every tile request will fail the same way
+/// `loadHTMLString` did.**
+///
+/// The page takes its Naver Client ID, its user-facing labels and its
+/// place data entirely from the JS payload injected below
+/// (`window.renderNaverMap`).
 struct NaverMapWebView: UIViewRepresentable {
     struct MarkerPlace: Encodable, Equatable {
         let id: String
@@ -26,11 +31,9 @@ struct NaverMapWebView: UIViewRepresentable {
         let address: String
         /// The embed page's marker icon concatenates this directly into
         /// the marker's HTML content (`place.emoji`, in
-        /// `naver-map-embed.html`) — without it, every marker's icon
-        /// literally reads "undefined" (a bare string concatenation with
-        /// no nil-check on the page's side, since it was written for
-        /// Peragra, where this field is never missing). Despite the name
-        /// (kept to match that page's payload shape), this is populated
+        /// `placecards-naver-map-embed.html`). Despite the name (kept to
+        /// match the payload shape the page inherited from Peragra's),
+        /// this is populated
         /// with `PlacesMapView.naverMarkerContentHTML(for:)` — an
         /// inline-SVG outline icon (`PlaceCategoryIcon.markerGlyphHTML`)
         /// plus the place's own name as a label underneath, not a
@@ -40,9 +43,33 @@ struct NaverMapWebView: UIViewRepresentable {
         let visited: Bool
         let latitude: Double
         let longitude: Double
+        /// Precomputed here rather than on the page, since building
+        /// these needs `KoreaRegion`/`AppleMapsOpener`/`KakaoMapOpener`/
+        /// `NaverMapOpener`/`TmapOpener`, which only exist on the Swift
+        /// side — nil when that provider isn't available for this place
+        /// (outside Korea, say), which the page skips.
+        let appleMapUrlString: String?
         let kakaoMapUrlString: String?
         let naverMapUrlString: String?
         let tmapUrlString: String?
+    }
+
+    /// The page's own user-facing labels. Resolved here, via `.localized`,
+    /// because the page has no access to the app's language setting — the
+    /// English defaults it falls back to are for a payload that omits one,
+    /// not the normal path. The button labels are the same short provider
+    /// names the native menu (`MapOpenMenu`) uses.
+    private struct LocalizedStrings: Encodable {
+        let loadError = "Naver 지도를 불러오지 못했습니다 — 설정의 Client ID를 확인해주세요.".localized
+        let authError = "Naver 지도가 이 Client ID를 거부했습니다 — 설정에서 확인해주세요.".localized
+        let scriptError = "Naver 지도 스크립트를 불러오지 못했습니다.".localized
+        let close = "닫기".localized
+        let viewCard = "카드 보기".localized
+        let openGoogleMaps = "Google Maps"
+        let openAppleMaps = "Apple 지도".localized
+        let openNaverMap = "Naver Map"
+        let openKakaoMap = "Kakao Map"
+        let openTmap = "Tmap"
     }
 
     let clientId: String
@@ -51,11 +78,11 @@ struct NaverMapWebView: UIViewRepresentable {
     /// "카드 보기" button is tapped, via a JS -> Swift message handler.
     let onSelectPlace: (String) -> Void
 
-    private static let embedURL = URL(string: "https://mrnoh99.github.io/Peragra/naver-map-embed.html")!
+    private static let embedURL = URL(string: "https://mrnoh99.github.io/Peragra/placecards-naver-map-embed.html")!
 
     private struct Payload: Encodable {
         let clientId: String
-        let tripDestination: String
+        let strings = LocalizedStrings()
         let places: [MarkerPlace]
     }
 
@@ -93,11 +120,7 @@ struct NaverMapWebView: UIViewRepresentable {
         let signature = Signature(clientId: clientId, places: places)
         guard context.coordinator.loadedSignature != signature else { return }
         context.coordinator.loadedSignature = signature
-        // The embed page's payload has a tripDestination field (Peragra's
-        // own per-trip fallback for a marker's "Open in Google Maps"
-        // link) — PlaceCards has no equivalent, so this is always empty;
-        // the page's own name+address fallback still works fine without it.
-        let payload = Payload(clientId: clientId, tripDestination: "", places: places)
+        let payload = Payload(clientId: clientId, places: places)
         context.coordinator.pendingPayloadJSON = Self.jsonString(for: payload)
         webView.load(URLRequest(url: Self.embedURL))
     }

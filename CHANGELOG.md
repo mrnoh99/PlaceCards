@@ -2,6 +2,52 @@
 
 ## [Unreleased]
 
+### 2026-09-17 (189차) — 지도 벌룬 셋을 한 모양으로, 애플 지도 추가
+사용자 요청 "지도열기에 구글 네이버 카카오 티맵에 더하여 애플 지도 더해라 /
+애플의 핀 터치 벌룬과 같은 모양으로 구글맵 네이버맵 고쳐라".
+
+같은 앱의 지도 탭 셋이 핀을 눌렀을 때 서로 다른 것을 보여주고 있었음. Apple
+탭은 이름·주소 아래 채워진 "카드 보기" 버튼과 테두리 버튼이 한 줄로 놓인
+말풍선(`PlacesMapView.appleMapAnnotation`)인데, Google·Naver 탭은 밑줄 친
+링크를 세로로 쌓은 목록이었고 — 게다가 그 목록에 **Apple 지도만 빠져
+있었음**: 네이티브 메뉴(`MapOpenMenu`)는 진작부터 다섯 곳을 다 제공하는데
+웹 말풍선 둘만 넷이었음.
+
+#### Changed
+- `Views/GoogleMapWebView.swift`: 마커 말풍선을 Apple 탭 말풍선과 같은
+  모양으로 다시 만들었음 — `.pc-balloon`/`.pc-name`/`.pc-address`/
+  `.pc-actions` CSS에 채워진 `.pc-btn-primary` "카드 보기" 하나와 테두리
+  `.pc-btn-secondary` 제공자 버튼들. 링크 라벨도 "…에서 열기" 문장에서
+  네이티브 메뉴와 같은 짧은 제공자 이름("Google Maps", "Naver Map" …)으로
+  바꿈 — 한 줄짜리 버튼 행에는 문장이 들어가지 않음.
+  - `MarkerPlace.appleMapUrlString` 추가. `nil`이면 그 버튼은 아예 그리지
+    않으므로, 열 수 없는 앱이 행에 남지 않음.
+  - 내용은 여전히 `textContent`를 쓴 DOM 노드로 만듦(HTML 문자열이 아님) —
+    장소 이름·주소에 마크업이 들어 있어도 페이지에 주입되지 않음.
+- `Views/NaverMapWebView.swift`: 임베드 페이지를 Peragra와 공용으로 쓰던
+  `naver-map-embed.html`에서 **PlaceCards 전용 사본**
+  `placecards-naver-map-embed.html`로 옮겼음. 공용 페이지는 Peragra의 iOS
+  앱(`Peragra/Views/Places/NaverMapWebView.swift`)도 그대로 불러오므로,
+  말풍선을 이 앱 모양으로 바꾸면 Peragra 말풍선까지 같이 바뀌었을 것임.
+  사본도 `mrnoh99.github.io/Peragra/` 같은 오리진에서 나가므로 — Naver가
+  실제로 검사하는 것이 오리진임 — **NCP 콘솔 설정은 바꿀 것이 없음.**
+  - 페이지의 사용자 노출 문자열을 페이로드의 `strings`로 넘김. 공용
+    페이지는 영어가 마크업에 박혀 있었는데, 이 앱에는 자체 언어 설정이
+    있고 그것을 풀 수 있는 쪽은 Swift(`.localized`)뿐임.
+  - `MarkerPlace.appleMapUrlString` 추가, 쓰지 않던 `tripDestination`
+    제거(Peragra의 여행별 대체값이라 이 앱에는 대응물이 없었음).
+- `Views/PlacesMapView.swift`: 두 마커 빌더가 `AppleMapsOpener.webURL`을
+  채움. Apple 탭 말풍선의 `includesApple: false`는 그대로 — 거기서 "Apple
+  지도"는 이미 보고 있는 지도를 여는 것임.
+- `Services/Localization.swift`: 더 이상 쓰지 않는 "Kakao Map에서 열기",
+  "Naver Map에서 열기", "Tmap에서 열기", "📋 카드 보기" 제거. 페이지가
+  넘겨받게 된 Naver 오류 문구 셋 추가.
+
+#### Added (Peragra 저장소)
+- `web/public/placecards-naver-map-embed.html`: 위의 PlaceCards 전용 페이지.
+  GitHub Pages 배포(`deploy-web.yml`)는 `main` 푸시에만 돌므로 **Peragra
+  쪽을 먼저 병합해야** 앱의 Naver 탭이 404를 보지 않음.
+
 ### 2026-09-16 (188차) — 설정 순서를 중요도대로: 언어, AI, 지도
 사용자 요청 "언어 선택을 처음에 넣어라 (앱 언어는 ios 설정에 따르고, 읽어오는
 언어는 선택하게) / 다음 가장 기본이 되는 중요한 키는 ai다. 이 키값을 입력을

@@ -29,8 +29,10 @@ struct GoogleMapWebView: UIViewRepresentable {
         let longitude: Double
         /// Precomputed here (rather than in the JS below) since building
         /// these needs `KoreaRegion`/`KakaoMapOpener`/`NaverMapOpener`/
-        /// `TmapOpener`, which only exist on the Swift side — nil when
-        /// that service isn't available for this place (outside Korea, say).
+        /// `TmapOpener`/`AppleMapsOpener`, which only exist on the Swift
+        /// side — nil when that service isn't available for this place
+        /// (outside Korea, say).
+        let appleMapUrlString: String?
         let kakaoMapUrlString: String?
         let naverMapUrlString: String?
         let tmapUrlString: String?
@@ -110,6 +112,7 @@ struct GoogleMapWebView: UIViewRepresentable {
         let loadError: String
         let viewCard: String
         let openGoogleMaps: String
+        let openAppleMaps: String
         let openNaverMap: String
         let openKakaoMap: String
         let openTmap: String
@@ -123,13 +126,18 @@ struct GoogleMapWebView: UIViewRepresentable {
             placesJSON = "[]"
         }
 
+        // The balloon is a compact button row now (see `balloonCSS`), so
+        // these are the same short provider names the native map menu
+        // (`MapOpenMenu`) uses rather than the old "…에서 열기" sentences
+        // that suited a stacked list of links.
         let strings = LocalizedStrings(
             loadError: "Google 지도를 불러오지 못했습니다 — 설정의 API 키를 확인해주세요.".localized,
-            viewCard: "📋 카드 보기".localized,
-            openGoogleMaps: "Google Maps에서 열기".localized,
-            openNaverMap: "Naver Map에서 열기".localized,
-            openKakaoMap: "Kakao Map에서 열기".localized,
-            openTmap: "Tmap에서 열기".localized
+            viewCard: "카드 보기".localized,
+            openGoogleMaps: "Google Maps",
+            openAppleMaps: "Apple 지도".localized,
+            openNaverMap: "Naver Map",
+            openKakaoMap: "Kakao Map",
+            openTmap: "Tmap"
         )
         let stringsJSON: String
         if let data = try? JSONEncoder().encode(strings), let json = String(data: data, encoding: .utf8) {
@@ -145,6 +153,31 @@ struct GoogleMapWebView: UIViewRepresentable {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
             html, body, #map { margin: 0; height: 100%; width: 100%; }
+
+            /* Matches the Apple map tab's own marker callout
+               (`PlacesMapView.appleMapAnnotation`): name, address, then a
+               row of controls — a filled primary action and bordered
+               secondary ones — instead of the stack of underlined links
+               this balloon used to be. Kept byte-identical to the
+               PlaceCards Naver page's own copy so all three map tabs read
+               the same. */
+            .pc-balloon { max-width: 220px; font-family: -apple-system, sans-serif; }
+            .pc-name {
+              font-size: 15px; font-weight: 600;
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            }
+            .pc-address {
+              font-size: 12px; color: #737373; margin-top: 2px;
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            }
+            .pc-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+            .pc-btn {
+              font: 500 12px -apple-system, sans-serif;
+              border: none; border-radius: 8px; padding: 5px 10px;
+              cursor: pointer; text-decoration: none; display: inline-block;
+            }
+            .pc-btn-primary { background: #007AFF; color: #ffffff; }
+            .pc-btn-secondary { background: rgba(120, 120, 128, 0.16); color: #007AFF; }
           </style>
         </head>
         <body>
@@ -234,47 +267,46 @@ struct GoogleMapWebView: UIViewRepresentable {
                   // string, so a place name/address can't inject markup
                   // into the page.
                   const content = document.createElement("div");
+                  content.className = "pc-balloon";
                   const nameEl = document.createElement("div");
-                  nameEl.style.fontWeight = "600";
+                  nameEl.className = "pc-name";
                   nameEl.textContent = place.name;
                   content.appendChild(nameEl);
                   if (place.address) {
                     const addressEl = document.createElement("div");
-                    addressEl.style.color = "#737373";
-                    addressEl.style.fontSize = "12px";
+                    addressEl.className = "pc-address";
                     addressEl.textContent = place.address;
                     content.appendChild(addressEl);
                   }
-                  const mapsQuery = [place.name, place.address].filter(Boolean).join(", ");
-                  const mapsUrl = "https://www.google.com/maps/search/?api=1&query=" +
-                    encodeURIComponent(mapsQuery);
-                  const makeMapLink = (href, label) => {
-                    const linkEl = document.createElement("a");
-                    linkEl.href = href;
-                    linkEl.textContent = label;
-                    linkEl.style.display = "block";
-                    linkEl.style.marginTop = "4px";
-                    linkEl.style.fontSize = "12px";
-                    return linkEl;
-                  };
+                  const actions = document.createElement("div");
+                  actions.className = "pc-actions";
                   const viewCardEl = document.createElement("button");
                   viewCardEl.type = "button";
+                  viewCardEl.className = "pc-btn pc-btn-primary";
                   viewCardEl.textContent = L.viewCard;
-                  viewCardEl.style.display = "block";
-                  viewCardEl.style.marginTop = "4px";
-                  viewCardEl.style.fontSize = "12px";
-                  viewCardEl.style.color = "#f9532c";
-                  viewCardEl.style.textDecoration = "underline";
-                  viewCardEl.style.background = "none";
-                  viewCardEl.style.border = "none";
-                  viewCardEl.style.padding = "0";
-                  viewCardEl.style.cursor = "pointer";
                   viewCardEl.onclick = () => window.webkit.messageHandlers.selectPlace.postMessage(place.id);
-                  content.appendChild(viewCardEl);
-                  content.appendChild(makeMapLink(mapsUrl, L.openGoogleMaps));
-                  if (place.naverMapUrlString) content.appendChild(makeMapLink(place.naverMapUrlString, L.openNaverMap));
-                  if (place.kakaoMapUrlString) content.appendChild(makeMapLink(place.kakaoMapUrlString, L.openKakaoMap));
-                  if (place.tmapUrlString) content.appendChild(makeMapLink(place.tmapUrlString, L.openTmap));
+                  actions.appendChild(viewCardEl);
+                  // Anything falsy (a provider Swift left nil for this
+                  // place) is simply skipped, so the row only ever shows
+                  // apps that can actually open it.
+                  const addMapLink = (href, label) => {
+                    if (!href) return;
+                    const linkEl = document.createElement("a");
+                    linkEl.className = "pc-btn pc-btn-secondary";
+                    linkEl.href = href;
+                    linkEl.textContent = label;
+                    actions.appendChild(linkEl);
+                  };
+                  const mapsQuery = [place.name, place.address].filter(Boolean).join(", ");
+                  addMapLink(
+                    "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(mapsQuery),
+                    L.openGoogleMaps
+                  );
+                  addMapLink(place.appleMapUrlString, L.openAppleMaps);
+                  addMapLink(place.naverMapUrlString, L.openNaverMap);
+                  addMapLink(place.kakaoMapUrlString, L.openKakaoMap);
+                  addMapLink(place.tmapUrlString, L.openTmap);
+                  content.appendChild(actions);
                   infoWindow.setContent(content);
                   infoWindow.open(map, marker);
                 });
