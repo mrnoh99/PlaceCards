@@ -451,11 +451,16 @@ final class PlaceCardViewModel: ObservableObject {
     /// a place's name and wanting to save it, had no way in at all. The
     /// row starts unsaveable (`isSaveable` needs a name), so "추가 (N)"
     /// stays disabled until something is actually typed.
-    @discardableResult
-    func addEmptyRow() -> UUID {
-        let row = PlaceCandidateRow(name: "", address: "")
-        candidateRows.append(row)
-        return row.id
+    ///
+    /// Returns nothing on purpose: the new row's id had no caller, and as
+    /// a return value it broke the one call site there is — a
+    /// single-expression `withAnimation { ... }` closure implicitly
+    /// returns whatever its body evaluates to, so the `UUID` became
+    /// `withAnimation`'s own generic `Result` and clashed with the `Void`
+    /// a `Button` action has to be ("Conflicting arguments to generic
+    /// parameter 'Result' ('Void' vs. 'UUID')").
+    func addEmptyRow() {
+        candidateRows.append(PlaceCandidateRow(name: "", address: ""))
     }
 
     func removeRow(id: UUID) {
