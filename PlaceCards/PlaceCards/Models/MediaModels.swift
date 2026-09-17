@@ -62,6 +62,7 @@ enum SourceType: String, Codable, CaseIterable {
         case .naverMapShare: return "네이버 지도 공유".localized
         case .googleMapShare: return "구글 지도 공유".localized
         case .kakaoMapShare: return "카카오맵 공유".localized
+        case .appleMapShare: return "Apple 지도 공유".localized
         case .googleDirectLookup: return "Google Places API"
         case .naverDirectLookup: return "Naver API"
         // Unreachable — see the case's own comment. Named for what it
