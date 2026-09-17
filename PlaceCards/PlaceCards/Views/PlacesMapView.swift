@@ -149,7 +149,21 @@ struct PlacesMapView: View {
                     viewModel.recenter(on: viewModel.coordinate(for: firstMatch))
                 }
             }
+            // Google/Naver each fit their own web map to every marker via
+            // `map.fitBounds` on load — Apple's `cameraPosition` has no
+            // such built-in behavior and otherwise just sits on Seoul
+            // (`MapViewModel.defaultRegion`) forever, so this fits it to
+            // the actual pins whenever Apple becomes the active provider
+            // (picking it in the segmented control, or it already being
+            // selected when this screen first appears).
+            .onAppear { fitAppleMapIfNeeded() }
+            .onChange(of: displayProviderRaw) { _, _ in fitAppleMapIfNeeded() }
         }
+    }
+
+    private func fitAppleMapIfNeeded() {
+        guard displayProvider == .apple else { return }
+        viewModel.fitToVisiblePlaces(visibleCards)
     }
 
     private var appleMap: some View {
