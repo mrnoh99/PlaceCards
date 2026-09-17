@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-09-17 (191차) — 앱내 Apple 지도 탭에서도 Apple 지도 열기
+사용자 요청 "app내 apple map에서 apple map 열기 추가해라 / 외부로 apple
+map 여는것 이므로".
+
+`MapOpenMenu`의 `includesApple`은 Apple 지도 탭에서만 `false`였음 — 이미
+화면에 떠 있는 핀을 "연다"는 게 잡음이라는 판단이었는데, **둘은 같은 게
+아님.** 탭은 앱 안의 `Map` 뷰이고, 이 항목은 앱을 나가 Maps 본체로 가는
+것임 — 길안내, 공유, 둘러보기는 전부 거기 있음. 빼놓은 결과, 장소를 가장
+직접적으로 다루는 화면이 정작 그 장소를 Apple 지도에 넘기지 못하는 유일한
+화면이 돼 있었음.
+
+#### Changed
+- `Services/MapOpeners.swift`: `MapOpenMenu`에서 `includesApple`을 없앰.
+  호출부 넷이 전부 같은 다섯 항목을 받음.
+- `Views/PlacesMapView.swift`: Apple 탭 말풍선의 메뉴가 인자 없이 호출됨.
+
 ### 2026-09-17 (190차) — 갈라놨던 Naver 임베드 페이지를 다시 하나로
 사용자 승인 "peragra 변경해도 된다".
 

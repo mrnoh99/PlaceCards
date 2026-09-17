@@ -275,10 +275,11 @@ struct PlacesMapView: View {
                         // tabs' own marker balloons now copy (their
                         // `.pc-actions` button rows) — name, address, a
                         // filled "카드 보기" and bordered provider
-                        // buttons. Apple's own entry is left out here, and
-                        // only here: this is already the Apple map.
+                        // buttons. Apple's own entry is in this menu too,
+                        // even here: this tab is an in-app `Map` view, and
+                        // that entry leaves the app for Maps proper.
                         if card.hasAnyMapLink {
-                            MapOpenMenu(card: card, includesApple: false) {
+                            MapOpenMenu(card: card) {
                                 Image(systemName: "map")
                                     .accessibilityLabel("지도에서 열기".localized)
                             }

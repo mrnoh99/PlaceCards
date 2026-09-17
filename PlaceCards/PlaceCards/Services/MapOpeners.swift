@@ -364,20 +364,25 @@ enum TmapOpener {
 /// now still gets Google, Apple, Naver and Kakao via their text-search
 /// URLs — only Tmap, whose scheme genuinely needs a destination point,
 /// stays coordinate-only.
+///
+/// Every caller gets the same five entries, the app's own Apple map tab
+/// included. That tab used to suppress Apple's, on the reasoning that
+/// offering to "open" the pin already on screen was noise — but the two
+/// aren't the same thing: the tab is an in-app `Map` view, and this entry
+/// leaves the app for Maps proper, where turn-by-turn directions,
+/// sharing, Look Around and the rest live. Suppressing it made the one
+/// screen most obviously about a place the only one that couldn't hand it
+/// to Apple Maps.
 /// (`MenuLabel`, not `Label`: a generic parameter named `Label` would
 /// shadow SwiftUI's own `Label` for the whole type.)
 struct MapOpenMenu<MenuLabel: View>: View {
     let card: PlaceCard
-    /// `false` only inside the app's own Apple map tab, where offering to
-    /// open Apple Maps for the pin already on screen is noise.
-    var includesApple: Bool = true
     let label: () -> MenuLabel
 
     @Environment(\.openURL) private var openURL
 
-    init(card: PlaceCard, includesApple: Bool = true, @ViewBuilder label: @escaping () -> MenuLabel) {
+    init(card: PlaceCard, @ViewBuilder label: @escaping () -> MenuLabel) {
         self.card = card
-        self.includesApple = includesApple
         self.label = label
     }
 
@@ -389,7 +394,7 @@ struct MapOpenMenu<MenuLabel: View>: View {
                     GoogleMapsOpener.open(for: card, using: openURL)
                 }
             }
-            if includesApple, AppleMapsOpener.canOpen(card) {
+            if AppleMapsOpener.canOpen(card) {
                 Button("Apple 지도".localized) {
                     MapOpenContext.recordMapOpen(cardID: card.id)
                     AppleMapsOpener.open(for: card, using: openURL)
