@@ -42,4 +42,49 @@ final class MapViewModel: ObservableObject {
         let span = cameraPosition.region?.span ?? Self.defaultRegion.span
         cameraPosition = .region(MKCoordinateRegion(center: coordinate, span: span))
     }
+
+    /// Moves the Apple map to actually show the given cards' pins — unlike
+    /// Google/Naver (each fits its own web page's map to every marker it's
+    /// handed via `map.fitBounds`), this app's Apple map otherwise just
+    /// sits on `defaultRegion` (Seoul) forever, since nothing else ever
+    /// touches `cameraPosition` besides a search match. Reported as
+    /// "선택하면 지도가 pin이 있는 곳으로 이동을 안 한다" — called by
+    /// `PlacesMapView` whenever Apple becomes the active map provider.
+    func fitToVisiblePlaces(_ cards: [PlaceCard]) {
+        let coordinates = cards.compactMap { card -> CLLocationCoordinate2D? in
+            guard let coordinates = card.coordinates else { return nil }
+            return CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude)
+        }
+        guard let region = Self.boundingRegion(for: coordinates) else { return }
+        cameraPosition = .region(region)
+    }
+
+    /// A single pin gets a fixed close-in span (nothing to "fit" against);
+    /// several pins get a region spanning all of them, padded by 30% so
+    /// the outermost pins aren't flush against the screen edge, with a
+    /// floor on the span so two pins a few meters apart don't produce a
+    /// street-level zoom that clips everything else around them.
+    private static func boundingRegion(for coordinates: [CLLocationCoordinate2D]) -> MKCoordinateRegion? {
+        guard !coordinates.isEmpty else { return nil }
+        guard coordinates.count > 1 else {
+            return MKCoordinateRegion(center: coordinates[0], span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05))
+        }
+
+        let latitudes = coordinates.map(\.latitude)
+        let longitudes = coordinates.map(\.longitude)
+        guard let minLatitude = latitudes.min(), let maxLatitude = latitudes.max(),
+              let minLongitude = longitudes.min(), let maxLongitude = longitudes.max() else {
+            return nil
+        }
+
+        let center = CLLocationCoordinate2D(
+            latitude: (minLatitude + maxLatitude) / 2,
+            longitude: (minLongitude + maxLongitude) / 2
+        )
+        let span = MKCoordinateSpan(
+            latitudeDelta: max((maxLatitude - minLatitude) * 1.3, 0.02),
+            longitudeDelta: max((maxLongitude - minLongitude) * 1.3, 0.02)
+        )
+        return MKCoordinateRegion(center: center, span: span)
+    }
 }
