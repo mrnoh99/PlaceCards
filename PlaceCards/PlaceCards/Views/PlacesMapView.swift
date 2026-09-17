@@ -271,13 +271,12 @@ struct PlacesMapView: View {
                         }
                         .buttonStyle(.borderedProminent)
 
-                        // Google/Naver's own map tabs show these same
-                        // "Open in ..." links right in their marker popup
-                        // (`naver-map-embed.html`'s `makeMapLink` calls) —
-                        // Apple's callout had only "카드 보기", with no way
-                        // to jump to Kakao Map or any other provider from
-                        // here. Apple's own entry is left out: this is
-                        // already the Apple map.
+                        // This row is the shape the Google and Naver
+                        // tabs' own marker balloons now copy (their
+                        // `.pc-actions` button rows) — name, address, a
+                        // filled "카드 보기" and bordered provider
+                        // buttons. Apple's own entry is left out here, and
+                        // only here: this is already the Apple map.
                         if card.hasAnyMapLink {
                             MapOpenMenu(card: card, includesApple: false) {
                                 Image(systemName: "map")
@@ -367,6 +366,7 @@ struct PlacesMapView: View {
             visited: card.isVisited,
             latitude: coordinate.latitude,
             longitude: coordinate.longitude,
+            appleMapUrlString: AppleMapsOpener.webURL(for: card)?.absoluteString,
             kakaoMapUrlString: KakaoMapOpener.url(for: card)?.absoluteString,
             naverMapUrlString: NaverMapOpener.url(for: card)?.absoluteString,
             tmapUrlString: TmapOpener.url(for: card)?.absoluteString
@@ -383,6 +383,7 @@ struct PlacesMapView: View {
             visited: card.isVisited,
             latitude: coordinate.latitude,
             longitude: coordinate.longitude,
+            appleMapUrlString: AppleMapsOpener.webURL(for: card)?.absoluteString,
             kakaoMapUrlString: KakaoMapOpener.url(for: card)?.absoluteString,
             naverMapUrlString: NaverMapOpener.url(for: card)?.absoluteString,
             tmapUrlString: TmapOpener.url(for: card)?.absoluteString

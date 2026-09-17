@@ -49,12 +49,12 @@ enum PlaceCategoryIcon {
     /// Symbols elsewhere in the app) inside a white circular badge, for
     /// the one spot that needs real markup rather than a system image:
     /// the Naver Map marker icon (`NaverMapWebView`/
-    /// `naver-map-embed.html`). That page takes this string and
-    /// concatenates it directly into the marker's HTML content — it was
-    /// written for Peragra, where this field is a literal color emoji
-    /// character (hence its name, kept as-is to match that page's
-    /// payload shape), but nothing there actually requires it to *be* an
-    /// emoji; any safe inline markup works the same way, and full-color
+    /// `placecards-naver-map-embed.html`). That page takes this string
+    /// and concatenates it directly into the marker's HTML content — its
+    /// payload shape is inherited from Peragra's own embed page, where
+    /// this field is a literal color emoji character (hence its name),
+    /// but nothing requires it to *be* an emoji; any safe inline markup
+    /// works the same way, and full-color
     /// emoji read poorly at marker scale against a busy map versus a
     /// flat, high-contrast outline glyph.
     static func markerGlyphHTML(for category: String?) -> String {

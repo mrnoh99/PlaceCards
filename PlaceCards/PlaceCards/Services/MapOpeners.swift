@@ -156,15 +156,34 @@ enum AppleMapsOpener {
         card.coordinates != nil || !card.name.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// Apple's documented Maps URL scheme — `q` is a plain search term, so
-    /// unlike `MKMapItem` below this needs no coordinate at all.
-    static func searchURL(for card: PlaceCard) -> URL? {
+    /// Apple's documented Maps URL scheme: `ll` pins an exact point and
+    /// `q` labels it, and `q` alone is a plain search term — so unlike
+    /// `MKMapItem` below this works with or without a coordinate.
+    ///
+    /// Needed as a *URL* (rather than the `MKMapItem` call) by the two
+    /// web-based map tabs, whose marker balloons are HTML and can only
+    /// offer a link.
+    static func webURL(for card: PlaceCard) -> URL? {
         let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
-        guard !trimmedName.isEmpty else { return nil }
         let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
-        let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName), \(trimmedAddress)"
+
+        var queryItems: [URLQueryItem] = []
+        if let coordinates = card.coordinates {
+            queryItems.append(URLQueryItem(name: "ll", value: "\(coordinates.latitude),\(coordinates.longitude)"))
+            // Nothing to label the pin with is fine; the pin itself is the
+            // point. An empty `q`, on the other hand, is a search for
+            // nothing, which lands Maps on a blank result instead.
+            if !trimmedName.isEmpty {
+                queryItems.append(URLQueryItem(name: "q", value: trimmedName))
+            }
+        } else {
+            guard !trimmedName.isEmpty else { return nil }
+            let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName), \(trimmedAddress)"
+            queryItems.append(URLQueryItem(name: "q", value: query))
+        }
+
         var components = URLComponents(string: "https://maps.apple.com/")
-        components?.queryItems = [URLQueryItem(name: "q", value: query)]
+        components?.queryItems = queryItems
         return components?.url
     }
 
@@ -173,7 +192,7 @@ enum AppleMapsOpener {
     /// that second path — `MKMapItem.openInMaps` needs no `OpenURLAction`.
     static func open(for card: PlaceCard, using openURL: OpenURLAction) {
         guard card.coordinates != nil else {
-            if let url = searchURL(for: card) { openURL(url) }
+            if let url = webURL(for: card) { openURL(url) }
             return
         }
         open(for: card)
