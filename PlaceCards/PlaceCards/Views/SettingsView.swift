@@ -26,6 +26,18 @@ struct SettingsView: View {
     /// this screen changes it.
     @State private var isCloudBackupEnabled = CloudBackupService.isEnabled
 
+    /// Filled in once by a background task — `MediaStore.usage()` walks the
+    /// whole photo directory, which has no business running on every render.
+    @State private var mediaUsage: (fileCount: Int, totalBytes: Int64)?
+
+    private var storageUsageText: String {
+        guard let mediaUsage else { return "계산 중…".localized }
+        let places = "\(storageService.placeCards.count)" + "개 장소".localized
+        let photos = "\(mediaUsage.fileCount)" + "장의 사진".localized
+        let size = ByteCountFormatter.string(fromByteCount: mediaUsage.totalBytes, countStyle: .file)
+        return places + " · " + photos + " · " + size
+    }
+
     var body: some View {
         NavigationStack {
             // Ordered by what a new person should deal with first, not by
@@ -53,6 +65,9 @@ struct SettingsView: View {
             .keyboardDoneButton()
             .navigationTitle("설정".localized)
             .settingsStatusAlert(viewModel: viewModel)
+            .task {
+                mediaUsage = await Task.detached(priority: .utility) { MediaStore.usage() }.value
+            }
         }
     }
 
@@ -237,6 +252,13 @@ struct SettingsView: View {
     @ViewBuilder
     private var dataSection: some View {
         Section {
+            // Photos are kept forever and nothing prunes them, so this is
+            // the one number worth showing before any of the backup/export
+            // actions below — until now it was only visible from iOS's own
+            // Settings app, never from here.
+            LabeledContent("저장 공간".localized) {
+                Text(storageUsageText)
+            }
             Toggle(
                 "iCloud에 자동 보관".localized,
                 isOn: Binding(

@@ -19,6 +19,24 @@ private enum GalleryLayout: String, CaseIterable, Identifiable {
     }
 }
 
+/// The "장소 추가" flow, as one `.sheet(item:)` rather than two separate
+/// `.sheet` modifiers — `MainTabView`'s own doc comment records that piling
+/// several `.sheet`s onto one view is a well-known way to get sheets that
+/// silently don't present, and `GalleryView` already carries three.
+private enum AddCardStep: Identifiable {
+    /// More than one board and none currently in scope, so ask first.
+    case pickBoard
+    /// The board is settled; this is the actual add screen.
+    case add(boardID: String)
+
+    var id: String {
+        switch self {
+        case .pickBoard: return "pick"
+        case .add(let boardID): return "add-\(boardID)"
+        }
+    }
+}
+
 struct GalleryView: View {
     @StateObject private var viewModel: GalleryViewModel
     @EnvironmentObject private var navigation: AppNavigation
@@ -28,11 +46,23 @@ struct GalleryView: View {
     @State private var selectedCard: PlaceCard?
     @State private var cardPendingDelete: PlaceCard?
     @State private var isPresentingFindDuplicates = false
-    /// Only offered while scoped to one board (`scopedBoard`) — a new
-    /// place card needs a `boardId` to be created with, and there's no
-    /// per-board screen anymore to add one from otherwise (see
-    /// `AppNavigation.currentHomeBoardID`'s own doc comment).
-    @State private var isPresentingAddCard = false
+    /// Where the "장소 추가" flow currently is. A new card needs a
+    /// `boardId`, which used to mean the button only appeared while scoped
+    /// to one board — so from the plain "전체 보기" gallery there was no way
+    /// to add a place at all. Now the button is always there and the board
+    /// is resolved first: the scoped one, the only one when there's just
+    /// one, or whichever the user picks.
+    ///
+    /// An `Identifiable` item for `.sheet(item:)` rather than a `Bool` plus
+    /// `if let` inside the sheet closure — the exact shape
+    /// `MainTabView.pendingShare`'s own doc comment documents as producing
+    /// a structurally empty sheet.
+    @State private var addCardStep: AddCardStep?
+    /// Chosen in the picker and consumed in the sheet's `onDismiss`:
+    /// presenting the add screen in the same tick as the picker closes is
+    /// how a sheet ends up silently not presenting.
+    @State private var pendingAddBoardID: String?
+    @State private var isShowingNoBoardAlert = false
 
     /// Multi-select mode for bulk actions — mirrors `BoardDetailView`'s
     /// own `isSelecting`/`selectedIDs`/bulk action bar exactly, just
@@ -148,11 +178,19 @@ struct GalleryView: View {
             .sheet(isPresented: $isPresentingFindDuplicates) {
                 FindDuplicatesSheet(cards: viewModel.scopedCards)
             }
-            .sheet(isPresented: $isPresentingAddCard) {
-                if let scopedBoard {
-                    AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: scopedBoard.id))
+            .sheet(item: $addCardStep, onDismiss: consumePendingAddBoard) { step in
+                switch step {
+                case .pickBoard:
+                    addBoardPickerSheet
+                case .add(let boardID):
+                    AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: boardID))
                         .environmentObject(navigation)
                 }
+            }
+            .alert("게시판이 먼저 필요합니다".localized, isPresented: $isShowingNoBoardAlert) {
+                Button("확인".localized, role: .cancel) {}
+            } message: {
+                Text("장소 카드는 게시판 안에 담깁니다. 홈 탭에서 게시판을 먼저 만들어주세요.".localized)
             }
             .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {
                 FindDuplicatesSheet(manualGroup: selectedCards)
@@ -326,9 +364,11 @@ struct GalleryView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("전체 보기".localized) { navigation.currentHomeBoardID = nil }
             }
+        }
+        if !isSelecting {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    isPresentingAddCard = true
+                    startAddingCard()
                 } label: {
                     Label("장소 추가".localized, systemImage: "plus")
                 }
@@ -517,6 +557,61 @@ struct GalleryView: View {
         isSelecting = false
     }
 
+    /// Resolves which board the new card belongs to before opening the add
+    /// sheet: the board being viewed, the only board there is, or one the
+    /// user picks. With no boards at all there is nothing to add into, so
+    /// this says so rather than opening a sheet that couldn't save.
+    private func startAddingCard() {
+        if let scopedBoard {
+            addCardStep = .add(boardID: scopedBoard.id)
+        } else if storageService.boards.count == 1, let only = storageService.boards.first {
+            addCardStep = .add(boardID: only.id)
+        } else if storageService.boards.isEmpty {
+            isShowingNoBoardAlert = true
+        } else {
+            addCardStep = .pickBoard
+        }
+    }
+
+    private func consumePendingAddBoard() {
+        guard let pendingAddBoardID else { return }
+        self.pendingAddBoardID = nil
+        addCardStep = .add(boardID: pendingAddBoardID)
+    }
+
+    private var addBoardPickerSheet: some View {
+        NavigationStack {
+            List(storageService.boards) { board in
+                Button {
+                    pendingAddBoardID = board.id
+                    addCardStep = nil
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(board.name)
+                                .foregroundStyle(.primary)
+                            Text("\(storageService.placeCards(inBoard: board.id).count)" + "개 장소".localized)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+            }
+            .navigationTitle("어느 게시판에 담을까요?".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("취소".localized) { addCardStep = nil }
+                }
+            }
+        }
+    }
+
     private func applyCategory(_ category: String) {
         let trimmed = category.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
@@ -645,37 +740,7 @@ struct PlaceCardGridCell: View {
                         }
                     }
                     if card.hasAnyMapLink {
-                        Menu {
-                            if GoogleMapsOpener.url(for: card) != nil {
-                                Button("Google Maps") {
-                                    MapOpenContext.recordMapOpen(cardID: card.id)
-                                    GoogleMapsOpener.open(for: card, using: openURL)
-                                }
-                            }
-                            if card.coordinates != nil {
-                                Button("Apple 지도".localized) {
-                                    MapOpenContext.recordMapOpen(cardID: card.id)
-                                    AppleMapsOpener.open(for: card)
-                                }
-                            }
-                            if let url = NaverMapOpener.url(for: card) {
-                                Button("Naver Map") {
-                                    MapOpenContext.recordMapOpen(cardID: card.id)
-                                    openURL(url)
-                                }
-                            }
-                            if let url = KakaoMapOpener.url(for: card) {
-                                Button("Kakao Map") {
-                                    MapOpenContext.recordMapOpen(cardID: card.id)
-                                    openURL(url)
-                                }
-                            }
-                            // Navigation, not place lookup — see
-                            // `PlaceCardListRow`'s identical comment.
-                            if let url = TmapOpener.url(for: card) {
-                                Button("Tmap") { openURL(url) }
-                            }
-                        } label: {
+                        MapOpenMenu(card: card) {
                             Image(systemName: "map")
                                 .accessibilityLabel("지도에서 열기".localized)
                         }

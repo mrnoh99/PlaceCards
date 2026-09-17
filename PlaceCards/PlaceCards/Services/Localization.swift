@@ -554,5 +554,31 @@ enum Localization {
         "읽어오는 언어": "Language of results",
         "제공자": "Provider",
         "키를 등록하지 않으면 기능이 크게 제한됩니다.": "Without a key, this app can do much less.",
+
+        // MARK: - 온보딩
+        "Google 지도나 네이버 지도에서 장소를 공유하면 바로 카드가 됩니다. 키 없이도 이름·주소·위치는 그대로 담기고, Google 키를 등록하면 평점·사진·영업시간까지 채워집니다.": "Share a place from Google Maps or Naver Map and it becomes a card right away. The name, address and location are kept even with no key at all; register a Google key and ratings, photos and opening hours get filled in too.",
+
+        // MARK: - 직접 입력 / 게시판 선택
+        "+ 직접 입력": "+ Enter manually",
+        "사진을 고르면 AI가 장소를 찾아주고, \"직접 입력\"으로 이름을 직접 적을 수도 있습니다.": "Pick a photo and AI finds the places in it, or use \"Enter manually\" to type a name yourself.",
+        "어느 게시판에 담을까요?": "Which board?",
+        "게시판이 먼저 필요합니다": "A board comes first",
+        "장소 카드는 게시판 안에 담깁니다. 홈 탭에서 게시판을 먼저 만들어주세요.": "Place cards live inside a board. Create one in the Home tab first.",
+        "개 장소": " places",
+
+        // MARK: - 지도 빈 상태 / Naver 제외 안내
+        "지도에 표시할 장소가 없습니다": "Nothing to show on the map",
+        "아직 저장된 장소가 없습니다. 갤러리 탭의 \"장소 추가\"로 첫 장소를 담아보세요.": "No places saved yet. Use \"Add Place\" in the Gallery tab to save your first one.",
+        "검색어와 일치하는 장소가 없습니다.": "No places match your search.",
+        "저장된 장소에 아직 좌표가 없습니다. 카드 편집의 \"주소로 좌표 확인\"으로 좌표를 채우면 지도에 표시됩니다.": "None of your saved places have coordinates yet. Fill them in with \"Find Coordinates from Address\" when editing a card and they will appear here.",
+        "Naver 지도에 표시할 한국 장소가 없습니다": "No Korean places to show on the Naver map",
+        "Naver 지도는 한국 내 장소만 표시합니다. 한국 밖 장소는 Apple이나 Google 지도로 보실 수 있습니다.": "Naver's map only shows places inside Korea. For places elsewhere, use the Apple or Google map.",
+        "한국 밖 ": "Outside Korea, ",
+        "곳은 Naver 지도에 표시되지 않습니다.": " place(s) are not shown on the Naver map.",
+
+        // MARK: - 저장 공간
+        "저장 공간": "Storage",
+        "계산 중…": "Calculating…",
+        "장의 사진": " photos",
     ]
 }

@@ -363,10 +363,22 @@ struct AddPlaceCardView: View {
                     viewModel.removeRow(id: viewModel.candidateRows[index].id)
                 }
             }
+            // Every other row on this screen arrives from somewhere else
+            // (a photo scan, a shared link, an imported list), which left
+            // the simplest case of all — knowing a place's name — with no
+            // way in: opening this screen without a photo showed nothing
+            // but an empty list.
+            Button("+ 직접 입력".localized) {
+                withAnimation { viewModel.addEmptyRow() }
+            }
         } header: {
             Text("추가할 장소 (".localized + "\(viewModel.selectedRowCount)" + "개 선택)".localized)
         } footer: {
-            Text("AI가 찾은 장소를 검토·수정하세요. \"Google에서 검색\"으로 정확한 주소·평점·연락처를 채울 수 있습니다.".localized)
+            Text(
+                viewModel.candidateRows.isEmpty
+                    ? "사진을 고르면 AI가 장소를 찾아주고, \"직접 입력\"으로 이름을 직접 적을 수도 있습니다.".localized
+                    : "AI가 찾은 장소를 검토·수정하세요. \"Google에서 검색\"으로 정확한 주소·평점·연락처를 채울 수 있습니다.".localized
+            )
         }
     }
 

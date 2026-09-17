@@ -346,37 +346,7 @@ struct PlaceCardDetailView: View {
     /// 새 카드가 아니라 이 카드에 바로 반영할 수 있게 함.
     @ViewBuilder
     private var mapMenu: some View {
-        Menu {
-            if GoogleMapsOpener.url(for: card) != nil {
-                Button("Google Maps") {
-                    MapOpenContext.recordMapOpen(cardID: card.id)
-                    GoogleMapsOpener.open(for: card, using: openURL)
-                }
-            }
-            if card.coordinates != nil {
-                Button("Apple 지도".localized) {
-                    MapOpenContext.recordMapOpen(cardID: card.id)
-                    AppleMapsOpener.open(for: card)
-                }
-            }
-            if let url = NaverMapOpener.url(for: card) {
-                Button("Naver Map") {
-                    MapOpenContext.recordMapOpen(cardID: card.id)
-                    openURL(url)
-                }
-            }
-            if let url = KakaoMapOpener.url(for: card) {
-                Button("Kakao Map") {
-                    MapOpenContext.recordMapOpen(cardID: card.id)
-                    openURL(url)
-                }
-            }
-            // Navigation, not place lookup — see `PlaceCardListRow`'s
-            // identical comment on this same button.
-            if let url = TmapOpener.url(for: card) {
-                Button("Tmap") { openURL(url) }
-            }
-        } label: {
+        MapOpenMenu(card: card) {
             Label("지도에서 열기".localized, systemImage: "map")
         }
         .buttonStyle(.bordered)
