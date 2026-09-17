@@ -59,11 +59,25 @@ final class MapViewModel: ObservableObject {
         cameraPosition = .region(region)
     }
 
+    /// Apple's own `Map` doesn't actually zoom out to a true whole-world
+    /// view the way Google's web-based one does — reported directly:
+    /// "애플지도는 줌아웃 기능이 세계를 한 화면에 보여줄 수 없다". Asking
+    /// for a wider span than it can really render doesn't fail outright,
+    /// it just clamps to whatever its actual max zoom-out happens to be,
+    /// with no guarantee every pin this was supposed to fit still lands
+    /// inside that. Capped well under that ceiling instead of trusting it,
+    /// so cards spread across, say, Korea and the US still get a sane,
+    /// fully-honored (if very zoomed out) region — one MapKit can actually
+    /// render — rather than a request it silently can't keep.
+    private static let maxFitSpanDegrees: Double = 60
+
     /// A single pin gets a fixed close-in span (nothing to "fit" against);
     /// several pins get a region spanning all of them, padded by 30% so
     /// the outermost pins aren't flush against the screen edge, with a
     /// floor on the span so two pins a few meters apart don't produce a
-    /// street-level zoom that clips everything else around them.
+    /// street-level zoom that clips everything else around them, and a
+    /// ceiling (`maxFitSpanDegrees`) for the opposite case — pins spread
+    /// across countries/continents.
     private static func boundingRegion(for coordinates: [CLLocationCoordinate2D]) -> MKCoordinateRegion? {
         guard !coordinates.isEmpty else { return nil }
         guard coordinates.count > 1 else {
@@ -82,8 +96,8 @@ final class MapViewModel: ObservableObject {
             longitude: (minLongitude + maxLongitude) / 2
         )
         let span = MKCoordinateSpan(
-            latitudeDelta: max((maxLatitude - minLatitude) * 1.3, 0.02),
-            longitudeDelta: max((maxLongitude - minLongitude) * 1.3, 0.02)
+            latitudeDelta: min(max((maxLatitude - minLatitude) * 1.3, 0.02), maxFitSpanDegrees),
+            longitudeDelta: min(max((maxLongitude - minLongitude) * 1.3, 0.02), maxFitSpanDegrees)
         )
         return MKCoordinateRegion(center: center, span: span)
     }
