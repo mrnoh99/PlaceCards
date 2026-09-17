@@ -23,6 +23,7 @@ struct PlacesMapView: View {
     @StateObject private var viewModel: MapViewModel
     @EnvironmentObject private var navigation: AppNavigation
     @EnvironmentObject private var storageService: StorageService
+    @Environment(\.openURL) private var openURL
     @State private var selectedCard: PlaceCard?
     @State private var searchQuery = ""
     /// The Apple map's own marker-tap callout, keyed by card id — mirrors
@@ -64,6 +65,23 @@ struct PlacesMapView: View {
         }
 
         return scoped.filter { $0.matchesSearch(searchQuery) }
+    }
+
+    /// `visibleCards` narrowed to places actually in Korea — Naver Maps has
+    /// essentially no useful data outside Korea (same reasoning as
+    /// `KoreaRegion`'s own doc comment), and worse, the embed page's own
+    /// `map.fitBounds(bounds)` computes one bounding box across *every*
+    /// marker it's handed: a single far-outside-Korea card in the mix (a
+    /// trip abroad saved to the same board) was enough to zoom the whole
+    /// map out to fit it, landing on some unrelated country/continent
+    /// instead of Korea — reported as "지도가 안 움직인다"/"엉뚱한 곳이
+    /// 뜬다" when it was actually correctly fitting bounds around a
+    /// marker that shouldn't have been there at all.
+    private var naverEligibleCards: [PlaceCard] {
+        visibleCards.filter { card in
+            guard let coordinates = card.coordinates else { return false }
+            return KoreaRegion.contains(latitude: coordinates.latitude, longitude: coordinates.longitude)
+        }
     }
 
     private var mapNavigationTitle: String {
@@ -163,11 +181,52 @@ struct PlacesMapView: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
-                    Button("카드 보기".localized) {
-                        selectedCard = card
+                    HStack(spacing: 6) {
+                        Button("카드 보기".localized) {
+                            selectedCard = card
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        // Google/Naver's own map tabs show these same
+                        // "Open in ..." links right in their marker popup
+                        // (`naver-map-embed.html`'s `makeMapLink` calls) —
+                        // Apple's callout had only "카드 보기", with no way
+                        // to jump to Kakao Map or any other provider from
+                        // here. Same menu as `PlaceCardListRow`/
+                        // `PlaceCardDetailView.mapMenu`.
+                        if card.hasAnyMapLink {
+                            Menu {
+                                if GoogleMapsOpener.url(for: card) != nil {
+                                    Button("Google Maps") {
+                                        MapOpenContext.recordMapOpen(cardID: card.id)
+                                        GoogleMapsOpener.open(for: card, using: openURL)
+                                    }
+                                }
+                                if let url = NaverMapOpener.url(for: card) {
+                                    Button("Naver Map") {
+                                        MapOpenContext.recordMapOpen(cardID: card.id)
+                                        openURL(url)
+                                    }
+                                }
+                                if let url = KakaoMapOpener.url(for: card) {
+                                    Button("Kakao Map") {
+                                        MapOpenContext.recordMapOpen(cardID: card.id)
+                                        openURL(url)
+                                    }
+                                }
+                                // Navigation, not place lookup — see
+                                // `PlaceCardListRow`'s identical comment.
+                                if let url = TmapOpener.url(for: card) {
+                                    Button("Tmap") { openURL(url) }
+                                }
+                            } label: {
+                                Image(systemName: "map")
+                                    .accessibilityLabel("지도에서 열기".localized)
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
                     .font(.caption)
-                    .buttonStyle(.borderedProminent)
                     .controlSize(.mini)
                 }
                 .padding(8)
@@ -216,7 +275,7 @@ struct PlacesMapView: View {
         if let clientId = SettingsViewModel.currentNaverMapClientId() {
             NaverMapWebView(
                 clientId: clientId,
-                places: visibleCards.map(naverMarker),
+                places: naverEligibleCards.map(naverMarker),
                 onSelectPlace: selectCard(byID:)
             )
         } else {
