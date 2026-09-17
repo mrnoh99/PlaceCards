@@ -57,3 +57,35 @@ PR을 연 뒤 `subscribe_pr_activity`를 걸어두면 CI 결과가 이벤트로 
 - 외부 앱의 URL 스킴은 추측하지 않는다. 공식 문서로 확인되지 않으면
   그 기능을 넣지 않는다 (`NaverPlaceSearchService`의 과거 사례 참고).
 - 더 자세한 배경은 `00_인수인계_현재상태.md`.
+
+## 5. **Peragra 저장소는 수정하지 않는다.**
+
+사용자 지시(2026-09-17): "peragra는 더이상 수정 말라". 읽는 것은 상관없다.
+
+이게 걸리는 지점이 하나 있다. "지도" 탭의 **Naver 지도 말풍선은 이 저장소에
+없다.** `NaverMapWebView`는 WKWebView를 아래 페이지로 이동시키기만 하고,
+마커·말풍선·버튼을 그리는 코드는 전부 그 페이지 안에 있다:
+
+```
+mrnoh99/Peragra  web/public/naver-map-embed.html
+  -> https://mrnoh99.github.io/Peragra/naver-map-embed.html
+```
+
+그러므로 **Naver 말풍선의 모양·버튼·동작은 지금 바꿀 수 없다.** 손대려면
+사용자에게 먼저 물어야 한다. 사본을 새로 떠서 우회하지 마라 — 한 번 그렇게
+갈라놨다가(189차) 되돌린 적이 있다(190차).
+
+이 페이지는 **Peragra의 iOS 앱도 그대로 불러온다.** 즉 이 금지가 풀리더라도
+페이지를 고치면 두 앱의 말풍선이 같이 바뀐다.
+
+바꿀 수 있는 것(전부 이 저장소 안이다):
+
+- Swift가 페이지로 **보내는 값** — `NaverMapWebView.MarkerPlace`(마커 HTML,
+  각 지도 앱 URL)와 `LocalizedStrings`(말풍선 문구). 페이지는 안 보낸 필드에
+  전부 기본값이 있으므로 필드를 빼는 것도 안전하다.
+- Apple 탭 말풍선(`PlacesMapView.appleMapAnnotation`), Google 탭 말풍선
+  (`GoogleMapWebView`의 HTML 문자열) — 둘 다 이 저장소 안이다.
+
+Naver만 못 고치고 나머지 둘은 고칠 수 있으므로, **세 탭을 함께 바꾸는 작업은
+지금 불가능하다.** 셋은 2026-09-17 기준 같은 모양이며, 한쪽만 고치면 그
+정합성이 깨진다.

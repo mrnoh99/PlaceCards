@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### 2026-09-17 (192차) — CLAUDE.md에 Peragra 수정 금지를 적음
+사용자 지시 "peragra는 더이상 수정 말라", "claude.md 에 적어라".
+
+#### Added
+- `CLAUDE.md` §5: Peragra 저장소 수정 금지와 **그 실질적 귀결**. 지시만
+  적으면 다음 세션이 "지도" 탭의 Naver 말풍선을 고치려다 그제야 그 코드가
+  이 저장소에 없다는 걸 알게 됨. 그래서 같이 적었음:
+  - Naver 말풍선을 그리는 코드는 전부 `mrnoh99/Peragra`의
+    `web/public/naver-map-embed.html` 안에 있음 — 지금은 못 고침.
+  - **사본을 떠서 우회하지 말 것.** 189차에 그렇게 갈라놨다가 190차에
+    되돌린 전례가 있음.
+  - 대신 바꿀 수 있는 것: Swift가 페이지로 보내는 값(`MarkerPlace`,
+    `LocalizedStrings`), Apple 탭 말풍선, Google 탭 말풍선.
+  - 세 탭을 함께 바꾸는 작업은 지금 불가능하다는 점.
+
 ### 2026-09-17 (191차) — 앱내 Apple 지도 탭에서도 Apple 지도 열기
 사용자 요청 "app내 apple map에서 apple map 열기 추가해라 / 외부로 apple
 map 여는것 이므로".
