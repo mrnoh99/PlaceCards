@@ -445,6 +445,19 @@ final class PlaceCardViewModel: ObservableObject {
     /// single tap can spend unprompted.
     private static let maxAutoVerifiedRows = 10
 
+    /// An empty row to type a place into by hand. Until this existed,
+    /// every row came from somewhere else — a photo scan, a shared link,
+    /// an imported Google Maps list — so the plainest case of all, knowing
+    /// a place's name and wanting to save it, had no way in at all. The
+    /// row starts unsaveable (`isSaveable` needs a name), so "추가 (N)"
+    /// stays disabled until something is actually typed.
+    @discardableResult
+    func addEmptyRow() -> UUID {
+        let row = PlaceCandidateRow(name: "", address: "")
+        candidateRows.append(row)
+        return row.id
+    }
+
     func removeRow(id: UUID) {
         candidateRows.removeAll { $0.id == id }
     }

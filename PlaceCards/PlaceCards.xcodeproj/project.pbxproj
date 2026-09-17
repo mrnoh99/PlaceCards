@@ -691,7 +691,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PinSpots;
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "거리 기준으로 장소를 정렬할 때 현재 위치를 사용합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "지도에 내 위치를 표시하고, 거리 기준으로 장소를 정렬할 때 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -722,7 +722,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PinSpots;
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "거리 기준으로 장소를 정렬할 때 현재 위치를 사용합니다.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "지도에 내 위치를 표시하고, 거리 기준으로 장소를 정렬할 때 사용합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

@@ -23,7 +23,6 @@ struct PlacesMapView: View {
     @StateObject private var viewModel: MapViewModel
     @EnvironmentObject private var navigation: AppNavigation
     @EnvironmentObject private var storageService: StorageService
-    @Environment(\.openURL) private var openURL
     @State private var selectedCard: PlaceCard?
     @State private var searchQuery = ""
     /// The Apple map's own marker-tap callout, keyed by card id — mirrors
@@ -93,13 +92,20 @@ struct PlacesMapView: View {
     var body: some View {
         NavigationStack {
             Group {
-                switch displayProvider {
-                case .apple:
-                    appleMap
-                case .google:
-                    googleMap
-                case .naver:
-                    naverMap
+                if hasNothingToShow {
+                    nothingToShowState
+                } else {
+                    Group {
+                        switch displayProvider {
+                        case .apple:
+                            appleMap
+                        case .google:
+                            googleMap
+                        case .naver:
+                            naverMap
+                        }
+                    }
+                    .overlay(alignment: .top) { excludedPlacesBanner }
                 }
             }
             .navigationTitle(mapNavigationTitle)
@@ -166,14 +172,78 @@ struct PlacesMapView: View {
         viewModel.fitToVisiblePlaces(visibleCards)
     }
 
+    /// Whether this provider has any pin at all to draw right now.
+    private var hasNothingToShow: Bool {
+        visibleCards.isEmpty || (displayProvider == .naver && naverEligibleCards.isEmpty)
+    }
+
+    /// Why the map has no pins, when it has none. Every provider used to
+    /// just draw an empty default view of Seoul in this case, which reads
+    /// the same whether there are no cards at all, no card has coordinates
+    /// yet, or a search simply matched nothing — three very different
+    /// situations, none of them explained.
+    @ViewBuilder
+    private var nothingToShowState: some View {
+        if visibleCards.isEmpty {
+            ContentUnavailableView {
+                Label("지도에 표시할 장소가 없습니다".localized, systemImage: "mappin.slash")
+            } description: {
+                Text(nothingToShowReason)
+            }
+        } else {
+            ContentUnavailableView {
+                Label("Naver 지도에 표시할 한국 장소가 없습니다".localized, systemImage: "mappin.slash")
+            } description: {
+                Text("Naver 지도는 한국 내 장소만 표시합니다. 한국 밖 장소는 Apple이나 Google 지도로 보실 수 있습니다.".localized)
+            }
+        }
+    }
+
+    private var nothingToShowReason: String {
+        if storageService.placeCards.isEmpty {
+            return "아직 저장된 장소가 없습니다. 갤러리 탭의 \"장소 추가\"로 첫 장소를 담아보세요.".localized
+        }
+        if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "검색어와 일치하는 장소가 없습니다.".localized
+        }
+        return "저장된 장소에 아직 좌표가 없습니다. 카드 편집의 \"주소로 좌표 확인\"으로 좌표를 채우면 지도에 표시됩니다.".localized
+    }
+
+    /// Naver's map only ever gets the Korean subset (`naverEligibleCards`)
+    /// — without this, the places it left out simply weren't there, with
+    /// no way to tell that from them having been lost.
+    @ViewBuilder
+    private var excludedPlacesBanner: some View {
+        let excluded = visibleCards.count - naverEligibleCards.count
+        if displayProvider == .naver, excluded > 0 {
+            Text("한국 밖 ".localized + "\(excluded)" + "곳은 Naver 지도에 표시되지 않습니다.".localized)
+                .font(.caption)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.top, 8)
+        }
+    }
+
     private var appleMap: some View {
         Map(position: $viewModel.cameraPosition) {
+            // "내 위치에서 이 장소들이 어디쯤인가"는 지도를 여는 가장 흔한
+            // 이유인데, 이 앱은 거리 정렬(`PlaceStatusFilterBar`의 "현재
+            // 위치")에 이미 위치 권한을 쓰면서도 정작 지도에는 내 위치를
+            // 한 번도 그려주지 않았다. 권한이 없으면 점은 그냥 안 나오고,
+            // 아래 버튼을 누르면 그때 시스템이 권한을 묻는다.
+            UserAnnotation()
+
             ForEach(visibleCards) { card in
                 Annotation(card.name, coordinate: viewModel.coordinate(for: card)) {
                     appleMapAnnotation(for: card)
                 }
                 .annotationTitles(.hidden)
             }
+        }
+        .mapControls {
+            MapUserLocationButton()
+            MapCompass()
         }
     }
 
@@ -206,34 +276,10 @@ struct PlacesMapView: View {
                         // (`naver-map-embed.html`'s `makeMapLink` calls) —
                         // Apple's callout had only "카드 보기", with no way
                         // to jump to Kakao Map or any other provider from
-                        // here. Same menu as `PlaceCardListRow`/
-                        // `PlaceCardDetailView.mapMenu`.
+                        // here. Apple's own entry is left out: this is
+                        // already the Apple map.
                         if card.hasAnyMapLink {
-                            Menu {
-                                if GoogleMapsOpener.url(for: card) != nil {
-                                    Button("Google Maps") {
-                                        MapOpenContext.recordMapOpen(cardID: card.id)
-                                        GoogleMapsOpener.open(for: card, using: openURL)
-                                    }
-                                }
-                                if let url = NaverMapOpener.url(for: card) {
-                                    Button("Naver Map") {
-                                        MapOpenContext.recordMapOpen(cardID: card.id)
-                                        openURL(url)
-                                    }
-                                }
-                                if let url = KakaoMapOpener.url(for: card) {
-                                    Button("Kakao Map") {
-                                        MapOpenContext.recordMapOpen(cardID: card.id)
-                                        openURL(url)
-                                    }
-                                }
-                                // Navigation, not place lookup — see
-                                // `PlaceCardListRow`'s identical comment.
-                                if let url = TmapOpener.url(for: card) {
-                                    Button("Tmap") { openURL(url) }
-                                }
-                            } label: {
+                            MapOpenMenu(card: card, includesApple: false) {
                                 Image(systemName: "map")
                                     .accessibilityLabel("지도에서 열기".localized)
                             }

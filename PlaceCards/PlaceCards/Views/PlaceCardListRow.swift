@@ -121,40 +121,7 @@ struct PlaceCardListRow: View {
                 }
             }
             if card.hasAnyMapLink {
-                Menu {
-                    if GoogleMapsOpener.url(for: card) != nil {
-                        Button("Google Maps") {
-                            MapOpenContext.recordMapOpen(cardID: card.id)
-                            GoogleMapsOpener.open(for: card, using: openURL)
-                        }
-                    }
-                    if card.coordinates != nil {
-                        Button("Apple 지도".localized) {
-                            MapOpenContext.recordMapOpen(cardID: card.id)
-                            AppleMapsOpener.open(for: card)
-                        }
-                    }
-                    if let url = NaverMapOpener.url(for: card) {
-                        Button("Naver Map") {
-                            MapOpenContext.recordMapOpen(cardID: card.id)
-                            openURL(url)
-                        }
-                    }
-                    if let url = KakaoMapOpener.url(for: card) {
-                        Button("Kakao Map") {
-                            MapOpenContext.recordMapOpen(cardID: card.id)
-                            openURL(url)
-                        }
-                    }
-                    // No `MapOpenContext.recordMapOpen` here, unlike every
-                    // other entry above: Tmap is turn-by-turn navigation,
-                    // so tapping it means "take me there", not "let me
-                    // look this place up and share something back". See
-                    // `MapOpenContext`'s own doc comment.
-                    if let url = TmapOpener.url(for: card) {
-                        Button("Tmap") { openURL(url) }
-                    }
-                } label: {
+                MapOpenMenu(card: card) {
                     Image(systemName: "map")
                         .accessibilityLabel("지도에서 열기".localized)
                 }

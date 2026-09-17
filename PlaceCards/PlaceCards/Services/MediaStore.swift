@@ -50,6 +50,32 @@ struct MediaStore {
         return directory
     }
 
+    /// How many photo files are stored and what they add up to on disk.
+    /// Every photo this app keeps lands here and nothing ever prunes them
+    /// on its own, so without this the one number a user might actually
+    /// want before deciding whether to back up or clear anything — how
+    /// much of their phone this app is using — was only visible from iOS
+    /// Settings, not from the app itself. Walks the directory rather than
+    /// summing anything cached, so it's called from a background task, not
+    /// on every render.
+    static func usage() -> (fileCount: Int, totalBytes: Int64) {
+        let keys: Set<URLResourceKey> = [.fileSizeKey, .isRegularFileKey]
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: directoryURL, includingPropertiesForKeys: Array(keys)
+        ) else {
+            return (0, 0)
+        }
+        var count = 0
+        var bytes: Int64 = 0
+        for url in contents {
+            guard let values = try? url.resourceValues(forKeys: keys),
+                  values.isRegularFile == true else { continue }
+            count += 1
+            bytes += Int64(values.fileSize ?? 0)
+        }
+        return (count, bytes)
+    }
+
     /// A modern iPhone's own camera photo can be 8000px+ on its long side —
     /// nothing in this app ever displays a photo anywhere near that large
     /// (the full-screen swipeable viewer, `PhotoViewerSheet`, is the

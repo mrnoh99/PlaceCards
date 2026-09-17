@@ -135,16 +135,51 @@ enum GoogleMapsOpener {
     }
 }
 
-/// Opens Apple's own Maps app via `MKMapItem` — needs a coordinate (unlike
-/// `GoogleMapsOpener`, which can fall back to a plain name/address text
-/// search), since that's how `MKMapItem`/`MKPlacemark` locate a place.
+/// Opens Apple's own Maps app. Prefers `MKMapItem` when the card has a
+/// coordinate (it pins the exact point, and lets the launch options below
+/// force Maps to actually jump there), and falls back to Apple's own
+/// `maps.apple.com/?q=` text-search URL when it doesn't — the same thing
+/// `GoogleMapsOpener` does with its own query URL. Before that fallback
+/// existed, a card with no coordinate yet (created by hand, or shared from
+/// a link that carried only a name) offered Google Maps but not Apple's,
+/// which read as Apple Maps simply being broken: reported as "구글지도는
+/// 이름만으로도 보낼 수 있는데 애플지도는 안 된다".
 enum AppleMapsOpener {
     /// Roughly street level — same target `NaverMapOpener.mapURL`'s own
     /// `zoom: Int = 17` aims for, just expressed as MapKit's degrees-wide
     /// span instead of Naver's zoom-level integer.
     private static let defaultSpan = MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
 
-    static func open(for card: PlaceCard) {
+    /// Whether this card can be opened in Apple Maps at all — a coordinate
+    /// to pin, or at least a name to search for.
+    static func canOpen(_ card: PlaceCard) -> Bool {
+        card.coordinates != nil || !card.name.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// Apple's documented Maps URL scheme — `q` is a plain search term, so
+    /// unlike `MKMapItem` below this needs no coordinate at all.
+    static func searchURL(for card: PlaceCard) -> URL? {
+        let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return nil }
+        let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
+        let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName), \(trimmedAddress)"
+        var components = URLComponents(string: "https://maps.apple.com/")
+        components?.queryItems = [URLQueryItem(name: "q", value: query)]
+        return components?.url
+    }
+
+    /// Pins the exact coordinate when there is one; otherwise hands the
+    /// name/address to Maps' own search. `openURL` is only ever used for
+    /// that second path — `MKMapItem.openInMaps` needs no `OpenURLAction`.
+    static func open(for card: PlaceCard, using openURL: OpenURLAction) {
+        guard card.coordinates != nil else {
+            if let url = searchURL(for: card) { openURL(url) }
+            return
+        }
+        open(for: card)
+    }
+
+    private static func open(for card: PlaceCard) {
         guard let coordinates = card.coordinates else { return }
         let coordinate = CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude)
         let placemark = MKPlacemark(coordinate: coordinate)
@@ -210,6 +245,19 @@ enum NaverMapOpener {
         return components?.url
     }
 
+    /// The card-shaped counterpart to `searchURL(name:address:)`, for the
+    /// saved-card "지도에서 열기" menu: `url(for:)` above needs a coordinate
+    /// (its `nmap://place` scheme pins one specific point), so a card that
+    /// doesn't have one yet used to get no Naver entry at all even though
+    /// Google's was right there — reported alongside the same complaint
+    /// about Apple Maps. Only offered while the card is unlocated; once it
+    /// has a coordinate, `url(for:)`'s exact pin (and its `KoreaRegion`
+    /// check) is the better answer.
+    static func searchURL(for card: PlaceCard) -> URL? {
+        guard card.coordinates == nil else { return nil }
+        return searchURL(name: card.name, address: card.address)
+    }
+
     /// Centers the map on an exact coordinate — no place name/search
     /// involved at all, unlike `url(for:)`/`searchURL(name:address:)`
     /// above. Meant for a photo's own EXIF GPS: rather than trust
@@ -245,6 +293,24 @@ enum KakaoMapOpener {
         components?.path = "/link/to/\(card.name),\(coordinates.latitude),\(coordinates.longitude)"
         return components?.url
     }
+
+    /// Kakao's own documented keyword-search link (`/link/search/<검색어>`),
+    /// the counterpart to `NaverMapOpener.searchURL(name:address:)` — for a
+    /// card with no coordinate yet, where `url(for:)` above has nothing to
+    /// build a `/link/to/` path from. Unlike that one this can't check
+    /// `KoreaRegion` (there's no coordinate to check), so it's offered
+    /// whenever the card is unlocated rather than pretending to know the
+    /// place is in Korea: the same call the user is already making by
+    /// picking Kakao Map from the menu themselves.
+    static func searchURL(for card: PlaceCard) -> URL? {
+        let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
+        guard card.coordinates == nil, !trimmedName.isEmpty else { return nil }
+        let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
+        let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName) \(trimmedAddress)"
+        var components = URLComponents(string: "https://map.kakao.com")
+        components?.path = "/link/search/\(query)"
+        return components?.url
+    }
 }
 
 /// Tmap's own app URL scheme. A starting point is optional — Tmap defaults
@@ -266,6 +332,75 @@ enum TmapOpener {
     }
 }
 
+/// The "지도에서 열기" menu, in one definition — `GalleryView`,
+/// `PlaceCardListRow`, `PlaceCardDetailView` and `PlacesMapView`'s own
+/// marker callout each had their own copy of this exact list, which is how
+/// three of them ended up still offering Apple/Naver only for a card that
+/// already had a coordinate long after Google's entry had learned to work
+/// from a plain name.
+///
+/// Which entries appear is decided entirely by what the card can actually
+/// open, not by what it has: each opener returns `nil` (or `canOpen` is
+/// `false`) when it has nothing to work with, so a coordinate-less card
+/// now still gets Google, Apple, Naver and Kakao via their text-search
+/// URLs — only Tmap, whose scheme genuinely needs a destination point,
+/// stays coordinate-only.
+/// (`MenuLabel`, not `Label`: a generic parameter named `Label` would
+/// shadow SwiftUI's own `Label` for the whole type.)
+struct MapOpenMenu<MenuLabel: View>: View {
+    let card: PlaceCard
+    /// `false` only inside the app's own Apple map tab, where offering to
+    /// open Apple Maps for the pin already on screen is noise.
+    var includesApple: Bool = true
+    let label: () -> MenuLabel
+
+    @Environment(\.openURL) private var openURL
+
+    init(card: PlaceCard, includesApple: Bool = true, @ViewBuilder label: @escaping () -> MenuLabel) {
+        self.card = card
+        self.includesApple = includesApple
+        self.label = label
+    }
+
+    var body: some View {
+        Menu {
+            if GoogleMapsOpener.url(for: card) != nil {
+                Button("Google Maps") {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    GoogleMapsOpener.open(for: card, using: openURL)
+                }
+            }
+            if includesApple, AppleMapsOpener.canOpen(card) {
+                Button("Apple 지도".localized) {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    AppleMapsOpener.open(for: card, using: openURL)
+                }
+            }
+            if let url = NaverMapOpener.url(for: card) ?? NaverMapOpener.searchURL(for: card) {
+                Button("Naver Map") {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    openURL(url)
+                }
+            }
+            if let url = KakaoMapOpener.url(for: card) ?? KakaoMapOpener.searchURL(for: card) {
+                Button("Kakao Map") {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    openURL(url)
+                }
+            }
+            // No `MapOpenContext.recordMapOpen` here, unlike every entry
+            // above: Tmap is turn-by-turn navigation, so tapping it means
+            // "take me there", not "let me look this place up and share
+            // something back". See `MapOpenContext`'s own doc comment.
+            if let url = TmapOpener.url(for: card) {
+                Button("Tmap") { openURL(url) }
+            }
+        } label: {
+            label()
+        }
+    }
+}
+
 /// Shared by every place-card row/cell that offers a call/map/website/
 /// Instagram action row (`PlaceCardGridCell`, `PlaceCardListRow`) — kept in
 /// one place so both stay in sync instead of re-deriving the same checks.
@@ -277,10 +412,11 @@ extension PlaceCard {
         return URL(string: "tel:\(digits)")
     }
 
-    /// Google Maps (name/address, or a raw coordinate) or Apple Maps
-    /// (coordinate only) — whichever has enough to work with. Naver
-    /// Map/Kakao Map/Tmap (Korea only) also need a coordinate, so they
-    /// never add a link this doesn't already cover.
+    /// Whether `MapOpenMenu` would have anything at all to offer. Google
+    /// and Apple both open from a plain name/address (each has its own
+    /// text-search URL) as well as from a coordinate, and Naver/Kakao now
+    /// fall back to their own keyword searches too — so a name alone is
+    /// enough, and a coordinate alone (an unnamed pin) still is as well.
     var hasAnyMapLink: Bool {
         GoogleMapsOpener.url(for: self) != nil || coordinates != nil
     }
