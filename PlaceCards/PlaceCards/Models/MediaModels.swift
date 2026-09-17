@@ -9,6 +9,13 @@ enum SourceType: String, Codable, CaseIterable {
     case naverMapShare
     case googleMapShare
     case kakaoMapShare
+    /// A place shared out of Apple's own Maps app. Its share URL carries
+    /// the name/address/coordinate in its query string the same way a full
+    /// Google Maps link does — see `SharedLinkParser.parseAppleMapsURL`.
+    /// Before this case existed an Apple Maps share matched no known host,
+    /// fell through to the generic "some website" path, and was saved with
+    /// no coordinate and its map URL sitting in the card's `website` field.
+    case appleMapShare
 
     case googleDirectLookup
     case naverDirectLookup
@@ -55,6 +62,7 @@ enum SourceType: String, Codable, CaseIterable {
         case .naverMapShare: return "네이버 지도 공유".localized
         case .googleMapShare: return "구글 지도 공유".localized
         case .kakaoMapShare: return "카카오맵 공유".localized
+        case .appleMapShare: return "Apple 지도 공유".localized
         case .googleDirectLookup: return "Google Places API"
         case .naverDirectLookup: return "Naver API"
         // Unreachable — see the case's own comment. Named for what it

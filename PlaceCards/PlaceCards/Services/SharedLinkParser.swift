@@ -29,11 +29,24 @@ struct ParsedSharedPlace {
 /// - Naver Map shares plain text: an app-tag line (e.g. "[네이버 지도]"),
 ///   then the place name, address, and other details each on their own
 ///   line — all of it already text, so all of it is extracted directly.
+/// - Apple Maps shares a URL whose *query string* holds the place — see
+///   `parseAppleMapsURL`.
 enum SharedLinkParser {
     static func parse(_ text: String) -> ParsedSharedPlace? {
         if let url = extractURL(from: text) {
             if isNaverMapHost(url) {
                 return parseNaverText(text, url: url)
+            }
+            if isAppleMapHost(url) {
+                let (name, address, coordinates) = parseAppleMapsURL(url)
+                return ParsedSharedPlace(
+                    name: name,
+                    address: address,
+                    coordinates: coordinates,
+                    note: nil,
+                    url: url,
+                    source: .appleMapShare
+                )
             }
             if isGoogleMapHost(url) {
                 let (name, address, coordinates) = parseGoogleMapsURLPath(url)
@@ -88,6 +101,77 @@ enum SharedLinkParser {
     private static func isNaverMapHost(_ url: URL) -> Bool {
         guard let host = url.host else { return false }
         return host.contains("map.naver.com") || host.contains("naver.me")
+    }
+
+    private static func isAppleMapHost(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return host == "maps.apple.com" || host.hasSuffix(".maps.apple.com")
+    }
+
+    /// Apple Maps puts the shared place in its URL's *query string*, so —
+    /// like a full Google Maps link, and unlike a short one — the name,
+    /// address and exact coordinate all come out of the URL itself with no
+    /// network round trip.
+    ///
+    /// Apple's own Maps URL Scheme reference documents `q` (the search
+    /// term, or the label for `ll`), `ll` ("latitude,longitude") and
+    /// `address`; shares have also been seen spelling those last two
+    /// `name` and `coordinate`, so both spellings are read. This only ever
+    /// *reads* keys it recognises, so a share that uses none of them (a
+    /// short `maps.apple.com/p/...` link, say) simply yields `nil`s and
+    /// leaves the caller to its existing page-title fallback — the URL
+    /// still comes back as this place's map link rather than, as before,
+    /// being filed as the business's own website.
+    private static func parseAppleMapsURL(_ url: URL) -> (name: String?, address: String?, coordinates: Coordinates?) {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let queryItems = components.queryItems else {
+            return (nil, nil, nil)
+        }
+
+        func value(forAnyOf keys: [String]) -> String? {
+            for key in keys {
+                guard let raw = queryItems.first(where: { $0.name.caseInsensitiveCompare(key) == .orderedSame })?.value else {
+                    continue
+                }
+                // `URLComponents` percent-decodes but leaves "+" alone, and
+                // these values use it for spaces — same treatment
+                // `parseGoogleMapsURLPath` gives its own name segment.
+                let decoded = raw
+                    .replacingOccurrences(of: "+", with: " ")
+                    .trimmingCharacters(in: .whitespaces)
+                    .strippingInvisibleFormatCharacters()
+                if !decoded.isEmpty { return decoded }
+            }
+            return nil
+        }
+
+        let coordinates = value(forAnyOf: ["ll", "coordinate", "sll"]).flatMap(parseCoordinatePair)
+        let address = value(forAnyOf: ["address"])
+
+        // `q` is the place's label for a named place but a bare
+        // "lat,lng" string for a dropped pin — which is not a name, and
+        // saving it as one is how a card ends up called "37.5665,126.978".
+        var name = value(forAnyOf: ["name"])
+        if name == nil, let query = value(forAnyOf: ["q"]), parseCoordinatePair(query) == nil {
+            name = query
+        }
+
+        return (name, address, coordinates)
+    }
+
+    /// "latitude,longitude", rejected unless both halves parse *and* fall
+    /// inside the real ranges — a query value that merely contains a comma
+    /// must not become a coordinate.
+    private static func parseCoordinatePair(_ text: String) -> Coordinates? {
+        let parts = text.split(separator: ",")
+        guard parts.count == 2,
+              let latitude = Double(parts[0].trimmingCharacters(in: .whitespaces)),
+              let longitude = Double(parts[1].trimmingCharacters(in: .whitespaces)),
+              (-90.0...90.0).contains(latitude),
+              (-180.0...180.0).contains(longitude) else {
+            return nil
+        }
+        return Coordinates(latitude: latitude, longitude: longitude)
     }
 
     private static func looksLikeNaverShareText(_ text: String) -> Bool {

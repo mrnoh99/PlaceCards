@@ -33,6 +33,15 @@ struct PlaceCandidateRow: Identifiable {
     /// `externalLinks` at `createCards()`. `nil` for plain typed text or a
     /// business-homepage link (`scannedWebsite` covers that case instead).
     var scannedMapURL: URL? = nil
+    /// The exact coordinate the share itself carried (a full Google Maps
+    /// link's `/@lat,lng`, an Apple Maps link's `ll=`/`coordinate=`), when
+    /// it had one. This used to be read only as a *search hint* and then
+    /// dropped, so a card saved without picking a search result got its
+    /// coordinate from re-geocoding the address text through Google —
+    /// needing an API key to recover something the share had already
+    /// handed over exactly, and getting nothing at all without one. That
+    /// is what left a shared place unable to open back on a map later.
+    var scannedCoordinates: Coordinates? = nil
     /// Phone/website/category/hours/amenities the AI scan could read off
     /// the screenshot itself, beyond name/address/note (e.g. a Google Maps
     /// info card's own "영업시간" section) — carried into the saved card
@@ -572,6 +581,9 @@ final class PlaceCardViewModel: ObservableObject {
         if candidateRows[filledIndex].scannedMapURL == nil, let mapURL = resolved.mapURL {
             candidateRows[filledIndex].scannedMapURL = mapURL
         }
+        if candidateRows[filledIndex].scannedCoordinates == nil, let coordinates = resolved.coordinates {
+            candidateRows[filledIndex].scannedCoordinates = coordinates
+        }
         if candidateRows[filledIndex].originSource == nil {
             candidateRows[filledIndex].originSource = resolved.source
         }
@@ -757,9 +769,10 @@ final class PlaceCardViewModel: ObservableObject {
                 // Google's own page title reads "이름 · 지역" for a Maps
                 // share — see `SharedLinkParser.splitGoogleTitle`'s own
                 // comment for why leaving that unsplit produces a spurious
-                // name mismatch downstream. Naver never reaches this
-                // branch (`parseNaverText` always gives a name), so this
-                // only ever runs for a Google share.
+                // name mismatch downstream. Naver never reaches this branch
+                // (`parseNaverText` always gives a name); a short Apple
+                // Maps link does, and the same split is right for it —
+                // it's a no-op on a title with no " · " in it anyway.
                 let (name, address) = SharedLinkParser.splitGoogleTitle(title)
                 return ResolvedSharedPlace(
                     name: name, address: parsed.address ?? address, coordinates: parsed.coordinates, note: parsed.note,
@@ -810,6 +823,7 @@ final class PlaceCardViewModel: ObservableObject {
         switch source {
         case .naverMapShare: return [ExternalLink(platform: "Naver Map", url: mapURL.absoluteString)]
         case .googleMapShare: return [ExternalLink(platform: "Google Maps", url: mapURL.absoluteString)]
+        case .appleMapShare: return [ExternalLink(platform: "Apple 지도".localized, url: mapURL.absoluteString)]
         default: return []
         }
     }
@@ -859,7 +873,7 @@ final class PlaceCardViewModel: ObservableObject {
                             let card = await self.createManualPlaceCard(
                                 name: row.name, address: row.address, images: self.selectedImages, source: source,
                                 note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
-                                tags: row.tags, externalLinks: links
+                                tags: row.tags, externalLinks: links, sharedCoordinates: row.scannedCoordinates
                             )
                             return (index, card)
                         }
@@ -953,7 +967,7 @@ final class PlaceCardViewModel: ObservableObject {
                 card.media.onsitePhotos.append(item)
             case .receivedPhoto:
                 card.media.receivedPhotos.append(item)
-            case .naverMapShare, .googleMapShare, .kakaoMapShare,
+            case .naverMapShare, .googleMapShare, .kakaoMapShare, .appleMapShare,
                  .googleDirectLookup, .naverDirectLookup, .kakaoDirectLookup, .userManualInput,
                  .googleTakeout, .unsplashSearch:
                 card.media.onsitePhotos.append(item)
@@ -1064,14 +1078,17 @@ final class PlaceCardViewModel: ObservableObject {
     func createManualPlaceCard(
         name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput,
         note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = [],
-        externalLinks: [ExternalLink] = []
+        externalLinks: [ExternalLink] = [], sharedCoordinates: Coordinates? = nil
     ) async -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId, name: name, address: address, website: website, externalLinks: externalLinks,
             tags: tags, memo: PlaceCard.combinedMemo(nil, appending: note)
         )
         card.applyScannedDetails(details)
-        card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
+        card.sources.append(SourceRecord(
+            sourceType: source,
+            dataProvided: sharedCoordinates == nil ? ["name", "address"] : ["name", "address", "coordinates"]
+        ))
 
         for image in images {
             if let fileName = try? MediaStore.saveImage(image) {
@@ -1079,8 +1096,15 @@ final class PlaceCardViewModel: ObservableObject {
             }
         }
 
+        // The share's own coordinate wins outright: a map app handed over
+        // the exact point it was showing, which is better evidence than
+        // anything re-derived from the address text below — and unlike
+        // geocoding, it costs no API key and can't fail.
+        card.coordinates = sharedCoordinates
+
         let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
-        if !trimmedAddress.isEmpty, let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty {
+        if card.coordinates == nil, !trimmedAddress.isEmpty,
+           let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty {
             card.coordinates = try? await GooglePlacesService(apiKey: apiKey).geocodeAddress(trimmedAddress)
         }
         // No address to geocode (or it didn't resolve to anything) — a
