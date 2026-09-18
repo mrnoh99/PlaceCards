@@ -968,6 +968,7 @@ final class PlaceCardViewModel: ObservableObject {
             case .receivedPhoto:
                 card.media.receivedPhotos.append(item)
             case .naverMapShare, .googleMapShare, .kakaoMapShare, .appleMapShare,
+                 .navigationAppShare,
                  .googleDirectLookup, .naverDirectLookup, .kakaoDirectLookup, .userManualInput,
                  .googleTakeout, .unsplashSearch:
                 card.media.onsitePhotos.append(item)
