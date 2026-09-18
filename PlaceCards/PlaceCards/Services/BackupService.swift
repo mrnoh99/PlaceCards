@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 /// Whole-app JSON export/backup/restore, ported from Peragra's own
@@ -61,10 +62,56 @@ enum BackupService {
         return decoder
     }
 
+    /// The device this backup was written on, as a filesystem-safe slug.
+    ///
+    /// A backup folder usually collects files from more than one device —
+    /// an iCloud Drive folder an iPhone and an iPad both write to — and
+    /// until now every one of them was named alike, so which machine made
+    /// which file was unknowable from the listing.
+    ///
+    /// **What this actually yields:** since iOS 16 `UIDevice.name` returns
+    /// the device's *model* name ("iPhone", "iPad"), not the name its
+    /// owner gave it in Settings, unless the app carries the
+    /// `com.apple.developer.device-information.user-assigned-device-name`
+    /// entitlement — which Apple grants only on request, against a
+    /// declared need this app doesn't have. So this tells an iPhone from
+    /// an iPad, which is the case worth telling apart, but not one iPhone
+    /// from another iPhone.
+    ///
+    /// Slugged the same way `boardFilename(for:)` slugs a board name.
+    /// `CharacterSet.alphanumerics` is Unicode-wide, so a Korean device
+    /// name survives it rather than being stripped to nothing.
+    @MainActor
+    private static func deviceSlug() -> String {
+        let slug = UIDevice.current.name
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: "_")
+        return slug.isEmpty ? "device" : slug
+    }
+
+    /// `placecards_<device>_<yyMMdd_HHmm>` — which machine wrote it and
+    /// when, both short enough to take in at a glance in a folder listing.
+    ///
+    /// Seconds are deliberately gone from the timestamp: two backups
+    /// inside the same minute now land on the same name, and the second
+    /// replaces the first. That is the right outcome — a minute apart
+    /// they hold essentially the same library, so the alternative was two
+    /// extra digits on every filename forever to preserve a duplicate
+    /// nobody wants.
+    ///
+    /// `en_US_POSIX`, as a fixed format always needs: without it the
+    /// formatter follows the user's own calendar preference, and `yy`
+    /// under a non-Gregorian one (Japanese, Buddhist, …) writes a year
+    /// that doesn't match the rest of the folder — the exact trap a
+    /// two-digit year makes easiest to fall into.
+    @MainActor
     static func filename(at date: Date = .now) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd_HHmmss"
-        return "placecards_\(formatter.string(from: date))"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyMMdd_HHmm"
+        return "placecards_\(deviceSlug())_\(formatter.string(from: date))"
     }
 
     /// Mirrors Peragra's `BackupService.boardFilename(for:)` — a
