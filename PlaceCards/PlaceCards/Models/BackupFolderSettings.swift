@@ -19,6 +19,7 @@ final class BackupFolderSettings: ObservableObject {
     private static let intervalDaysKey = "autoBackupIntervalDays"
     private static let lastBackupAtKey = "autoBackupLastAt"
     private static let needsReauthorizationKey = "autoBackupNeedsReauthorization"
+    private static let deviceNameKey = "backupDeviceName"
 
     /// A security-scoped bookmark to the user-picked folder — not a plain
     /// `URL`, since a raw URL to somewhere outside the app's sandbox
@@ -36,6 +37,17 @@ final class BackupFolderSettings: ObservableObject {
     /// the user knows to re-pick the folder rather than backups just
     /// silently stopping.
     @Published private(set) var needsReauthorization: Bool
+    /// What to call this device in a backup's filename. Empty means "not
+    /// set", and `BackupService.filename(at:)` falls back to the name iOS
+    /// reports — which since iOS 16 is the *model* ("iPhone"), so two
+    /// iPhones backing up to one folder are indistinguishable without
+    /// this. That is the whole reason it exists.
+    ///
+    /// Lives here, with the folder-backup settings, because that is where
+    /// filenames pile up and where it is edited — but it is read by
+    /// `BackupService.filename(at:)`, so the manual "전체 백업" carries it
+    /// too.
+    @Published private(set) var deviceName: String
 
     private init() {
         let defaults = UserDefaults.standard
@@ -46,6 +58,7 @@ final class BackupFolderSettings: ObservableObject {
         autoBackupIntervalDays = storedInterval > 0 ? storedInterval : 1
         lastAutoBackupAt = defaults.object(forKey: Self.lastBackupAtKey) as? Date
         needsReauthorization = defaults.bool(forKey: Self.needsReauthorizationKey)
+        deviceName = defaults.string(forKey: Self.deviceNameKey) ?? ""
     }
 
     func setFolder(bookmark: Data, displayName: String) {
@@ -83,6 +96,12 @@ final class BackupFolderSettings: ObservableObject {
     func setLastAutoBackupAt(_ date: Date) {
         lastAutoBackupAt = date
         UserDefaults.standard.set(date, forKey: Self.lastBackupAtKey)
+    }
+
+    func setDeviceName(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        deviceName = trimmed
+        UserDefaults.standard.set(trimmed, forKey: Self.deviceNameKey)
     }
 
     func setNeedsReauthorization(_ value: Bool) {

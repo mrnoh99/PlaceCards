@@ -1,4 +1,8 @@
 import SwiftUI
+// For `UIDevice.current.name` in `FolderBackupSettingsView` — SwiftUI does
+// not reliably re-export it, and a missing import is the first row of
+// CLAUDE.md's table of things only CI catches.
+import UIKit
 // For `UTType.folder` in `FolderBackupSettingsView`'s folder picker — the
 // kind of import the local checks here cannot catch a missing one of.
 import UniformTypeIdentifiers
@@ -306,6 +310,11 @@ struct FolderBackupSettingsView: View {
     @State private var showingFolderPicker = false
     @State private var message: String?
 
+    /// What iOS would be called if the field is left blank — shown as the
+    /// field's placeholder so the fallback isn't a mystery. `verbatim`
+    /// because it's a device name, not a translatable phrase.
+    private var deviceNamePlaceholder: String { UIDevice.current.name }
+
     var body: some View {
         Form {
             Section {
@@ -320,7 +329,28 @@ struct FolderBackupSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             } footer: {
-                Text("폴더를 한 번 선택해두면, 앱을 열 때마다(위 주기당 최대 한 번) PinSpots가 그 폴더에 새 백업을 저장합니다.".localized)
+                Text("폴더를 한 번 선택해두면, 앱을 열거나 닫을 때마다(위 주기당 최대 한 번) PinSpots가 그 폴더에 새 백업을 저장합니다.".localized)
+            }
+
+            Section {
+                TextField(
+                    "이 기기 이름".localized,
+                    text: Binding(
+                        get: { settings.deviceName },
+                        set: { settings.setDeviceName($0) }
+                    ),
+                    prompt: Text(verbatim: deviceNamePlaceholder)
+                )
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+                LabeledContent("파일 이름".localized, value: BackupService.filename() + ".json")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("기기 이름".localized)
+            } footer: {
+                Text("백업 파일 이름에 들어가, 여러 기기가 같은 폴더에 백업할 때 어느 기기가 만든 파일인지 알 수 있게 합니다. 비워두면 iOS가 알려주는 이름을 쓰는데, iOS 16부터 그건 설정에서 지어준 이름이 아니라 기종 이름(“iPhone”)이라 같은 기종 둘은 구별되지 않습니다. 짧을수록 좋습니다. 설정의 “전체 백업” 파일에도 함께 적용됩니다.".localized)
             }
         }
         .navigationTitle("폴더 자동 백업".localized)
