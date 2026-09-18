@@ -2,6 +2,47 @@
 
 ## [Unreleased]
 
+### 2026-09-18 (193차) — 내비게이션 앱 공유가 카드 이름이 되던 문제
+사용자 스크린샷: 카드 이름이
+`geo-navigation:///place?address=%EC%95%88%EC%96%91%EC%8B%9C...` 라는
+날 URL 그대로 저장돼 있었음.
+
+그 URL 안에 주소가 **멀쩡히 들어 있었음** — 디코딩하면 "안양시 동안구
+귀인로 190번길 23". 읽지 못한 이유는 `SharedLinkParser.parse`가 URL을
+`NSDataDetector`로 찾는데, 이건 웹 계열 스킴만 알아보기 때문임. 커스텀
+스킴 공유는 모든 분기를 그냥 지나쳐 `resolveSharedPlace`의 마지막
+`name: trimmed`까지 떨어졌고, 그게 화면의 그 이름임.
+
+#### Fixed
+- `Services/SharedLinkParser.swift`: `navigationAppPlaceURL` /
+  `parseNavigationAppPlaceURL` 추가. `extractURL`보다 **먼저** 검사함 —
+  어차피 `NSDataDetector`가 못 찾으므로.
+  - 매칭은 **좁게**: 실제로 받은 스킴(`geo-navigation:`)과 끝이 `place`인
+    경로. "커스텀 스킴에 `address`가 있으면 전부"로 넓히지 않았음 —
+    스킴은 남의 앱 네임스페이스라 느슨하게 잡으면 무관한 공유를 조용히
+    가로챔. 다른 내비 앱은 실제 샘플이 나오면 그때 추가함(§4의 규칙).
+  - 공백 기준 토큰을 훑으므로 링크가 문장에 섞여 와도 됨. 주소는
+    percent-encoded라 공백으로 잘릴 일이 없음.
+  - 좌표는 읽지 않음. 그런 링크가 좌표를 어떤 키로 적는지 확인된 바가
+    없고, 키 이름을 지어내는 건 이 파일이 다른 데서 전부 피하는 그 추측임.
+  - 이름이 없으므로 **주소가 검색어가 됨** — 그 주소를 직접 타이핑한 것과
+    같고, 조회가 실제 상호명으로 바꿔줌.
+  - `url`은 일부러 안 남김. 커스텀 스킴은 그 앱이 깔린 기기에서만 열리므로
+    "지도에서 열기"가 죽은 링크가 됨. `MapOpeners`가 이름·주소로 다시
+    만들어 줌.
+- `Models/MediaModels.swift`: `SourceType.navigationAppShare` 추가.
+  **벤더 이름을 붙이지 않았음** — 이 스킴을 어느 앱이 보내는지 확인할
+  문서가 없어서 단정하면 추측이 됨.
+- 케이스 추가에 딸린 exhaustive switch 둘을 같이 고쳤음
+  (`displayName`, `PlaceCardViewModel`의 미디어 분류). CLAUDE.md §1 표의
+  네 번째 사례가 정확히 이걸 빠뜨려 CI가 터진 건임.
+
+#### 검증
+파서 로직을 파이썬으로 그대로 옮겨 8가지 입력으로 확인했음: 스크린샷의
+실제 링크, 문장에 섞인 경우, `name`까지 있는 경우, `address`가 빈 경우,
+경로가 `place`가 아닌 경우, 다른 스킴, Apple 공유(기존 경로 유지), 평범한
+텍스트. 앞 세 개만 매칭되고 나머지는 전부 기존 경로로 넘어감.
+
 ### 2026-09-17 (192차) — CLAUDE.md에 Peragra 수정 금지를 적음
 사용자 지시 "peragra는 더이상 수정 말라", "claude.md 에 적어라".
 

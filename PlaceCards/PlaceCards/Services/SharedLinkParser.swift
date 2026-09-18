@@ -31,8 +31,39 @@ struct ParsedSharedPlace {
 ///   line — all of it already text, so all of it is extracted directly.
 /// - Apple Maps shares a URL whose *query string* holds the place — see
 ///   `parseAppleMapsURL`.
+/// - A navigation app shares a custom-scheme URL that spells the address
+///   out in its query string — see `navigationAppPlaceURL`.
 enum SharedLinkParser {
     static func parse(_ text: String) -> ParsedSharedPlace? {
+        // Checked before `extractURL`, which can't find this one at all:
+        // `NSDataDetector` only recognises the web-ish schemes, so a
+        // custom-scheme share fell past every branch below and ended up as
+        // `resolveSharedPlace`'s last resort — the card was named with the
+        // raw `geo-navigation:///place?address=%EC%95%88...` text, with
+        // the address it was holding all along left unread.
+        if let url = navigationAppPlaceURL(in: text) {
+            let (name, address) = parseNavigationAppPlaceURL(url)
+            guard name != nil || address != nil else { return nil }
+            return ParsedSharedPlace(
+                // The observed link carries no name, so the address
+                // doubles as the search query — exactly what typing that
+                // address by hand would do, and the lookup replaces it
+                // with the real place name.
+                name: name ?? address,
+                address: address,
+                coordinates: nil,
+                note: nil,
+                // Deliberately not kept as this card's map link, unlike a
+                // Naver/Google/Apple share's own `url`: a custom-scheme
+                // URL only opens in the one app that registered the
+                // scheme, so storing it would be a dead "지도에서 열기" for
+                // anyone else — and `MapOpeners` already rebuilds a
+                // working link from the name and address.
+                url: nil,
+                source: .navigationAppShare
+            )
+        }
+
         if let url = extractURL(from: text) {
             if isNaverMapHost(url) {
                 return parseNaverText(text, url: url)
@@ -106,6 +137,49 @@ enum SharedLinkParser {
     private static func isAppleMapHost(_ url: URL) -> Bool {
         guard let host = url.host?.lowercased() else { return false }
         return host == "maps.apple.com" || host.hasSuffix(".maps.apple.com")
+    }
+
+    /// The one custom URL scheme a navigation app has actually been seen
+    /// sharing into this app, spelled exactly as it arrived:
+    ///
+    ///     geo-navigation:///place?address=<percent-encoded address>
+    ///
+    /// Matched narrowly, by that scheme and a trailing `place` path
+    /// segment, rather than by "any custom scheme carrying an `address`".
+    /// A scheme is another app's private namespace, so a loose match
+    /// risks quietly claiming some unrelated app's share; and per this
+    /// project's own rule (`CLAUDE.md` §4), a scheme that hasn't been
+    /// seen for real isn't guessed at. Another navigation app's link gets
+    /// added here when a real sample of it turns up.
+    ///
+    /// Scans the share's whitespace-separated tokens rather than assuming
+    /// the text is the bare URL, so a share that wraps the link in a
+    /// sentence still resolves. The address itself is percent-encoded, so
+    /// splitting on whitespace can't cut one in half.
+    private static func navigationAppPlaceURL(in text: String) -> URL? {
+        let prefix = "geo-navigation:"
+        for token in text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }) {
+            guard token.lowercased().hasPrefix(prefix), let url = URL(string: String(token)) else { continue }
+            guard url.path.split(separator: "/").last?.lowercased() == "place" else { continue }
+            return url
+        }
+        return nil
+    }
+
+    /// Reads what that link carries. `address` is the field the observed
+    /// share actually used; `name` is read too because it costs nothing
+    /// and is simply `nil` when absent, which is the only case seen so
+    /// far. No coordinate is read: nothing has shown which keys such a
+    /// link would spell one with, and inventing a pair of key names is
+    /// the same guess this file avoids everywhere else.
+    private static func parseNavigationAppPlaceURL(_ url: URL) -> (name: String?, address: String?) {
+        let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        func value(for key: String) -> String? {
+            guard let raw = queryItems.first(where: { $0.name.lowercased() == key })?.value else { return nil }
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        return (value(for: "name"), value(for: "address"))
     }
 
     /// Apple Maps puts the shared place in its URL's *query string*, so —
