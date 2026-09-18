@@ -328,8 +328,8 @@ enum Localization {
         "이 링크에서 장소 정보를 아직 찾지 못했습니다. 아래 검색을 다시 눌러보거나, 장소명을 직접 입력해주세요.": "No place info could be recovered from this link yet. Try the search below again, or type the place name yourself.",
         "이 백업으로 모든 게시판·장소를 교체할까요?": "Replace every board and place with this backup?",
         "이 사진을 삭제할까요?": "Delete this photo?",
-        "이 카드는 아직 Google/Naver로 확정되지 않았습니다. 이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google/Naver에서 새로고침\"도 쓸 수 있게 됩니다.":
         "이 기기 이름": "This Device's Name",
+        "이 카드는 아직 Google/Naver로 확정되지 않았습니다. 이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google/Naver에서 새로고침\"도 쓸 수 있게 됩니다.":
             "This card hasn't been confirmed against Google/Naver yet. Search by name/address and pick the actual place to update it with verified info — and unlock \"Refresh from Google/Naver\" afterward.",
         "이 카드에 추가할까요?": "Add to this card?",
         "이 폴더에 대한 접근 권한이 끊어졌습니다. 아래에서 폴더를 다시 선택해주세요.": "Access to this folder was lost. Please choose the folder again below.",

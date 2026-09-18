@@ -16,6 +16,7 @@
 | `Covariant 'Self' type cannot be referenced from a stored property initializer` | 저장 프로퍼티 기본값에서 `Self.` 참조 (`final class`라도 불가) |
 | 트레일링 클로저가 엉뚱한 파라미터에 바인딩 | 기본값 있는 클로저 파라미터를 뒤에 추가 → 라벨 없는 트레일링 클로저는 **선언상 마지막** 클로저에 붙는다 |
 | `Conflicting arguments to generic parameter 'Result' ('Void' vs. 'UUID')` | 값을 반환하는 함수를 `withAnimation { }` 같은 제네릭 클로저의 단일 표현식으로 호출. `@discardableResult`는 이 추론을 막지 못한다 |
+| `expected key expression in dictionary literal` | `Localization.swift`에서 **값이 다음 줄에 오는** 두 줄짜리 항목의 key와 value 사이에 새 항목을 끼워 넣음. 괄호 수는 그대로라 균형 검사가 못 잡는다 → `Tools/localization/check.py` |
 
 ## 2. CI 상태는 **check runs**로 확인한다. commit status가 아니다.
 
@@ -44,12 +45,16 @@ PR을 연 뒤 `subscribe_pr_activity`를 걸어두면 CI 결과가 이벤트로 
 ## 3. 큰 변경일수록 이 규칙이 중요하다
 
 파일 하나를 한 줄 고치는 것과 12개 파일에 걸친 리팩터링은 위험이 다르다.
-위 표의 오류 4건 중 3건이 여러 파일을 동시에 건드린 변경에서 나왔다.
+위 표의 오류 5건 중 4건이 여러 파일을 동시에 건드린 변경에서 나왔다.
 
 ## 4. 그 밖의 프로젝트 관례
 
-- 테스트 타깃이 없다. OCR 회귀 검사(`Tools/ocr-regression/check.py`)는
-  CI가 돌리지 않으니 관련 코드를 건드렸으면 직접 실행한다.
+- 테스트 타깃이 없다. `Tools/` 아래 검사들은 CI가 돌리지 않으니 관련
+  코드를 건드렸으면 직접 실행한다.
+  - `Tools/ocr-regression/check.py` — OCR 회귀.
+  - `Tools/localization/check.py` — 번역 사전. **`Localization.swift`를
+    고쳤으면 반드시 돌린다.** 사전 구조가 성한지와 번역 누락을 함께 본다
+    (위 표의 다섯 번째 사례).
 - 화면에 보이는 한국어 문자열은 전부 `.localized`를 거치고
   `Services/Localization.swift`에 영어 대응이 있어야 한다. 단,
   `CSVExport`처럼 `.map { $0.localized }`로 일괄 번역하는 곳이 있으므로
