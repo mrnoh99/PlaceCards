@@ -129,7 +129,7 @@ struct MainTabView: View {
                     await CloudBackupService.backup(storageService: storageService)
                 }
             } else if newPhase == .background {
-                Task { await CloudBackupService.backup(storageService: storageService) }
+                Task { await runBackupsWhileBackgrounding() }
             }
         }
         .task {
@@ -305,6 +305,55 @@ struct MainTabView: View {
             }
             MapOpenContext.clear()
         }
+    }
+
+    /// Both backups, run as the app is being put away.
+    ///
+    /// `AutoBackupService.runIfDue` is here as well as on `.active`
+    /// because the launch-time run can only ever capture the library as
+    /// it was *before* this session's edits — a day's work otherwise sat
+    /// unwritten to the backup folder until the next cold launch, which
+    /// is the opposite of when a backup is worth having. It still honours
+    /// the user's configured interval, so this adds no files beyond the
+    /// schedule they already chose; it only adds one more moment to
+    /// notice that the interval has elapsed.
+    ///
+    /// The background-task assertion is what makes either of these worth
+    /// starting here at all. A plain `.background` transition leaves only
+    /// a couple of seconds before iOS suspends the process, and
+    /// `BackupService.exportData` reads and base64-encodes every photo in
+    /// the library — on a library of any size that doesn't finish in
+    /// time, and a suspended task simply never resumes. (The iCloud
+    /// snapshot has been started from here all along, with no assertion,
+    /// so this fixes that silently-truncated case too.) The assertion is
+    /// ended the moment the work is done rather than left to expire, so
+    /// the app isn't held awake any longer than the write needs.
+    ///
+    /// Running out of time even so is safe, just wasted: both writers use
+    /// an atomic write, so the previous backup stays intact rather than
+    /// being replaced by a half-written one.
+    @MainActor
+    private func runBackupsWhileBackgrounding() async {
+        let application = UIApplication.shared
+        var taskID: UIBackgroundTaskIdentifier = .invalid
+        taskID = application.beginBackgroundTask(withName: "PlaceCards.backupOnBackground") {
+            // UIKit documents that it calls this on the main thread, which
+            // is exactly what `assumeIsolated` asserts — needed because the
+            // handler itself carries no isolation, while `UIApplication` is
+            // `@MainActor`.
+            MainActor.assumeIsolated {
+                guard taskID != .invalid else { return }
+                application.endBackgroundTask(taskID)
+                taskID = .invalid
+            }
+        }
+
+        await AutoBackupService.runIfDue(storageService: storageService)
+        await CloudBackupService.backup(storageService: storageService)
+
+        guard taskID != .invalid else { return }
+        application.endBackgroundTask(taskID)
+        taskID = .invalid
     }
 
     /// Only ever true for a Google Maps share — every other source
