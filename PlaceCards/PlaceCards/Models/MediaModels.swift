@@ -16,12 +16,17 @@ enum SourceType: String, Codable, CaseIterable {
     /// fell through to the generic "some website" path, and was saved with
     /// no coordinate and its map URL sitting in the card's `website` field.
     case appleMapShare
-    /// A place shared out of a navigation app, as a custom-scheme URL
-    /// with the address spelled out in its query string — see
-    /// `SharedLinkParser.navigationAppPlaceURL`. Named for the shape of
-    /// the share rather than for a vendor: the scheme it arrives under
-    /// isn't documented anywhere this project could check, so claiming
-    /// which app sends it would be a guess.
+    /// A place shared as a custom-scheme URL with the address spelled out
+    /// in its query string — see `SharedLinkParser.navigationAppPlaceURL`,
+    /// which documents the one route known to produce one: tapping a
+    /// photo's address in Apple's Photos app and sharing it.
+    ///
+    /// Still named for the shape of the share rather than for a vendor.
+    /// Knowing which app the *share* came from isn't the same as knowing
+    /// which app owns the `geo-navigation:` scheme Photos handed it to,
+    /// and no documentation settling that was found. The raw value is
+    /// also what's written into saved cards, so it stays put regardless:
+    /// see `unsplashSearch` below for why a case is never renamed away.
     ///
     /// Before this case existed the share matched nothing, and the card
     /// was saved named with the raw `geo-navigation:///place?address=…`
@@ -74,7 +79,7 @@ enum SourceType: String, Codable, CaseIterable {
         case .googleMapShare: return "구글 지도 공유".localized
         case .kakaoMapShare: return "카카오맵 공유".localized
         case .appleMapShare: return "Apple 지도 공유".localized
-        case .navigationAppShare: return "내비게이션 앱 공유".localized
+        case .navigationAppShare: return "주소 링크 공유".localized
         case .googleDirectLookup: return "Google Places API"
         case .naverDirectLookup: return "Naver API"
         // Unreachable — see the case's own comment. Named for what it

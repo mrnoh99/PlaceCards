@@ -196,7 +196,6 @@ enum Localization {
         "기준: 현재 위치": "From: Current Location",
         "내 평점 (0~5)": "My rating (0-5)",
         "내보내기": "Export",
-        "내비게이션 앱 공유": "Navigation app share",
         "네이버 지도 공유": "Naver Map share",
         "네이버 지도 스크린샷": "Naver Map screenshot",
         "네이버 지도에서 공유받은 장소는 Google 대신 이 API로 검증합니다. 위 \"Naver 지도 표시\"와는 별개의 애플리케이션입니다 — NAVER Cloud Platform 콘솔(console.ncloud.com)에서 Menu → All Services → Application Services → NAVER API HUB로 들어가 Application을 등록할 때 \"검색\" API를 선택하고, 등록된 Application의 \"인증 정보\"에서 Client ID/Secret을 확인해 입력하세요. 설정하지 않으면 지금처럼 Google로 검증합니다.":
@@ -426,6 +425,7 @@ enum Localization {
         "좌표를 확인했습니다.": "Coordinates confirmed.",
         "주기": "Frequency",
         "주소": "Address",
+        "주소 링크 공유": "Address link share",
         "주소로 좌표 확인": "Find Coordinates from Address",
         "주소로 좌표를 찾지 못했습니다.": "Couldn't find coordinates for that address.",
         "중복 찾기": "Find Duplicates",

@@ -139,18 +139,31 @@ enum SharedLinkParser {
         return host == "maps.apple.com" || host.hasSuffix(".maps.apple.com")
     }
 
-    /// The one custom URL scheme a navigation app has actually been seen
-    /// sharing into this app, spelled exactly as it arrived:
+    /// The one custom URL scheme actually seen shared into this app,
+    /// spelled exactly as it arrived:
     ///
     ///     geo-navigation:///place?address=<percent-encoded address>
+    ///
+    /// **How to reproduce one** (user-confirmed, 2026-09-18): in Apple's
+    /// Photos app, open a photo's location info, tap the address, and
+    /// share it. That is the path that produced the sample this parser
+    /// was written against — worth recording, since the link is otherwise
+    /// hard to obtain deliberately.
+    ///
+    /// Note what that does *not* establish: which app owns the scheme.
+    /// Photos' share sheet hands the address to whatever registered
+    /// `geo-navigation:`, which may be iOS itself or a navigation app
+    /// installed on that device, and no documentation confirming either
+    /// was found. So nothing here is named for a vendor — see
+    /// `SourceType.navigationAppShare`.
     ///
     /// Matched narrowly, by that scheme and a trailing `place` path
     /// segment, rather than by "any custom scheme carrying an `address`".
     /// A scheme is another app's private namespace, so a loose match
     /// risks quietly claiming some unrelated app's share; and per this
     /// project's own rule (`CLAUDE.md` §4), a scheme that hasn't been
-    /// seen for real isn't guessed at. Another navigation app's link gets
-    /// added here when a real sample of it turns up.
+    /// seen for real isn't guessed at. Another app's link gets added here
+    /// when a real sample of it turns up.
     ///
     /// Scans the share's whitespace-separated tokens rather than assuming
     /// the text is the bare URL, so a share that wraps the link in a
