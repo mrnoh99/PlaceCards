@@ -113,11 +113,6 @@ final class PlaceCardViewModel: ObservableObject {
     /// differently (not red) since it isn't a failure.
     @Published var infoMessage: String?
 
-    /// Every photo behind the current AI analysis — a screenshot's caption
-    /// or map info card can name several places at once, and several
-    /// screenshots may be uploaded together so the model can cross-reference
-    /// them (mirrors Peragra's `AIExtractionService.extractPlaces(images:)`).
-    @Published var selectedImages: [UIImage] = []
     @Published var candidateRows: [PlaceCandidateRow] = []
     /// A GPS coordinate from the current batch's original (EXIF-intact)
     /// photo data, if any — passed to Google Places as a location bias
@@ -176,7 +171,6 @@ final class PlaceCardViewModel: ObservableObject {
         infoMessage = nil
         defer { isLoading = false }
 
-        selectedImages = images
         let photoCoordinates = rawImageDatas.compactMap(PhotoMetadata.extractLocation)
         // Left nil until the scan confirms the batch is exactly one place
         // (below) — until then we don't know whether these photos even
@@ -835,7 +829,25 @@ final class PlaceCardViewModel: ObservableObject {
     /// which specific screenshot named which specific place when several
     /// were uploaded and analyzed together, so every screenshot from this
     /// batch is treated as a reference for every card it produced.
-    func createCards(source: SourceType) async -> [PlaceCard] {
+    /// `images` is what the picker is holding **right now**, handed in by
+    /// the view rather than read back off this object.
+    ///
+    /// It used to be a `selectedImages` property that only
+    /// `analyzeImages` ever wrote, which meant the saved card's photos
+    /// were whatever the last AI analysis happened to be given. Two ways
+    /// that went wrong, both reachable from the screen as it stands:
+    ///
+    /// - **No analysis, no photos.** Pick photos, get the name from
+    ///   somewhere else (a shared link resolves the row on its own), tap
+    ///   추가 — the thumbnails are right there on screen and the card
+    ///   saves without a single one of them. This is the reported bug.
+    /// - **Stale photos.** Analyse with two photos, then add a third or
+    ///   remove one with its "x". The card still saves the original two:
+    ///   the deleted one included, the added one missing.
+    ///
+    /// Both stop being expressible once the save reads the picker instead
+    /// of a copy taken at some earlier moment.
+    func createCards(images: [UIImage], source: SourceType) async -> [PlaceCard] {
         isSaving = true
         defer { isSaving = false }
 
@@ -864,14 +876,14 @@ final class PlaceCardViewModel: ObservableObject {
                         let links = Self.externalLinks(source: row.originSource, mapURL: row.scannedMapURL)
                         if let chosen = row.chosenResult {
                             let card = try? await self.createPlaceCard(
-                                from: chosen, images: self.selectedImages, source: source,
+                                from: chosen, images: images, source: source,
                                 note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
                                 tags: row.tags, externalLinks: links
                             )
                             return (index, card)
                         } else {
                             let card = await self.createManualPlaceCard(
-                                name: row.name, address: row.address, images: self.selectedImages, source: source,
+                                name: row.name, address: row.address, images: images, source: source,
                                 note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
                                 tags: row.tags, externalLinks: links, sharedCoordinates: row.scannedCoordinates
                             )

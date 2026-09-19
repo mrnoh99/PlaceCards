@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### 2026-09-19 (203차) — 썸네일에 보이는 사진이 카드에 저장되지 않던 문제
+사용자 보고 "thumb nail에 사진이 있는데 place card에 저장이 안된다".
+
+저장되는 사진이 **화면이 들고 있는 것이 아니라, 마지막 AI 분석에 넘겨졌던
+것**이었음. `PlaceCardViewModel.selectedImages`는 `analyzeImages`에서만
+쓰였는데 `createCards`가 그걸 읽었음.
+
+그래서 두 가지가 어긋났음:
+
+- **분석을 안 하면 사진이 하나도 안 들어감.** 사진을 고르고, 이름은 다른
+  데서 얻고(공유된 링크는 스스로 행을 채움), 추가를 누름 — 썸네일이 화면에
+  그대로 보이는데 카드에는 한 장도 안 담김. 보고된 그 증상임.
+  - 200·201차가 공유로 돌아올 때 사진을 심어주면서 **이 경로가 일상이 됨**.
+    링크가 이미 장소를 확정해 주므로 "분석하기"를 누를 이유가 없음.
+- **분석 후에 바꾸면 옛날 것이 저장됨.** 두 장으로 분석한 뒤 한 장을 더
+  넣거나 x로 빼도, 카드에는 원래 두 장이 그대로 들어감 — 뺀 것은 포함되고
+  더한 것은 빠짐.
+
+#### Fixed
+- `ViewModels/PlaceCardViewModel.swift`: `createCards(images:source:)`가
+  **지금 화면의 사진을 인자로 받음.** `selectedImages` 프로퍼티는 제거 —
+  `analyzeImages`가 쓰고 `createCards`가 읽던 유일한 용도가 사라지면,
+  "어느 시점의 사본"이라는 개념 자체가 없어져 두 어긋남이 **표현 불가능**해짐.
+- `Views/AddPlaceCardView.swift`: 저장할 때 `pickedImages`를 넘김.
+
 ### 2026-09-19 (202차) — 빌드 번호 7
 사용자 요청 "빌드 올려라". 네 빌드 구성 전부
 `CURRENT_PROJECT_VERSION = 6` → `7`. 앱과 Share Extension의 빌드 번호는
