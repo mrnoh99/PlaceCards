@@ -579,48 +579,61 @@ struct PlaceCardDetailView: View {
                 HStack(spacing: 8) {
                     ForEach(Array(card.media.allItems.enumerated()), id: \.element.id) { index, item in
                         if let image = MediaStore.loadThumbnail(fileName: item.localPath, maxPixelSize: 288) {
-                            ZStack(alignment: .topTrailing) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 96, height: 96)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .onTapGesture {
-                                        photoViewerStartIndex = index
-                                        isPresentingPhotoViewer = true
+                            // Two corner controls over the thumbnail:
+                            // "x" to delete (top right), a star to make
+                            // this photo the card's cover (bottom left).
+                            //
+                            // `.overlay(alignment:)`, not siblings in a
+                            // `ZStack`. The star first tried the latter,
+                            // pinned to its corner with
+                            // `.frame(maxWidth: .infinity, maxHeight:
+                            // .infinity, alignment: .bottomLeading)` —
+                            // but that frame is the *button's* own, so
+                            // the star's tappable area became the whole
+                            // cell, sitting on top of both the photo and
+                            // the "x". Each overlay here is sized to the
+                            // button inside it, so the three hit areas
+                            // stay separate.
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 96, height: 96)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .onTapGesture {
+                                    photoViewerStartIndex = index
+                                    isPresentingPhotoViewer = true
+                                }
+                                .overlay(alignment: .topTrailing) {
+                                    Button {
+                                        photoPendingDelete = item
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.title3)
+                                            .accessibilityLabel("사진 삭제".localized)
+                                            .symbolRenderingMode(.palette)
+                                            .foregroundStyle(.white, .black.opacity(0.6))
                                     }
-                                Button {
-                                    photoPendingDelete = item
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .accessibilityLabel("사진 삭제".localized)
-                                        .symbolRenderingMode(.palette)
-                                        .foregroundStyle(.white, .black.opacity(0.6))
+                                    .buttonStyle(.plain)
+                                    .padding(4)
+                                    // Without this the padding is inert
+                                    // and only the glyph itself takes a
+                                    // tap — a small target to begin with.
+                                    .contentShape(Rectangle())
                                 }
-                                .buttonStyle(.plain)
-                                .padding(4)
-
-                                // Bottom-left, opposite the delete "x": a
-                                // filled star on the cover, a hollow one
-                                // to make this photo the cover. Which
-                                // photo represents the card was only
-                                // visible (and only changeable) from
-                                // inside the full-screen viewer's "…"
-                                // menu — fine when a card had one photo,
-                                // useless now that a Google refresh
-                                // brings back several to choose between.
-                                Button {
-                                    setCoverPhoto(item)
-                                } label: {
-                                    Image(systemName: item.id == card.coverPhoto?.id ? "star.fill" : "star")
-                                        .accessibilityLabel("대표사진으로 설정".localized)
-                                        .symbolRenderingMode(.palette)
-                                        .foregroundStyle(.yellow, .black.opacity(0.6))
+                                .overlay(alignment: .bottomLeading) {
+                                    Button {
+                                        setCoverPhoto(item)
+                                    } label: {
+                                        Image(systemName: isCoverPhoto(item) ? "star.circle.fill" : "star.circle")
+                                            .font(.title3)
+                                            .accessibilityLabel("대표사진으로 설정".localized)
+                                            .symbolRenderingMode(.palette)
+                                            .foregroundStyle(isCoverPhoto(item) ? .yellow : .white, .black.opacity(0.6))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(4)
+                                    .contentShape(Rectangle())
                                 }
-                                .buttonStyle(.plain)
-                                .padding(4)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                            }
                         }
                     }
                 }
@@ -748,6 +761,14 @@ struct PlaceCardDetailView: View {
 
     private var hasVisitToday: Bool {
         card.visitDates.contains { Calendar.current.isDateInToday($0) }
+    }
+
+    /// Whether this photo is the one currently representing the card —
+    /// including when nothing was explicitly picked, since `coverPhoto`
+    /// falls back to one anyway and that is the one actually on screen
+    /// everywhere else.
+    private func isCoverPhoto(_ item: MediaItem) -> Bool {
+        card.coverPhoto?.id == item.id
     }
 
     private func setCoverPhoto(_ item: MediaItem) {
