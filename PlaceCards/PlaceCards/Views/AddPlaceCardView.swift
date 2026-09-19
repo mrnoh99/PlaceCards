@@ -146,7 +146,9 @@ struct AddPlaceCardView: View {
                         Button("추가 (".localized + "\(viewModel.selectedRowCount)" + ")") {
                             Task {
                                 let expected = viewModel.selectedRowCount
-                                let created = await viewModel.createCards(source: Self.defaultSource)
+                                let created = await viewModel.createCards(
+                                    images: pickedImages, source: Self.defaultSource
+                                )
                                 // Anything short of what was asked for leaves
                                 // this screen open with `viewModel
                                 // .errorMessage` showing, so the user can
