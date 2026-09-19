@@ -280,21 +280,15 @@ struct AddPlaceCardView: View {
                 // `pickedPhotoCoordinate`가 nil이 되어 자동으로 dim
                 // out됨 — 신뢰할 수 없는 위치를 여는 것보다 못 여는 게
                 // 안전함.
-                // `recordMapOpen(photoDatas:)` before each open: the
-                // place found over there usually comes back as a share,
-                // and that share closes this screen — taking these photos
-                // with it unless they are stashed first. See
-                // `MapOpenContext`, which hands them to the card the
-                // shared link then builds.
                 Menu {
                     if let coordinate = pickedPhotoCoordinate {
                         Button("사진 위치로 보기 (Google)".localized) {
-                            MapOpenContext.recordMapOpen(photoDatas: pickedImageDatas)
+                            leavingForMapApp()
                             GoogleMapsOpener.open(coordinates: coordinate, using: openURL)
                         }
                         if let url = NaverMapOpener.mapURL(coordinates: coordinate) {
                             Button("사진 위치로 보기 (Naver)".localized) {
-                                MapOpenContext.recordMapOpen(photoDatas: pickedImageDatas)
+                                leavingForMapApp()
                                 openURL(url)
                             }
                         }
@@ -332,6 +326,21 @@ struct AddPlaceCardView: View {
     /// agrees it's the same place (trivially true with zero or one such
     /// photo). Averages when more than one photo has GPS, same reasoning
     /// as `PlaceCardViewModel.analyzeImages`'s single-place case.
+    /// Called immediately before this screen hands the user off to a map
+    /// app — from **every** such entry point here, not just the photo-GPS
+    /// one, because they are all the same trip: the user goes to a map to
+    /// pin down this place, finds it, and shares it back. That share
+    /// closes this screen and takes its `@State` — including the photos
+    /// in the picker — with it, so the card the share then builds would
+    /// have no photo on it. Stashing them first is what lets
+    /// `MapOpenContext` hand them to that card instead.
+    ///
+    /// Recording with no photos picked is harmless: it writes nothing and
+    /// just clears any stale context, which is the right result anyway.
+    private func leavingForMapApp() {
+        MapOpenContext.recordMapOpen(photoDatas: pickedImageDatas)
+    }
+
     private var pickedPhotoCoordinate: Coordinates? {
         let coordinates = pickedImageDatas.compactMap(PhotoMetadata.extractLocation)
         guard let average = Coordinates.average(coordinates) else { return nil }
@@ -529,10 +538,12 @@ struct AddPlaceCardView: View {
                     Menu {
                         if !row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty {
                             Button("Google Maps") {
+                                leavingForMapApp()
                                 GoogleMapsOpener.open(name: row.wrappedValue.name, address: row.wrappedValue.address, using: openURL)
                             }
                             if let url = NaverMapOpener.searchURL(name: row.wrappedValue.name, address: row.wrappedValue.address) {
                                 Button("Naver Map") {
+                                    leavingForMapApp()
                                     openURL(url)
                                 }
                             }
@@ -545,10 +556,12 @@ struct AddPlaceCardView: View {
                         // option here at all when the row has no name yet.
                         if let photoLocationHint = viewModel.photoLocationHint {
                             Button("사진 위치로 보기 (Google)".localized) {
+                                leavingForMapApp()
                                 GoogleMapsOpener.open(coordinates: photoLocationHint, using: openURL)
                             }
                             if let url = NaverMapOpener.mapURL(coordinates: photoLocationHint) {
                                 Button("사진 위치로 보기 (Naver)".localized) {
+                                    leavingForMapApp()
                                     openURL(url)
                                 }
                             }
