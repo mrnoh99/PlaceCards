@@ -522,6 +522,16 @@ final class PlaceCardViewModel: ObservableObject {
     /// *correct* match on nothing more than ordinary GPS imprecision.
     private static let maxPhotoLocationMatchDistanceMeters: CLLocationDistance = 500
 
+    /// How many of a place's Google photos to actually download.
+    ///
+    /// Google returns up to ten resource names for free with the search
+    /// result, but every `photoData` call that turns one into bytes is a
+    /// separately billed request against the user's own key. Three is
+    /// enough to have something to choose a cover from without tripling
+    /// anyone's bill for photos they will mostly delete. One line to
+    /// change if that balance turns out wrong.
+    private static let maxGooglePhotosPerPlace = 3
+
     /// Verifies one row's current name (and, when present, address) to get
     /// a verified address, rating, and contact details worth saving. A
     /// Naver Map share is checked against Naver's own local-business
@@ -987,11 +997,20 @@ final class PlaceCardViewModel: ObservableObject {
             }
         }
 
-        if let item = await fetchOfficialPhoto(googlePhotoName: result.photoName) {
-            card.media.officialPhotos.append(item)
-        } else if card.media.allItems.isEmpty, !result.isFromGooglePlaces,
-                  let item = await fetchGooglePhotoFallback(name: result.name, address: result.address, coordinates: card.coordinates) {
-            card.media.officialPhotos.append(item)
+        // No longer skipped when the user supplied their own photo. It
+        // used to be — `card.media.allItems.isEmpty` gated the fallback,
+        // and the two "refresh from Google" callers had the same guard —
+        // which meant sharing a photo of a place cost you Google's photos
+        // of it entirely. Fetching both and letting the user keep what
+        // they want (and pick the cover) is the ask; `coverPhoto` favours
+        // their own photo so the default doesn't change under them.
+        let officialPhotos = await fetchOfficialPhotos(googlePhotoNames: result.photoNames)
+        if !officialPhotos.isEmpty {
+            card.media.officialPhotos.append(contentsOf: officialPhotos)
+        } else if !result.isFromGooglePlaces {
+            card.media.officialPhotos.append(contentsOf: await fetchGooglePhotoFallback(
+                name: result.name, address: result.address, coordinates: card.coordinates
+            ))
         }
 
         card.sources.append(SourceRecord(sourceType: source, dataProvided: ["name", "address"]))
@@ -1008,25 +1027,34 @@ final class PlaceCardViewModel: ObservableObject {
     /// photo for the place, when Google Places found one. Silently
     /// skipped when there's no `googlePhotoName` or the fetch fails —
     /// this only ever supplements a card, never blocks saving it.
-    private func fetchOfficialPhoto(googlePhotoName: String?) async -> MediaItem? {
-        guard let googlePhotoName,
-              let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }
+    private func fetchOfficialPhotos(googlePhotoNames: [String]) async -> [MediaItem] {
+        guard !googlePhotoNames.isEmpty,
+              let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return [] }
         let googleService = GooglePlacesService(apiKey: apiKey)
-        guard let data = try? await googleService.photoData(photoName: googlePhotoName),
-              let fileName = try? MediaStore.saveImage(data: data) else { return nil }
-        return MediaItem(localPath: fileName, source: .googleDirectLookup)
+        var items: [MediaItem] = []
+        // Sequential, not a task group: these are billed requests against
+        // the user's own key, and stopping at the first failure is better
+        // than firing every one of them at a key that has just started
+        // refusing (quota, revoked). Order is Google's own, which is
+        // roughly best-first — worth keeping for whoever picks a cover.
+        for photoName in googlePhotoNames.prefix(Self.maxGooglePhotosPerPlace) {
+            guard let data = try? await googleService.photoData(photoName: photoName),
+                  let fileName = try? MediaStore.saveImage(data: data) else { break }
+            items.append(MediaItem(localPath: fileName, source: .googleDirectLookup))
+        }
+        return items
     }
 
     /// Used by two callers that would otherwise end up with no photo at
     /// all: a Naver-verified card (Naver's local search API returns no
     /// photos — `NaverLocalItem.toSearchResult()` always sets
-    /// `photoName: nil`, so `fetchOfficialPhoto(googlePhotoName:)` above
+    /// `photoNames: []`, so `fetchOfficialPhotos(googlePhotoNames:)` above
     /// never finds anything for it) and a manually-entered card
     /// (`createManualPlaceCard`, which never went through any search at
     /// all). Both look the same place up on Google Places by name+address
-    /// instead, as a fallback. Only ever called when the card has no
-    /// photo of its own yet (never overrides a real photo the user
-    /// picked), and only trusts a Google
+    /// instead, as a fallback. Appends rather than replaces — it used to
+    /// run only for a card with no photo of its own, which meant adding
+    /// your own photo cost you Google's — and only trusts a Google
     /// result that's actually within `maxAddressMatchDistanceMeters` of
     /// the card's own coordinates — the same ground-truth check
     /// `searchViaGoogle` uses, since a same-named place a few blocks
@@ -1042,27 +1070,22 @@ final class PlaceCardViewModel: ObservableObject {
     private func fetchGooglePhotoFallback(
         name: String, address: String, coordinates: Coordinates?,
         groundTruthRadius: CLLocationDistance = PlaceCardViewModel.maxAddressMatchDistanceMeters
-    ) async -> MediaItem? {
+    ) async -> [MediaItem] {
         guard let coordinates,
-              let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return nil }
+              let apiKey = KeychainService.load(.googlePlacesAPIKey), !apiKey.isEmpty else { return [] }
         let googleService = GooglePlacesService(apiKey: apiKey)
         let query = address.isEmpty ? name : "\(name) \(address)"
-        guard let results = try? await googleService.search(query: query, coordinates: coordinates) else { return nil }
+        guard let results = try? await googleService.search(query: query, coordinates: coordinates) else { return [] }
 
         let groundTruth = CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude)
-        guard
-            let match = results.first(where: { candidate in
-                guard let candidateCoordinates = candidate.coordinates else { return false }
-                return groundTruth.distance(
-                    from: CLLocation(latitude: candidateCoordinates.latitude, longitude: candidateCoordinates.longitude)
-                ) <= groundTruthRadius
-            }),
-            let photoName = match.photoName
-        else { return nil }
+        guard let match = results.first(where: { candidate in
+            guard let candidateCoordinates = candidate.coordinates else { return false }
+            return groundTruth.distance(
+                from: CLLocation(latitude: candidateCoordinates.latitude, longitude: candidateCoordinates.longitude)
+            ) <= groundTruthRadius
+        }) else { return [] }
 
-        guard let data = try? await googleService.photoData(photoName: photoName),
-              let fileName = try? MediaStore.saveImage(data: data) else { return nil }
-        return MediaItem(localPath: fileName, source: .googleDirectLookup)
+        return await fetchOfficialPhotos(googlePhotoNames: match.photoNames)
     }
 
     /// A manually-entered place never went through `search(rowID:)`'s own
@@ -1134,12 +1157,14 @@ final class PlaceCardViewModel: ObservableObject {
             coordinatesFromPhotoHint = true
         }
 
-        if card.media.allItems.isEmpty, let coordinates = card.coordinates,
-           let item = await fetchGooglePhotoFallback(
-               name: name, address: address, coordinates: coordinates,
-               groundTruthRadius: coordinatesFromPhotoHint ? Self.maxPhotoLocationMatchDistanceMeters : Self.maxAddressMatchDistanceMeters
-           ) {
-            card.media.officialPhotos.append(item)
+        // `card.media.allItems.isEmpty` used to gate this too — same
+        // reasoning as `createPlaceCard(from:)`'s own fetch above for why
+        // it is gone.
+        if let coordinates = card.coordinates {
+            card.media.officialPhotos.append(contentsOf: await fetchGooglePhotoFallback(
+                name: name, address: address, coordinates: coordinates,
+                groundTruthRadius: coordinatesFromPhotoHint ? Self.maxPhotoLocationMatchDistanceMeters : Self.maxAddressMatchDistanceMeters
+            ))
         }
 
         storageService.save(card)

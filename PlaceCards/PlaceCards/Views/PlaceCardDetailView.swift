@@ -599,6 +599,27 @@ struct PlaceCardDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .padding(4)
+
+                                // Bottom-left, opposite the delete "x": a
+                                // filled star on the cover, a hollow one
+                                // to make this photo the cover. Which
+                                // photo represents the card was only
+                                // visible (and only changeable) from
+                                // inside the full-screen viewer's "…"
+                                // menu — fine when a card had one photo,
+                                // useless now that a Google refresh
+                                // brings back several to choose between.
+                                Button {
+                                    setCoverPhoto(item)
+                                } label: {
+                                    Image(systemName: item.id == card.coverPhoto?.id ? "star.fill" : "star")
+                                        .accessibilityLabel("대표사진으로 설정".localized)
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.yellow, .black.opacity(0.6))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(4)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                             }
                         }
                     }
