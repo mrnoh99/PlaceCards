@@ -12,7 +12,11 @@ private struct PendingShare: Identifiable {
         /// A shared photo offered to the card that recently launched
         /// "지도에서 열기" — see `MapOpenContext`.
         case photoToCard(PlaceCard, Data)
-        case linkToBoard(String)
+        /// A shared link going through "pick a board, create a new card",
+        /// carrying any photos the user had picked before leaving for the
+        /// map app that this link came back from — see `MapOpenContext`.
+        /// Empty for every ordinary share.
+        case linkToBoard(String, [Data])
         case linkToCard(PlaceCard, String)
     }
 
@@ -190,14 +194,14 @@ struct MainTabView: View {
                 imageData: data,
                 onCreateNewInstead: { rerouteAfterDismiss = .photoToBoard(data) }
             ) { _ in }
-        case .linkToBoard(let text):
-            SharedLinkBoardPickerSheet(linkText: text)
+        case .linkToBoard(let text, let photoDatas):
+            SharedLinkBoardPickerSheet(linkText: text, photoDatas: photoDatas)
                 .environmentObject(navigation)
         case .linkToCard(let card, let text):
             MapLinkImportSheet(
                 card: card,
                 linkText: text,
-                onCreateNewInstead: { rerouteAfterDismiss = .linkToBoard(text) }
+                onCreateNewInstead: { rerouteAfterDismiss = .linkToBoard(text, []) }
             ) { _ in }
         }
     }
@@ -286,6 +290,13 @@ struct MainTabView: View {
         }
 
         if let text = SharedImportStore.takePendingLink() {
+            // Read only once a link is actually in hand, unlike
+            // `recentCardID` above: this loads every stashed photo off
+            // disk, and this method runs on every single foreground
+            // transition, almost none of which carry a share. `clear()`
+            // below deletes them, so they have to be taken into the share
+            // here rather than fetched back later.
+            let recentPhotoDatas = MapOpenContext.recentPhotoDatas()
             if SharedLinkParser.isInstagramLink(text) {
                 presentShortly { isPresentingInstagramGuidanceAlert = true }
             } else if let recentCardID, let card = storageService.placeCard(id: recentCardID) {
@@ -298,10 +309,10 @@ struct MainTabView: View {
                 // every other share routes immediately as before.
                 Task {
                     let isList = await isSharedListLink(text)
-                    enqueueShare(isList ? .linkToBoard(text) : .linkToCard(card, text))
+                    enqueueShare(isList ? .linkToBoard(text, recentPhotoDatas) : .linkToCard(card, text))
                 }
             } else {
-                enqueueShare(.linkToBoard(text))
+                enqueueShare(.linkToBoard(text, recentPhotoDatas))
             }
             MapOpenContext.clear()
         }

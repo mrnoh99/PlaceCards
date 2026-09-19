@@ -62,9 +62,14 @@ struct AddPlaceCardView: View {
     /// already looking at wherever they'll expect the new card to show up.
     private let cameFromSharedInfo: Bool
 
-    /// `initialImageData` seeds the picker with a photo handed over from
-    /// outside the normal PhotosPicker flow — namely a photo shared into
-    /// the app through the Share Extension (see `SharedPhotoBoardPickerSheet`).
+    /// `initialImageDatas` seeds the picker with photos handed over from
+    /// outside the normal PhotosPicker flow. Two callers do that: a photo
+    /// shared into the app through the Share Extension (one photo — see
+    /// `SharedPhotoBoardPickerSheet`), and the photos the user had already
+    /// picked here before leaving for a map app via "GPS로 촬영위치찾기",
+    /// handed back when the place they went to find is shared in (any
+    /// number — see `MapOpenContext.recordMapOpen(photoDatas:)`). That
+    /// second case is why this is a list rather than a single `Data`.
     /// `initialLinkText` does the same for a shared link/text (see
     /// `SharedLinkBoardPickerSheet`) — dropped straight into a blank row's
     /// name field exactly as if the user had pasted it there by hand, so
@@ -83,17 +88,21 @@ struct AddPlaceCardView: View {
     /// for the verification pass that then fills in everything else.
     init(
         viewModel: PlaceCardViewModel,
-        initialImageData: Data? = nil,
+        initialImageDatas: [Data] = [],
         initialLinkText: String? = nil,
         initialList: SharedPlaceList? = nil
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
-        cameFromSharedInfo = initialImageData != nil
+        cameFromSharedInfo = !initialImageDatas.isEmpty
             || (initialLinkText?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
             || initialList != nil
-        if let initialImageData, let image = UIImage(data: initialImageData) {
-            _pickedImages = State(initialValue: [image])
-            _pickedImageDatas = State(initialValue: [initialImageData])
+        // Kept in step: `pickedImageDatas` is indexed against
+        // `pickedImages`, so anything that fails to decode has to drop out
+        // of both rather than leaving the two lists misaligned.
+        let decoded = initialImageDatas.compactMap { data in UIImage(data: data).map { ($0, data) } }
+        if !decoded.isEmpty {
+            _pickedImages = State(initialValue: decoded.map(\.0))
+            _pickedImageDatas = State(initialValue: decoded.map(\.1))
         }
         if let initialLinkText, !initialLinkText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let row = PlaceCandidateRow(name: initialLinkText, address: "")
@@ -269,13 +278,21 @@ struct AddPlaceCardView: View {
                 // `pickedPhotoCoordinate`가 nil이 되어 자동으로 dim
                 // out됨 — 신뢰할 수 없는 위치를 여는 것보다 못 여는 게
                 // 안전함.
+                // `recordMapOpen(photoDatas:)` before each open: the
+                // place found over there usually comes back as a share,
+                // and that share closes this screen — taking these photos
+                // with it unless they are stashed first. See
+                // `MapOpenContext`, which hands them to the card the
+                // shared link then builds.
                 Menu {
                     if let coordinate = pickedPhotoCoordinate {
                         Button("사진 위치로 보기 (Google)".localized) {
+                            MapOpenContext.recordMapOpen(photoDatas: pickedImageDatas)
                             GoogleMapsOpener.open(coordinates: coordinate, using: openURL)
                         }
                         if let url = NaverMapOpener.mapURL(coordinates: coordinate) {
                             Button("사진 위치로 보기 (Naver)".localized) {
+                                MapOpenContext.recordMapOpen(photoDatas: pickedImageDatas)
                                 openURL(url)
                             }
                         }
