@@ -257,6 +257,7 @@ enum Localization {
         "사용자가 취소했습니다.": "Cancelled by user.",
         "사진": "Photos",
         "사진 가져오기": "Import Photo",
+        "사진 삭제": "Delete Photo",
         "사진 더 추가": "Add More Photos",
         "사진 선택": "Choose Photos",
         "사진 스캔 시 이 순서대로 시도합니다. 키가 등록되지 않은 제공자는 건너뜁니다.": "Tried in this order for photo scanning. A provider with no key registered is skipped.",

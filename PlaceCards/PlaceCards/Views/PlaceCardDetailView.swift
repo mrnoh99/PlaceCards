@@ -37,6 +37,12 @@ struct PlaceCardDetailView: View {
     /// unnoticeable for a real, deliberate tap.
     @State private var isHeroPhotoTappable = false
     @State private var newTagInput = ""
+    /// The photo whose "x" was tapped in `photosSection`, awaiting the
+    /// confirmation below. Separate from `PhotoViewerSheet`'s own
+    /// `itemPendingDelete`: that sheet has its own copy because it is a
+    /// separate view with its own lifetime, and both end up calling the
+    /// same `deletePhoto(_:)`.
+    @State private var photoPendingDelete: MediaItem?
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
@@ -275,6 +281,22 @@ struct PlaceCardDetailView: View {
             }, onDelete: {
                 dismiss()
             })
+        }
+        .confirmationDialog(
+            "이 사진을 삭제할까요?".localized,
+            isPresented: Binding(
+                get: { photoPendingDelete != nil },
+                set: { if !$0 { photoPendingDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("삭제".localized, role: .destructive) {
+                if let photoPendingDelete {
+                    deletePhoto(photoPendingDelete)
+                }
+                photoPendingDelete = nil
+            }
+            Button("취소".localized, role: .cancel) { photoPendingDelete = nil }
         }
         .sheet(isPresented: $isPresentingPhotoViewer) {
             PhotoViewerSheet(
@@ -534,6 +556,21 @@ struct PlaceCardDetailView: View {
     /// `PhotoViewerSheet` for a full-screen, swipeable look, starting on
     /// whichever thumbnail was tapped.
     @ViewBuilder
+    /// Each thumbnail carries its own "x" to delete that photo, the same
+    /// way `AddPlaceCardView`'s picker strip does for photos not yet
+    /// saved. Deleting used to mean opening the full-screen viewer,
+    /// finding the "…" menu in its toolbar, picking 삭제, then confirming
+    /// — four steps deep, with the first two being places nobody would
+    /// look for a delete. Reported as 번거롭다, and it was.
+    ///
+    /// The confirmation stays. It is one tap, and unlike the picker strip
+    /// this one is a horizontally scrolling row of *saved* photos: a
+    /// stray tap while scrolling would otherwise delete the file with no
+    /// undo anywhere in this app.
+    ///
+    /// The thumbnail is a plain `Image` with `.onTapGesture` rather than
+    /// a `Button`, so the "x" isn't a button nested inside another
+    /// button's tappable area — the same structure the picker strip uses.
     private var photosSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("사진".localized)
@@ -542,17 +579,27 @@ struct PlaceCardDetailView: View {
                 HStack(spacing: 8) {
                     ForEach(Array(card.media.allItems.enumerated()), id: \.element.id) { index, item in
                         if let image = MediaStore.loadThumbnail(fileName: item.localPath, maxPixelSize: 288) {
-                            Button {
-                                photoViewerStartIndex = index
-                                isPresentingPhotoViewer = true
-                            } label: {
+                            ZStack(alignment: .topTrailing) {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFill()
                                     .frame(width: 96, height: 96)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .onTapGesture {
+                                        photoViewerStartIndex = index
+                                        isPresentingPhotoViewer = true
+                                    }
+                                Button {
+                                    photoPendingDelete = item
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .accessibilityLabel("사진 삭제".localized)
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.white, .black.opacity(0.6))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(4)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }

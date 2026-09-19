@@ -7,6 +7,12 @@ import SwiftUI
 /// board with the shared photo already picked.
 struct SharedPhotoBoardPickerSheet: View {
     let imageData: Data
+    /// Photos the user had already picked in `AddPlaceCardView` before
+    /// leaving for a map app to find where they were taken — carried into
+    /// the same new card as the screenshot they shared back, so one trip
+    /// out to the map produces one card holding both. Empty for every
+    /// ordinary share; see `MapOpenContext`.
+    var photoDatas: [Data] = []
 
     @EnvironmentObject private var storageService: StorageService
     /// Re-declared and re-injected below purely so `AddPlaceCardView`'s own
@@ -83,7 +89,12 @@ struct SharedPhotoBoardPickerSheet: View {
         .sheet(item: $selectedBoard, onDismiss: { dismiss() }) { board in
             AddPlaceCardView(
                 viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id),
-                initialImageDatas: [imageData]
+                // The user's own photos first, the just-shared one last:
+                // whichever ends up first is the one a cover photo is
+                // taken from, and a map screenshot — shared to be read
+                // for its text, not looked at — is the worse choice for
+                // that than a photo they actually took of the place.
+                initialImageDatas: photoDatas + [imageData]
             )
             .environmentObject(navigation)
         }

@@ -7,8 +7,11 @@ import UIKit
 /// to `.sheet(item:)` — otherwise the second would silently not present.
 private struct PendingShare: Identifiable {
     enum Kind {
-        /// A shared photo, going through "pick a board, create a new card".
-        case photoToBoard(Data)
+        /// A shared photo, going through "pick a board, create a new card",
+        /// carrying any photos the user had picked before leaving for the
+        /// map app this one came back from — see `MapOpenContext`. Empty
+        /// for every ordinary share.
+        case photoToBoard(Data, [Data])
         /// A shared photo offered to the card that recently launched
         /// "지도에서 열기" — see `MapOpenContext`.
         case photoToCard(PlaceCard, Data)
@@ -185,14 +188,14 @@ struct MainTabView: View {
     @ViewBuilder
     private func shareSheet(for kind: PendingShare.Kind) -> some View {
         switch kind {
-        case .photoToBoard(let data):
-            SharedPhotoBoardPickerSheet(imageData: data)
+        case .photoToBoard(let data, let photoDatas):
+            SharedPhotoBoardPickerSheet(imageData: data, photoDatas: photoDatas)
                 .environmentObject(navigation)
         case .photoToCard(let card, let data):
             MapScreenshotImportSheet(
                 card: card,
                 imageData: data,
-                onCreateNewInstead: { rerouteAfterDismiss = .photoToBoard(data) }
+                onCreateNewInstead: { rerouteAfterDismiss = .photoToBoard(data, []) }
             ) { _ in }
         case .linkToBoard(let text, let photoDatas):
             SharedLinkBoardPickerSheet(linkText: text, photoDatas: photoDatas)
@@ -284,7 +287,9 @@ struct MainTabView: View {
             if let recentCardID, let card = storageService.placeCard(id: recentCardID) {
                 enqueueShare(.photoToCard(card, data))
             } else {
-                enqueueShare(.photoToBoard(data))
+                // Same lazy read as the link branch below, and for the
+                // same reason — see its comment.
+                enqueueShare(.photoToBoard(data, MapOpenContext.recentPhotoDatas()))
             }
             MapOpenContext.clear()
         }
