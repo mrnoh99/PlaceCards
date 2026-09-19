@@ -13,6 +13,12 @@ import SwiftUI
 /// wire up here for that part.
 struct SharedLinkBoardPickerSheet: View {
     let linkText: String
+    /// Photos the user had already picked in `AddPlaceCardView` before
+    /// leaving for a map app to find where they were taken — handed
+    /// straight back into the card this link builds, so the trip out to
+    /// the map doesn't cost them the photos that prompted it. Empty for
+    /// every ordinary share; see `MapOpenContext`.
+    var photoDatas: [Data] = []
 
     @EnvironmentObject private var storageService: StorageService
     /// Re-declared and re-injected below purely so `AddPlaceCardView`'s own
@@ -131,6 +137,7 @@ struct SharedLinkBoardPickerSheet: View {
             } else {
                 AddPlaceCardView(
                     viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id),
+                    initialImageDatas: photoDatas,
                     initialLinkText: linkText
                 )
                 .environmentObject(navigation)
