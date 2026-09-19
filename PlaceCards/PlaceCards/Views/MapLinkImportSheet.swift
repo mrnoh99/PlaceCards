@@ -13,6 +13,11 @@ import CoreLocation
 /// (`SharedLinkBoardPickerSheet`). See `MapOpenContext` for how the card
 /// is identified.
 struct MapLinkImportSheet: View {
+    /// Same budget, and the same reasoning, as
+    /// `PlaceCardViewModel.maxGooglePhotosPerPlace` — each one is a
+    /// billed request against the user's own key.
+    private static let maxGooglePhotos = 3
+
     /// A place found on the map app itself (rather than a photo's loose
     /// EXIF GPS) is precise ground truth — held to the same tight standard
     /// `PlaceCardViewModel.maxAddressMatchDistanceMeters` uses elsewhere,
@@ -300,10 +305,20 @@ struct MapLinkImportSheet: View {
             card.openingPeriods = match.openingPeriods
             filledFields.append("영업시간".localized)
         }
-        if !card.media.hasNonScreenshotPhoto, let photoName = match.photoName,
-           let photoData = try? await googleService.photoData(photoName: photoName),
-           let fileName = try? MediaStore.saveImage(data: photoData) {
+        // No longer skipped when the card already has a photo of its own
+        // of its own: having taken a photo of a place is a
+        // poor reason to be denied Google's photos of it. Nothing is
+        // replaced — these are appended, and `PlaceCard.coverPhoto` still
+        // favours the user's own, so the card looks the same until they
+        // choose otherwise.
+        var addedPhotoCount = 0
+        for photoName in match.photoNames.prefix(Self.maxGooglePhotos) {
+            guard let photoData = try? await googleService.photoData(photoName: photoName),
+                  let fileName = try? MediaStore.saveImage(data: photoData) else { break }
             card.media.officialPhotos.append(MediaItem(localPath: fileName, source: .googleDirectLookup))
+            addedPhotoCount += 1
+        }
+        if addedPhotoCount > 0 {
             filledFields.append("사진".localized)
         }
 

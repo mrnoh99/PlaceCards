@@ -14,11 +14,19 @@ struct PlaceSearchResult: Identifiable {
     /// — Naver's local search API has no equivalent field) or any Google
     /// result Google itself didn't return a price level for.
     let priceLevel: PriceLevel?
-    /// The resource name of this place's first Google Places photo, if it
-    /// has one (e.g. `"places/ChIJ.../photos/AUy1..."`) — pass to
-    /// `GooglePlacesService.photoData(photoName:)` to fetch the actual
-    /// image bytes. `nil` when Google has no photo for this place.
-    let photoName: String?
+    /// Resource names of this place's Google Places photos, in the order
+    /// Google returned them (e.g. `"places/ChIJ.../photos/AUy1..."`) —
+    /// pass each to `GooglePlacesService.photoData(photoName:)` to fetch
+    /// the actual image bytes. Empty when Google has no photo for this
+    /// place.
+    ///
+    /// Google returns up to ten; this used to keep only the first, which
+    /// left nothing to choose a cover photo from. Whoever fetches decides
+    /// how many of them to actually pull — each one is a billed request.
+    let photoNames: [String]
+    /// The first of `photoNames`, for the callers that only ever wanted
+    /// one.
+    var photoName: String? { photoNames.first }
     /// Whether `id` is an actual Google Places `placeId` — `true` only
     /// for `GooglePlace.toSearchResult()`, `false` for a Naver-verified
     /// result (`NaverLocalItem.toSearchResult()`'s own `id` is just its
@@ -61,10 +69,14 @@ struct PlaceDetails {
     /// 새로고침" fills it in the same "only if blank" way as every other
     /// field on this struct.
     var coordinates: Coordinates?
-    /// Same resource-name shape as `PlaceSearchResult.photoName` — pass to
+    /// Same resource-name shape as `PlaceSearchResult.photoNames`, and
+    /// the same reason for being a list — pass each to
     /// `GooglePlacesService.photoData(photoName:)` to fetch the actual
-    /// image bytes. `nil` when Google has no photo for this place.
-    var photoName: String?
+    /// image bytes. Empty when Google has no photo for this place.
+    var photoNames: [String] = []
+    /// The first of `photoNames`, for the callers that only ever wanted
+    /// one.
+    var photoName: String? { photoNames.first }
 }
 
 protocol PlaceSearchService {
@@ -408,7 +420,7 @@ private struct GooglePlace: Decodable {
             website: websiteUri,
             category: primaryTypeDisplayName?.text.strippingInvisibleFormatCharacters(),
             priceLevel: priceLevel.flatMap(PriceLevel.init(rawValue:)),
-            photoName: photos?.first?.name,
+            photoNames: photos?.map(\.name) ?? [],
             isFromGooglePlaces: true,
             hoursDetail: regularOpeningHours?.hoursDetail,
             openingPeriods: regularOpeningHours?.openingPeriods
@@ -438,7 +450,7 @@ private struct GooglePlaceDetail: Decodable {
             website: websiteUri,
             phone: internationalPhoneNumber,
             coordinates: location.map { Coordinates(latitude: $0.latitude, longitude: $0.longitude) },
-            photoName: photos?.first?.name
+            photoNames: photos?.map(\.name) ?? []
         )
     }
 }

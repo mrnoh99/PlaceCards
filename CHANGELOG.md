@@ -2,6 +2,52 @@
 
 ## [Unreleased]
 
+### 2026-09-19 (205차) — Google 사진을 여러 장, 내 사진이 있어도 가져온다
+사용자 요청 "이때에도 구글에서 정보 가져올때 사진을 가져와서 어느것을 대표
+사진으로 할지는 이후에 정하게 해라. 현재는 내가 보낸사진이 있으면 사진을
+안가져 온다. 가능하면 사진을 여러개 가져오고 이후 정리할수있게 만들어라".
+
+두 가지가 걸려 있었음:
+
+1. **내 사진이 있으면 Google 사진을 안 가져옴.** 세 군데가 같은 조건을
+   걸고 있었음 — `card.media.allItems.isEmpty`(카드 생성),
+   `!card.media.hasNonScreenshotPhoto`(Google 새로고침, 링크 가져오기).
+   장소 사진을 직접 찍어 보냈다는 게 그 장소의 Google 사진을 못 받을 이유는
+   아님.
+2. **가져와도 한 장.** Google은 사진 리소스 이름을 최대 열 개 주는데
+   `photos?.first?.name`으로 첫 장만 들고 있었음 — 대표 사진을 "이후에
+   정하게" 하려면 고를 것이 있어야 함.
+
+#### Changed
+- `Services/PlaceSearchService.swift`: `photoName: String?` →
+  **`photoNames: [String]`**(+ 첫 장을 주는 `photoName` 계산 프로퍼티라
+  기존 호출부는 그대로). Google 응답의 사진을 전부 들고 옴.
+- `ViewModels/PlaceCardViewModel.swift`,
+  `Views/EditPlaceCardSheet.swift`, `Views/MapLinkImportSheet.swift`:
+  세 경로 모두 **여러 장을 받고, 이미 사진이 있어도 건너뛰지 않음.**
+  - 내려받는 장수는 `maxGooglePhotosPerPlace = 3`. 리소스 이름은 검색
+    응답에 공짜로 딸려오지만 **바이트로 바꾸는 요청은 장당 과금**임 — 대부분
+    지울 사진 때문에 요금을 세 배로 만들지 않으면서 고를 것은 생기는 선.
+  - 순차 요청이고 첫 실패에서 멈춤. 키가 막히기 시작했는데 나머지를 계속
+    던지는 것보다 나음.
+- `Models/MediaModels.swift`: 이제 아무도 안 쓰는
+  `hasNonScreenshotPhoto` 제거.
+
+#### Changed — 대표사진
+- `Models/PlaceCard.swift`: `coverPhoto`의 기본값이 **사용자의 사진
+  (`onsitePhotos` → `receivedPhotos`)을 Google 것보다 앞세움.**
+  - 종전 순서(`officialPhotos.first` 우선)는 "카드에 사진이 없을 때만
+    Google 사진을 받는다"는 전제 아래서만 무해했음. 둘 다 받는 지금 그대로
+    두면, 새로고침 한 번에 **직접 찍은 사진이 스톡 사진으로 조용히 바뀜** —
+    자기 사진을 넣는다는 행위의 정반대임. 명시적으로 고르는 건 그대로 됨.
+- `Views/PlaceCardDetailView.swift`: 썸네일마다 **별 표식**. 채워진 별이
+  현재 대표사진, 빈 별을 누르면 그 사진이 대표사진이 됨(삭제 x의 반대쪽
+  모서리). 종전에는 전체화면 뷰어의 "…" 메뉴 안에서만 보이고 바꿀 수
+  있었음 — 사진이 한 장일 땐 괜찮았지만, 이제 고를 것이 여러 장임.
+
+#### Changed
+- 빌드 번호 8 → **9**.
+
 ### 2026-09-19 (204차) — 지도로 나가는 나머지 입구들, 그리고 빌드 8
 사용자 설명 "iso photo에서 지도보기를 하면 촬영위치에 따라 사진이 분포한다.
 한사진을 공유로 보내면 그 사진이 thumb nail 로 뜨고 사진에서 ai 로 읽기와

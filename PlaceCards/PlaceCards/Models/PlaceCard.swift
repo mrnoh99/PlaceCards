@@ -239,14 +239,24 @@ extension PlaceCard {
     /// The card's representative photo — shown as the detail view's hero
     /// banner and every list/grid cell's thumbnail. The user's explicit
     /// `coverPhotoID` pick, if set and that photo is still attached;
-    /// otherwise the first official Google photo, else just whatever
-    /// photo comes first — the same fallback every one of those screens
-    /// used before `coverPhotoID` existed.
+    /// otherwise a photo they actually contributed, then Google's, then
+    /// whatever comes first.
+    ///
+    /// The fallback used to reach for `officialPhotos.first` before
+    /// anything else, which was harmless while a Google photo was only
+    /// ever fetched for a card that had none of its own. Now that both
+    /// are fetched, that order would quietly replace the photo the user
+    /// took with a stock one from Google the moment a refresh ran —
+    /// the opposite of what adding their own photo means. They can still
+    /// pick Google's explicitly; it just isn't chosen for them.
     var coverPhoto: MediaItem? {
         if let coverPhotoID, let match = media.allItems.first(where: { $0.id == coverPhotoID }) {
             return match
         }
-        return media.officialPhotos.first ?? media.allItems.first
+        return media.onsitePhotos.first
+            ?? media.receivedPhotos.first
+            ?? media.officialPhotos.first
+            ?? media.allItems.first
     }
 }
 

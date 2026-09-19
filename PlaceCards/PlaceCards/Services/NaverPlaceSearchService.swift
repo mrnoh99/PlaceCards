@@ -133,7 +133,7 @@ private struct NaverLocalItem: Decodable {
             website: resolvedLink,
             category: category?.strippingInvisibleFormatCharacters(),
             priceLevel: nil,
-            photoName: nil,
+            photoNames: [],
             isFromGooglePlaces: false,
             hoursDetail: nil,
             openingPeriods: nil

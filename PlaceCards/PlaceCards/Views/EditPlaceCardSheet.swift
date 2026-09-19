@@ -28,6 +28,11 @@ private struct HoursEntry: Identifiable {
 /// all, and a name that would actually change asks for confirmation
 /// first (see `handleAnalysisResults`).
 struct EditPlaceCardSheet: View {
+    /// Same budget, and the same reasoning, as
+    /// `PlaceCardViewModel.maxGooglePhotosPerPlace` — each one is a
+    /// billed request against the user's own key.
+    private static let maxGooglePhotos = 3
+
     /// Same radius/reasoning as `PlaceCardViewModel.maxPhotoLocationMatch
     /// DistanceMeters` — a photo's own EXIF GPS reflects wherever the
     /// phone was standing, not necessarily the place's own doorstep, so
@@ -116,13 +121,17 @@ struct EditPlaceCardSheet: View {
     /// the same reason (`card` is a `let`, so nothing can be persisted
     /// mid-session).
     @State private var fetchedOpeningPeriods: [OpeningPeriod]?
-    /// Staged by `refreshFromGooglePlaceDetails()` when the card has no
-    /// photo yet and Google has one — a plain `let card` has nowhere to
-    /// actually persist a downloaded photo mid-session (unlike every other
-    /// field here, which just writes to an already-declared `@State`),
-    /// so this holds the raw bytes until `save()` writes them to disk and
-    /// appends the resulting `MediaItem` to `updated.media.officialPhotos`.
-    @State private var fetchedGooglePhotoData: Data?
+    /// Staged by `refreshFromGooglePlaceDetails()` — a plain `let card`
+    /// has nowhere to actually persist a downloaded photo mid-session
+    /// (unlike every other field here, which just writes to an
+    /// already-declared `@State`), so this holds the raw bytes until
+    /// `save()` writes them to disk and appends the resulting
+    /// `MediaItem`s to `updated.media.officialPhotos`.
+    ///
+    /// A list, and no longer conditional on the card having no photo of
+    /// its own: a refresh now brings back several of Google's photos to
+    /// choose a cover from, whether or not the user has added their own.
+    @State private var fetchedGooglePhotoData: [Data] = []
 
     @State private var isRefreshingNaverDetails = false
     @State private var naverRefreshMessage: String?
@@ -1121,10 +1130,19 @@ struct EditPlaceCardSheet: View {
             let details = try await googleService.details(placeId: placeId)
             var filledFields = fillBlankFields(from: details)
 
-            if !card.media.hasNonScreenshotPhoto, fetchedGooglePhotoData == nil, let photoName = details.photoName,
-               let photoData = try? await googleService.photoData(photoName: photoName) {
-                fetchedGooglePhotoData = photoData
-                filledFields.append("사진".localized)
+            // No longer skipped when the card already has a photo of its
+            // own: having taken a photo of a
+            // place is a poor reason to be denied Google's photos of it.
+            // Still skipped when this refresh already staged some, so
+            // running it twice doesn't stack duplicates.
+            if fetchedGooglePhotoData.isEmpty {
+                for photoName in details.photoNames.prefix(Self.maxGooglePhotos) {
+                    guard let photoData = try? await googleService.photoData(photoName: photoName) else { break }
+                    fetchedGooglePhotoData.append(photoData)
+                }
+                if !fetchedGooglePhotoData.isEmpty {
+                    filledFields.append("사진".localized)
+                }
             }
 
             googleRefreshMessage = filledFields.isEmpty
@@ -1505,7 +1523,8 @@ struct EditPlaceCardSheet: View {
             }
         }
 
-        if let fetchedGooglePhotoData, let fileName = try? MediaStore.saveImage(data: fetchedGooglePhotoData) {
+        for photoData in fetchedGooglePhotoData {
+            guard let fileName = try? MediaStore.saveImage(data: photoData) else { continue }
             updated.media.officialPhotos.append(MediaItem(localPath: fileName, source: .googleDirectLookup))
         }
 
