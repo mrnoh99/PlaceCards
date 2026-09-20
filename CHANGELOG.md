@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### 2026-09-20 (209차) — 크레딧 줄을 홈·갤러리 맨 아래에도, 빌드 13
+사용자 요청 "build 올려라 / credit line home , 갤러리 맨아래 작을 글씨로
+추가해라".
+
+#### Added
+- `Services/AppCredit.swift`(새 파일): 크레딧 줄 하나와 그걸 그리는
+  `CreditFooter`. 설정 화면에만 `private static`으로 있던 것을 꺼냄 —
+  문구를 지어내지 않고 **이미 쓰던 그 줄**을 그대로 씀
+  (`Developed by JaiSung NOH MD 2026, Ver(x) Build(y)`). 번호는 번들에서
+  읽으므로 찍힌 빌드와 어긋날 수 없음.
+  - `CreditFooter`는 자기가 **무엇 안에 들어가는지 모름.** 보여주는 세
+    화면이 `Form`·`List`·`ScrollView`로 제각각이라, 감싸는 일
+    (`Section` + 행 배경·구분선 지우기 / 그냥 패딩)은 호출부 몫으로 둠.
+    그래야 정의 하나로 셋을 다 감당함.
+- `Views/HomeView.swift`: 게시판 목록의 **마지막 행**. 내용 위에 떠 있지
+  않고 아래에 놓이도록.
+- `Views/GalleryView.swift`: **격자·목록 양쪽 모두** 맨 끝. 이 화면은 다른
+  바닥이 없고 `safeAreaInset`은 일괄 작업 바가 이미 쓰고 있음.
+- `Views/SettingsView.swift`: 자기 사본을 버리고 공용 정의를 씀.
+
+#### 프로젝트 파일
+- `AppCredit.swift`를 `project.pbxproj`에 등록함(빌드 파일·파일 참조·그룹·
+  소스 단계 네 자리). 이 저장소는 Xcode 16의 자동 동기화 그룹을 쓰지 않아
+  직접 넣어야 함. 새로 만든 ID 두 개가 기존과 겹치지 않는지, 중괄호 균형과
+  중복 정의가 없는지 확인했음.
+
+#### Changed
+- 빌드 번호 12 → **13**.
+
 ### 2026-09-20 (208차) — 백업 쪽이 더 최신이면 그 내용으로 바꾼다
 사용자 요청 "백업쪽이 최신이면 최신 카드로 변경 해라".
 

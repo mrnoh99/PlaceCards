@@ -261,6 +261,9 @@ struct GalleryView: View {
     /// arranged.
     @ViewBuilder
     private var cardsContent: some View {
+        // The credit line goes at the end of both layouts, inside the
+        // scrolling content — this screen has no other bottom, and
+        // `safeAreaInset` is already spoken for by the bulk-action bar.
         switch layout {
         case .grid:
             ScrollView {
@@ -270,11 +273,18 @@ struct GalleryView: View {
                     }
                 }
                 .padding()
+                CreditFooter()
+                    .padding(.bottom, 16)
             }
         case .list:
             List {
                 ForEach(viewModel.filteredPlaceCards) { card in
                     listRow(card)
+                }
+                Section {
+                    CreditFooter()
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
             }
             .listStyle(.plain)

@@ -68,6 +68,7 @@
 		A1E390732FDA1586531272FD /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA5C2FD6E1D71D74FC34D78 /* ShareViewController.swift */; };
 		E442B047733FB355400DFE8A /* PlaceCardsShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
 		00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6A /* MapOpenContext.swift */; };
+		84EDB7EB049FC3268D5CFF7A /* AppCredit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE7D614BE29856796727812 /* AppCredit.swift */; };
 		00A104C99F70F9113A78C329 /* OpeningHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6C /* OpeningHours.swift */; };
 		D3A70C5182E491B60F27AD14 /* TakeoutImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E15B82D4C037FA9D8E1620B /* TakeoutImport.swift */; };
 		5C81D4A70E23B96F4A1D7C28 /* CSVExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E349F16D08C2A5913FE04B /* CSVExport.swift */; };
@@ -148,6 +149,7 @@
 		1BCFA51032463E05CB672198 /* PlaceCardsShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PlaceCardsShare.entitlements; sourceTree = "<group>"; };
 		42624E71459CDC9232BBB1A9 /* PlaceCardsShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PlaceCardsShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		74B4C3C6D38A815385431E6A /* MapOpenContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapOpenContext.swift; sourceTree = "<group>"; };
+		FBE7D614BE29856796727812 /* AppCredit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCredit.swift; sourceTree = "<group>"; };
 		74B4C3C6D38A815385431E6C /* OpeningHours.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpeningHours.swift; sourceTree = "<group>"; };
 		6E15B82D4C037FA9D8E1620B /* TakeoutImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TakeoutImport.swift; sourceTree = "<group>"; };
 		B7E349F16D08C2A5913FE04B /* CSVExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVExport.swift; sourceTree = "<group>"; };
@@ -263,6 +265,7 @@
 				156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */,
 				03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */,
 				74B4C3C6D38A815385431E6A /* MapOpenContext.swift */,
+				FBE7D614BE29856796727812 /* AppCredit.swift */,
 				74B4C3C6D38A815385431E6C /* OpeningHours.swift */,
 				6E15B82D4C037FA9D8E1620B /* TakeoutImport.swift */,
 				B7E349F16D08C2A5913FE04B /* CSVExport.swift */,
@@ -498,6 +501,7 @@
 				8716307C7083C8B1DCB62617 /* SharedPhotoBoardPickerSheet.swift in Sources */,
 				24C9B79F1C2C7A98368E9A7C /* SharedLinkBoardPickerSheet.swift in Sources */,
 				00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */,
+				84EDB7EB049FC3268D5CFF7A /* AppCredit.swift in Sources */,
 				00A104C99F70F9113A78C329 /* OpeningHours.swift in Sources */,
 				D3A70C5182E491B60F27AD14 /* TakeoutImport.swift in Sources */,
 				5C81D4A70E23B96F4A1D7C28 /* CSVExport.swift in Sources */,
@@ -686,7 +690,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -717,7 +721,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -746,7 +750,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -770,7 +774,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
