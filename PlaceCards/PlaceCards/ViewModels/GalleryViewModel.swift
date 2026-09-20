@@ -29,7 +29,7 @@ final class GalleryViewModel: ObservableObject {
     /// scan everything in scope, regardless of the active search/status/
     /// category filters, same as `BoardDetailView`'s own `allCards`).
     var scopedCards: [PlaceCard] {
-        guard let boardScopeID else { return storageService.placeCards }
+        guard let boardScopeID else { return storageService.activePlaceCards }
         return storageService.placeCards(inBoard: boardScopeID)
     }
 
@@ -41,7 +41,7 @@ final class GalleryViewModel: ObservableObject {
         let tags = selectedTag.map { [$0] } ?? []
         var matched = storageService.search(query: searchQuery, tags: tags)
         if let boardScopeID {
-            matched = matched.filter { $0.boardId == boardScopeID }
+            matched = matched.filter { $0.boardIDs.contains(boardScopeID) }
         }
         guard let categoryFilter else { return matched }
         return matched.filter { card in

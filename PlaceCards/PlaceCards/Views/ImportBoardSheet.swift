@@ -24,7 +24,7 @@ struct ImportBoardSheet: View {
                 if let preview {
                     Section {
                         ForEach(preview.boards) { board in
-                            let count = preview.placeCards.filter { $0.boardId == board.id }.count
+                            let count = preview.placeCards.filter { $0.boardIDs.contains(board.id) }.count
                             LabeledContent(board.name, value: "장소 ".localized + "\(count)" + "개".localized)
                         }
                     } header: {

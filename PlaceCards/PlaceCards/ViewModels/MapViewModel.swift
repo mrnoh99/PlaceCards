@@ -26,7 +26,7 @@ final class MapViewModel: ObservableObject {
     }
 
     var annotatedPlaceCards: [PlaceCard] {
-        storageService.placeCards.filter { $0.coordinates != nil }
+        storageService.activePlaceCards.filter { $0.coordinates != nil }
     }
 
     func coordinate(for card: PlaceCard) -> CLLocationCoordinate2D {

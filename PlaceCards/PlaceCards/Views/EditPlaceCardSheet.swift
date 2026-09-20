@@ -206,7 +206,7 @@ struct EditPlaceCardSheet: View {
     /// quick picks alongside typing a new one, since PlaceCards has no
     /// fixed category taxonomy (unlike Peragra's `PlaceCategory` enum).
     private var existingCategories: [String] {
-        let categories = storageService.placeCards(inBoard: card.boardId)
+        let categories = card.boardIDs.flatMap { storageService.placeCards(inBoard: $0) }
             .compactMap { $0.category }
             .filter { !$0.isEmpty && $0 != category }
         return Array(Set(categories)).sorted()

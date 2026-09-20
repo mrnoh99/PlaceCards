@@ -291,19 +291,30 @@ enum BackupService {
     @discardableResult
     static func importBoard(_ backup: BackupData, storageService: StorageService) -> [Board] {
         writeMediaFiles(backup.mediaFiles)
+
+        // 보드 id를 먼저 전부 새로 매긴 뒤, 카드는 그 다음에 한 번만
+        // 돈다. 예전에는 보드마다 그 안의 카드를 돌며 새 id를 붙였는데,
+        // 카드가 여러 보드에 들어갈 수 있게 된 지금 그렇게 하면 두 보드에
+        // 든 카드가 서로 다른 id를 단 두 장으로 복제된다.
+        var newBoardIDs: [String: String] = [:]
         var importedBoards: [Board] = []
         for board in backup.boards {
             var newBoard = board
             newBoard.id = UUID().uuidString
-            let oldBoardID = board.id
-            for card in backup.placeCards where card.boardId == oldBoardID {
-                var newCard = card
-                newCard.id = UUID().uuidString
-                newCard.boardId = newBoard.id
-                storageService.save(newCard)
-            }
+            newBoardIDs[board.id] = newBoard.id
             storageService.saveBoard(newBoard)
             importedBoards.append(newBoard)
+        }
+
+        for card in backup.placeCards {
+            // 이 가져오기에 들어 있지 않은 보드는 버린다. 백업이 카드가
+            // 속한 보드를 전부 담고 있다는 보장이 없다.
+            let mapped = card.boardIDs.compactMap { newBoardIDs[$0] }
+            guard !mapped.isEmpty else { continue }
+            var newCard = card
+            newCard.id = UUID().uuidString
+            newCard.boardIDs = mapped
+            storageService.save(newCard)
         }
         return importedBoards
     }

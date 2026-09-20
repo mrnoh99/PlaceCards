@@ -50,9 +50,45 @@ struct ExternalLink: Codable, Identifiable, Equatable {
 /// screenshots, shared links, direct API lookups, and photos taken on site.
 struct PlaceCard: Identifiable, Codable {
     var id: String = UUID().uuidString
-    /// The `Board` this card belongs to — every card is created inside a
-    /// board (see `BoardDetailView`), so this is never optional.
+    /// 카드가 보드 하나에만 속하던 시절의 필드. 지우지 않는다 — 저장된
+    /// 카드가 전부 디코딩에 실패한다(CLAUDE.md §4). 지금은 `boardIDs`의
+    /// 첫 칸과 발을 맞추며, 그 덕에 여기서 쓴 백업을 예전 빌드에서 열어도
+    /// 카드가 제 보드에 들어간다.
     var boardId: String
+
+    /// 이 카드가 들어 있는 보드 전부. 예전에 저장된 카드에는 이 필드가
+    /// 아예 없어서 nil로 디코딩되고, 그때는 `boardIDs`가 `boardId` 하나로
+    /// 답한다 — 따로 이관 작업을 돌릴 필요가 없다.
+    ///
+    /// 빈 배열은 nil과 다르다. 어느 보드에도 안 들어 있다는 뜻이고,
+    /// 그런 카드도 "모든 카드"에서는 보인다.
+    var boardIds: [String]?
+
+    /// 살아 있으면 nil. 값이 있으면 삭제됨으로 옮겨진 시각이다.
+    ///
+    /// 옮길 때 보드 목록을 비우지 않는다. 화면들이 이 값만 보고 걸러내므로
+    /// 카드는 모든 보드와 "모든 카드"에서 사라지고, 되돌리기는 이 값을
+    /// nil로 되돌리기만 하면 카드가 있던 자리로 그대로 돌아온다.
+    var deletedAt: Date?
+
+    /// 이 카드가 들어 있는 보드들. 읽을 때는 `boardIds`가 nil인 예전
+    /// 카드를 `boardId` 하나로 메워 주고, 쓸 때는 `boardId`를 첫 칸에
+    /// 맞춰 둔다. 화면과 서비스는 `boardId`가 아니라 전부 이쪽을 쓴다.
+    ///
+    /// 계산 프로퍼티라 저장되지 않는다 — 디스크에 남는 것은 위의
+    /// `boardId`와 `boardIds` 둘뿐이다.
+    var boardIDs: [String] {
+        get { boardIds ?? [boardId] }
+        set {
+            boardIds = newValue
+            // 빈 배열이면 `boardId`는 마지막 값을 그대로 들고 있는다.
+            // 어차피 `boardIDs`가 답을 정하므로 해롭지 않고, 예전 빌드가
+            // 이 백업을 열었을 때 카드가 사라지지 않는 쪽이 낫다.
+            if let first = newValue.first { boardId = first }
+        }
+    }
+
+    var isDeleted: Bool { deletedAt != nil }
 
     var name: String
     var category: String?

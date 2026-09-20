@@ -210,6 +210,8 @@ struct GalleryView: View {
                     cardPendingDelete = nil
                 }
                 Button("취소".localized, role: .cancel) { cardPendingDelete = nil }
+            } message: {
+                Text("삭제됨으로 옮겨집니다. 거기서 되돌릴 수 있습니다.".localized)
             }
             .confirmationDialog(
                 bulkDeleteConfirmationTitle,
@@ -220,6 +222,8 @@ struct GalleryView: View {
                     deleteSelected()
                 }
                 Button("취소".localized, role: .cancel) {}
+            } message: {
+                Text("삭제됨으로 옮겨집니다. 거기서 되돌릴 수 있습니다.".localized)
             }
             .alert("카테고리 입력".localized, isPresented: $isPresentingCustomCategoryInput) {
                 TextField("카테고리".localized, text: $customCategoryInput)
@@ -520,7 +524,35 @@ struct GalleryView: View {
         }
         .disabled(selectedIDs.isEmpty)
 
+        // 지금 보고 있는 게시판에서만 뺀다. 삭제가 아니므로 카드는 다른
+        // 게시판과 "모든 카드"에 그대로 남는다. 게시판 하나로 좁혀 보고
+        // 있을 때만 뜬다 — 전체를 보고 있으면 어느 게시판에서 뺄지가
+        // 정해지지 않는다.
+        if let scopedBoard {
+            Button {
+                removeSelectedFromScopedBoard(scopedBoard)
+            } label: {
+                Label("게시판에서 제거".localized, systemImage: "minus.circle")
+                    .font(.subheadline.weight(.medium))
+            }
+            .disabled(selectedIDs.isEmpty)
+        }
+
         if !storageService.boards.isEmpty {
+            Menu {
+                ForEach(storageService.boards) { board in
+                    Button {
+                        addSelected(to: board)
+                    } label: {
+                        Label(board.name, systemImage: board.coverIcon)
+                    }
+                }
+            } label: {
+                Label("게시판에 추가".localized, systemImage: "plus.rectangle.on.folder")
+                    .font(.subheadline.weight(.medium))
+            }
+            .disabled(selectedIDs.isEmpty)
+
             Menu {
                 ForEach(storageService.boards) { board in
                     Button {
@@ -643,10 +675,31 @@ struct GalleryView: View {
         exitSelection()
     }
 
+    /// 고른 카드를 게시판에 하나 더 넣는다. "이동"과 달리 원래 있던
+    /// 게시판에서 빠지지 않는다 — 한 카드가 여러 게시판에 들어갈 수
+    /// 있다는 것이 이 화면에서 처음 드러나는 곳이다.
+    private func addSelected(to board: Board) {
+        for id in selectedIDs {
+            guard let card = storageService.placeCard(id: id) else { continue }
+            storageService.addToBoard(card, boardID: board.id)
+        }
+        exitSelection()
+    }
+
+    private func removeSelectedFromScopedBoard(_ board: Board) {
+        for id in selectedIDs {
+            guard let card = storageService.placeCard(id: id) else { continue }
+            storageService.removeFromBoard(card, boardID: board.id)
+        }
+        exitSelection()
+    }
+
     private func moveSelected(to newBoard: Board) {
         for id in selectedIDs {
             guard var card = storageService.placeCard(id: id) else { continue }
-            card.boardId = newBoard.id
+            // "이동"이므로 소속을 갈아치운다. 보드를 하나 더하는 것은
+            // `StorageService.addToBoard(_:boardID:)` 쪽이다.
+            card.boardIDs = [newBoard.id]
             storageService.save(card)
         }
         exitSelection()

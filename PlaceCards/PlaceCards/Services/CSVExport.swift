@@ -15,16 +15,25 @@ enum CSVExport {
     /// reads as sections rather than a shuffle.
     static func csv(boards: [Board], placeCards: [PlaceCard]) -> Data {
         let boardNames = Dictionary(uniqueKeysWithValues: boards.map { ($0.id, $0.name) })
-        let ordered = boards.flatMap { board in
-            placeCards.filter { $0.boardId == board.id }
+
+        // 카드가 여러 보드에 들어갈 수 있으므로 보드마다 한 줄씩 나온다.
+        // 어느 보드 몫의 줄인지 알아야 보드 이름 칸을 채울 수 있어서,
+        // 카드만 모으지 않고 이름을 짝지어 들고 간다.
+        var rows: [(card: PlaceCard, boardName: String?)] = []
+        for board in boards {
+            for card in placeCards where card.boardIDs.contains(board.id) {
+                rows.append((card, board.name))
+            }
         }
         // A card whose board is gone would otherwise vanish from the export
-        // without a word.
-        let orphans = placeCards.filter { boardNames[$0.boardId] == nil }
+        // without a word. 어느 보드에도 안 들어 있는 카드도 여기로 온다.
+        for card in placeCards where !card.boardIDs.contains(where: { boardNames[$0] != nil }) {
+            rows.append((card, nil))
+        }
 
         var text = row(headers)
-        for card in ordered + orphans {
-            text += row(fields(for: card, boardName: boardNames[card.boardId]))
+        for entry in rows {
+            text += row(fields(for: entry.card, boardName: entry.boardName))
         }
 
         // Excel reads a UTF-8 CSV as the system legacy encoding unless the

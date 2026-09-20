@@ -587,12 +587,26 @@ enum Localization {
         "저장된 장소에 아직 좌표가 없습니다. 카드 편집의 \"주소로 좌표 확인\"으로 좌표를 채우면 지도에 표시됩니다.": "None of your saved places have coordinates yet. Fill them in with \"Find Coordinates from Address\" when editing a card and they will appear here.",
         "Naver 지도에 표시할 한국 장소가 없습니다": "No Korean places to show on the Naver map",
         "Naver 지도는 한국 내 장소만 표시합니다. 한국 밖 장소는 Apple이나 Google 지도로 보실 수 있습니다.": "Naver's map only shows places inside Korea. For places elsewhere, use the Apple or Google map.",
+        "\"을(를) 완전히 지울까요?": "\" — delete permanently?",
+        "게시판에 추가": "Add to Board",
+        "게시판에서 제거": "Remove from Board",
         "한국 밖 ": "Outside Korea, ",
         "곳은 Naver 지도에 표시되지 않습니다.": " place(s) are not shown on the Naver map.",
 
         // MARK: - 저장 공간
         "저장 공간": "Storage",
         "계산 중…": "Calculating…",
+        "되돌리기": "Restore",
+        "비우기": "Empty",
+        "사진까지 함께 지워지며 되돌릴 수 없습니다.": "Its photos are deleted too, and this cannot be undone.",
+        "삭제 ": "Deleted ",
+        "삭제됨": "Deleted",
+        "삭제됨으로 옮겨집니다. 거기서 되돌릴 수 있습니다.": "Moved to Deleted, where it can be restored.",
+        "삭제됨을 비울까요?": "Empty Deleted?",
+        "삭제됨의 카드는 ": "Cards in Deleted are erased after ",
+        "삭제됨이 비어 있습니다": "Deleted is Empty",
+        "일 뒤 저절로 지워집니다.": " days.",
         "장의 사진": " photos",
+        "지우기": "Delete",
     ]
 }

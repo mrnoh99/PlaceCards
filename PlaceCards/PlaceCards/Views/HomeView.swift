@@ -21,6 +21,7 @@ struct HomeView: View {
     /// `searchCategoryChips` once there are results to narrow.
     @State private var searchCategoryFilter: String?
     @State private var isPresentingImportBoard = false
+    @State private var isPresentingTrash = false
 
     private var isSearching: Bool {
         !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty
@@ -33,7 +34,7 @@ struct HomeView: View {
     /// *text* match, not just what's left after a category is already
     /// picked.
     private var searchResultsBeforeCategoryFilter: [PlaceCard] {
-        storageService.placeCards.filter { $0.matchesSearch(searchQuery) }
+        storageService.activePlaceCards.filter { $0.matchesSearch(searchQuery) }
     }
 
     private var searchCategories: [String] {
@@ -57,7 +58,7 @@ struct HomeView: View {
     /// to the Gallery tab pre-filtered to that category
     /// (`AppNavigation.showInGallery(category:)`).
     private var allCategories: [String] {
-        let normalized = storageService.placeCards.compactMap { card -> String? in
+        let normalized = storageService.activePlaceCards.compactMap { card -> String? in
             guard let category = card.category, !category.isEmpty else { return nil }
             return PlaceCategoryIcon.normalizedLabel(for: category)
         }
@@ -80,7 +81,7 @@ struct HomeView: View {
                             SystemCollectionRow(
                                 icon: "square.grid.2x2",
                                 title: "모든 카드".localized,
-                                count: storageService.placeCards.count
+                                count: storageService.activePlaceCards.count
                             )
                             .contentShape(Rectangle())
                             .onTapGesture { navigation.showAllInGallery() }
@@ -92,6 +93,14 @@ struct HomeView: View {
                             )
                             .contentShape(Rectangle())
                             .onTapGesture { isPresentingImportBoard = true }
+
+                            SystemCollectionRow(
+                                icon: "trash",
+                                title: "삭제됨".localized,
+                                count: storageService.deletedPlaceCards.count
+                            )
+                            .contentShape(Rectangle())
+                            .onTapGesture { isPresentingTrash = true }
                         } header: {
                             sectionHeader("PinSpots")
                         }
@@ -159,6 +168,9 @@ struct HomeView: View {
             }
             .navigationDestination(item: $selectedSearchResult) { card in
                 PlaceCardDetailView(card: card)
+            }
+            .navigationDestination(isPresented: $isPresentingTrash) {
+                TrashView()
             }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {

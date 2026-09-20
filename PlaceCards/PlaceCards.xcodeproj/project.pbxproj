@@ -70,6 +70,7 @@
 		00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6A /* MapOpenContext.swift */; };
 		84EDB7EB049FC3268D5CFF7A /* AppCredit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBE7D614BE29856796727812 /* AppCredit.swift */; };
 		7HEME0000000000000000002 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7HEME0000000000000000001 /* Theme.swift */; };
+		7RA5H0000000000000000002 /* TrashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7RA5H0000000000000000001 /* TrashView.swift */; };
 		00A104C99F70F9113A78C329 /* OpeningHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6C /* OpeningHours.swift */; };
 		D3A70C5182E491B60F27AD14 /* TakeoutImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E15B82D4C037FA9D8E1620B /* TakeoutImport.swift */; };
 		5C81D4A70E23B96F4A1D7C28 /* CSVExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E349F16D08C2A5913FE04B /* CSVExport.swift */; };
@@ -152,6 +153,7 @@
 		74B4C3C6D38A815385431E6A /* MapOpenContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapOpenContext.swift; sourceTree = "<group>"; };
 		FBE7D614BE29856796727812 /* AppCredit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCredit.swift; sourceTree = "<group>"; };
 		7HEME0000000000000000001 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		7RA5H0000000000000000001 /* TrashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashView.swift; sourceTree = "<group>"; };
 		74B4C3C6D38A815385431E6C /* OpeningHours.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpeningHours.swift; sourceTree = "<group>"; };
 		6E15B82D4C037FA9D8E1620B /* TakeoutImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TakeoutImport.swift; sourceTree = "<group>"; };
 		B7E349F16D08C2A5913FE04B /* CSVExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVExport.swift; sourceTree = "<group>"; };
@@ -299,6 +301,7 @@
 			children = (
 				82DF0DA60DBBFC46C18127A0 /* OnboardingView.swift */,
 				7HEME0000000000000000001 /* Theme.swift */,
+				7RA5H0000000000000000001 /* TrashView.swift */,
 				AE9195A8E681FB51400A3DB6 /* MainTabView.swift */,
 				98E00E0CC8D64A894A3EA6AB /* HomeView.swift */,
 				5E425CF7DE91B0F6F43CE959 /* AddBoardSheet.swift */,
@@ -506,6 +509,7 @@
 				00A104C99F70F9113A78C327 /* MapOpenContext.swift in Sources */,
 				84EDB7EB049FC3268D5CFF7A /* AppCredit.swift in Sources */,
 				7HEME0000000000000000002 /* Theme.swift in Sources */,
+				7RA5H0000000000000000002 /* TrashView.swift in Sources */,
 				00A104C99F70F9113A78C329 /* OpeningHours.swift in Sources */,
 				D3A70C5182E491B60F27AD14 /* TakeoutImport.swift in Sources */,
 				5C81D4A70E23B96F4A1D7C28 /* CSVExport.swift in Sources */,
@@ -694,7 +698,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -725,7 +729,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -754,7 +758,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -778,7 +782,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 13;
+				CURRENT_PROJECT_VERSION = 14;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
