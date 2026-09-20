@@ -592,6 +592,10 @@ enum Localization {
         "개 완전 삭제": " selected — Delete Completely",
         "게시판에 추가": "Add to Board",
         "게시판에서 제거": "Remove from Board",
+        "보드": "Boards",
+        "보드에 추가": "Add to Board",
+        "어느 보드에도 없습니다": "Not in any board",
+        "보드에서 빼기": "Remove from board",
         "한국 밖 ": "Outside Korea, ",
         "곳은 Naver 지도에 표시되지 않습니다.": " place(s) are not shown on the Naver map.",
 
