@@ -58,6 +58,15 @@ final class AppNavigation: ObservableObject {
         selectedTab = .gallery
     }
 
+    /// Home's "모든 카드" row — the counterpart to `showBoardInGallery(_:)`.
+    /// Clears the board scope rather than setting one, so Gallery opens on
+    /// every card again. Until now the only way back out of a board scope
+    /// was Gallery's own "전체 보기" button, which is invisible from Home.
+    func showAllInGallery() {
+        currentHomeBoardID = nil
+        selectedTab = .gallery
+    }
+
     /// A board row tap on Home — scopes Gallery (and Map) to just that
     /// board's places and switches to the Gallery tab, replacing the old
     /// "push into a per-board list screen" flow.

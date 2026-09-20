@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import UIKit
 
@@ -72,34 +73,67 @@ struct HomeView: View {
                     emptyState
                 } else {
                     List {
-                        categoryBrowseSection
-                        ForEach(storageService.boards) { board in
-                            BoardRow(board: board, cardCount: storageService.placeCards(inBoard: board.id).count)
-                                .contentShape(Rectangle())
-                                .onTapGesture { navigation.showBoardInGallery(board.id) }
-                                .swipeActions(edge: .trailing) {
-                                    // Mirrors Peragra: deleting is only offered
-                                    // once the board has no saved place cards,
-                                    // so a swipe can never silently take place
-                                    // cards (and their photos) with it.
-                                    if storageService.placeCards(inBoard: board.id).isEmpty {
-                                        Button(role: .destructive) {
-                                            boardPendingDelete = board
-                                        } label: {
-                                            Label("삭제".localized, systemImage: "trash")
+                        // Lightroom의 앨범 목록과 같은 순서다 — 앱이
+                        // 스스로 세우는 항목이 위, 사용자가 만든 것이
+                        // 아래. 둘을 한 List에 두되 Section으로 가른다.
+                        Section {
+                            SystemCollectionRow(
+                                icon: "square.grid.2x2",
+                                title: "모든 카드".localized,
+                                count: storageService.placeCards.count
+                            )
+                            .contentShape(Rectangle())
+                            .onTapGesture { navigation.showAllInGallery() }
+
+                            SystemCollectionRow(
+                                icon: "square.and.arrow.down",
+                                title: "가져오기".localized,
+                                count: nil
+                            )
+                            .contentShape(Rectangle())
+                            .onTapGesture { isPresentingImportBoard = true }
+                        } header: {
+                            sectionHeader("PinSpots")
+                        }
+                        .listRowBackground(Theme.panel)
+                        .listRowSeparator(.hidden)
+
+                        Section {
+                            ForEach(storageService.boards) { board in
+                                BoardRow(board: board, cardCount: storageService.placeCards(inBoard: board.id).count)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { navigation.showBoardInGallery(board.id) }
+                                    .swipeActions(edge: .trailing) {
+                                        // Mirrors Peragra: deleting is only offered
+                                        // once the board has no saved place cards,
+                                        // so a swipe can never silently take place
+                                        // cards (and their photos) with it.
+                                        if storageService.placeCards(inBoard: board.id).isEmpty {
+                                            Button(role: .destructive) {
+                                                boardPendingDelete = board
+                                            } label: {
+                                                Label("삭제".localized, systemImage: "trash")
+                                            }
                                         }
                                     }
-                                }
-                                .swipeActions(edge: .leading) {
-                                    Button {
-                                        boardPendingEdit = board
-                                    } label: {
-                                        Label("수정".localized, systemImage: "pencil")
+                                    .swipeActions(edge: .leading) {
+                                        Button {
+                                            boardPendingEdit = board
+                                        } label: {
+                                            Label("수정".localized, systemImage: "pencil")
+                                        }
+                                        .tint(.blue)
+                                        ExportBoardMenu(board: board, storageService: storageService)
                                     }
-                                    .tint(.blue)
-                                    ExportBoardMenu(board: board, storageService: storageService)
-                                }
+                            }
+                        } header: {
+                            sectionHeader("사용자 보드".localized)
                         }
+                        .listRowBackground(Theme.panel)
+                        .listRowSeparator(.hidden)
+
+                        categoryBrowseSection
+
                         // Last row of the list, so it sits under the
                         // content rather than pinned over it — the same
                         // place Settings has always put it.
@@ -109,6 +143,9 @@ struct HomeView: View {
                                 .listRowSeparator(.hidden)
                         }
                     }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(Theme.panel)
                 }
             }
             .navigationTitle("PinSpots")
@@ -167,6 +204,24 @@ struct HomeView: View {
                 Button("취소".localized, role: .cancel) { boardPendingDelete = nil }
             }
         }
+    }
+
+    /// Lightroom의 섹션 제목 — 굵고 크게, 그리고 `.textCase(nil)`.
+    /// List의 기본 헤더는 한글에는 티가 안 나지만 "PinSpots" 같은
+    /// 로마자를 대문자로 바꿔 버린다.
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.title3.bold())
+            .foregroundStyle(Theme.primaryText)
+            .textCase(nil)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+            // `.plain` 목록의 헤더는 스크롤하면 붙어 있고 기본 배경이
+            // 반투명 머티리얼이라, 지정하지 않으면 사진 위를 지날 때
+            // 밝은 띠로 보인다. 아래 `maxWidth: .infinity`는 Text에
+            // 건 것이라 안전하다 — 버튼에 걸면 탭 영역이 같이 퍼진다.
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.panel)
     }
 
     private var emptyState: some View {
@@ -269,30 +324,76 @@ struct HomeView: View {
     }
 }
 
+/// Lightroom 왼쪽 목록의 "모든 사진"·"가져오기"에 해당하는, 앱이 스스로
+/// 세우는 항목 한 줄. 사용자가 만든 보드(`BoardRow`)와 달리 표지가 없으므로
+/// 왼쪽은 언제나 아이콘 칸이다 — 둘의 칸 크기와 모서리를 맞춰야 한 목록에
+/// 섞여도 줄이 어긋나 보이지 않는다.
+private struct SystemCollectionRow: View {
+    let icon: String
+    let title: String
+    /// nil이면 개수 줄을 아예 두지 않는다. "가져오기"는 모아 놓은 것이
+    /// 아니라 하는 일이라 셀 것이 없다.
+    let count: Int?
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundStyle(Theme.primaryText)
+                .frame(width: 48, height: 48)
+                .background(Theme.tile)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.tileCorner))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(Theme.primaryText)
+                if let count {
+                    Text(count.formatted())
+                        .font(.caption)
+                        .foregroundStyle(Theme.secondaryText)
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 private struct BoardRow: View {
     let board: Board
     let cardCount: Int
 
+    /// "장소 12개". 문장을 프로퍼티로 빼 두는 건 이 저장소의 관례다 —
+    /// `.localized` 조각을 `+`로 이어 붙인 식을 뷰 본문에 그대로 두면
+    /// 타입 검사가 시간 안에 끝나지 않은 적이 있다(CLAUDE.md §1).
+    private var countText: String {
+        "장소 ".localized + cardCount.formatted() + "개".localized
+    }
+
     var body: some View {
+        // 칸 크기·모서리·글자 크기는 `SystemCollectionRow`와 같아야 한다.
+        // 한 목록에 위아래로 놓이므로 하나라도 어긋나면 눈에 띈다.
         HStack(spacing: 14) {
             Image(systemName: board.coverIcon)
                 .font(.system(size: 20))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Theme.primaryText)
                 .frame(width: 48, height: 48)
-                .background(Color.accentColor.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .background(Theme.tile)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.tileCorner))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(board.name)
-                    .font(.headline)
+                    .font(.body)
+                    .foregroundStyle(Theme.primaryText)
                 if !board.subtitle.isEmpty {
                     Text(board.subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                        .foregroundStyle(Theme.secondaryText)
                 }
-                Text("장소 ".localized + "\(cardCount)" + "개".localized)
+                Text(countText)
                     .font(.caption)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.secondaryText)
             }
             Spacer()
         }
