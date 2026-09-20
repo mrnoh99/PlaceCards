@@ -100,6 +100,14 @@ struct HomeView: View {
                                     ExportBoardMenu(board: board, storageService: storageService)
                                 }
                         }
+                        // Last row of the list, so it sits under the
+                        // content rather than pinned over it — the same
+                        // place Settings has always put it.
+                        Section {
+                            CreditFooter()
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
                     }
                 }
             }
