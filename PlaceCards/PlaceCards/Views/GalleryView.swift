@@ -215,6 +215,10 @@ struct GalleryView: View {
                     bulkActionBar
                 }
             }
+            // 길게 눌러 들어가는 선택 모드는 눈으로만 알아채기 어렵다.
+            // 고를 때마다 가볍게 울려 손에 알린다. iOS 17부터 있는
+            // 것이고 이 앱의 배포 타깃이 17.0이다.
+            .sensoryFeedback(.selection, trigger: selectedIDs)
             .navigationTitle(scopeTitle)
             // `.always` so search stays visible without a pull-down/
             // scroll — same as Home/BoardDetailView, since the only
@@ -434,6 +438,9 @@ struct GalleryView: View {
                     selectedCard = card
                 }
             }
+            // 탭보다 뒤에 둔다. 길게 누르기를 먼저 달면 짧은 탭이
+            // 그쪽으로 먼저 가 카드가 안 열리는 일이 있다.
+            .onLongPressGesture { beginSelection(with: card) }
     }
 
     /// List-layout counterpart of `gridCell(_:)` — identical to
@@ -466,6 +473,7 @@ struct GalleryView: View {
                 selectedCard = card
             }
         }
+        .onLongPressGesture { beginSelection(with: card) }
         .swipeActions(edge: .trailing) {
             if !isSelecting {
                 Button(role: .destructive) {
@@ -664,6 +672,17 @@ struct GalleryView: View {
                 .font(.subheadline.weight(.medium))
         }
         .disabled(selectedIDs.count < 2)
+    }
+
+    /// 길게 누르면 선택 모드로 들어가면서 그 카드가 골라진다. 격자와
+    /// 목록 양쪽이 같은 함수를 쓴다.
+    ///
+    /// 이미 선택 모드일 때도 고르기만 하고 풀지는 않는다. 길게 누르는
+    /// 것은 "이것도"라는 뜻이지 "이건 빼고"가 아니고, 푸는 것은 탭이
+    /// 이미 하고 있다.
+    private func beginSelection(with card: PlaceCard) {
+        isSelecting = true
+        selectedIDs.insert(card.id)
     }
 
     private func toggleSelection(_ card: PlaceCard) {
