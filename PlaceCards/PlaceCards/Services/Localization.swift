@@ -60,13 +60,15 @@ extension String {
 /// text if a translation here looks incomplete on its own.
 enum Localization {
     static let englishTranslations: [String: String] = [
-        "이 백업에서 없는 항목만 가져올까요?": "Import only what this backup has and this device doesn't?",
-        "이미 있는 게시판과 장소는 그대로 두고, 이 기기에 없는 것만 추가합니다.": "Boards and places you already have are left as they are; only what is missing here is added.",
-        "이 백업에 새로 가져올 항목이 없습니다.": "Nothing in this backup is new to this device.",
-        "곳을 가져왔습니다.": " place(s) imported.",
+        "이 백업을 가져올까요?": "Import this backup?",
+        "이 기기에 없는 장소는 추가하고, 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.":
+            "Places this device is missing are added, and places the backup edited more recently replace the copies here. Places the backup doesn't contain are left alone.",
+        "이 백업에서 바뀐 것이 없습니다.": "Nothing in this backup changed anything here.",
+        "곳 추가": " added",
+        "곳 갱신": " updated",
+        "\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 파일로 저장하며, 복원하면 이 기기에 없는 장소는 추가하고 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.":
+            "\"Keep a copy in iCloud\" stores every board, place and photo in this app's own space inside your iCloud account, so you can recover them on a new device or after reinstalling. Turning it off also deletes the copy already stored. \"Full Backup\" saves the same contents to a file you choose; restoring one adds the places this device is missing and replaces the ones the backup edited more recently. Places the backup doesn't contain are left alone.",
         "iCloud에서 이전 백업을 찾아 게시판과 장소를 가져왔습니다.": "Found an earlier backup in iCloud and brought its boards and places in.",
-        "\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 파일로 저장하며, 복원하면 이미 있는 항목은 그대로 두고 이 기기에 없는 게시판과 장소만 추가합니다.":
-            "\"Keep a copy in iCloud\" stores every board, place and photo in this app's own space inside your iCloud account, so you can recover them on a new device or after reinstalling. Turning it off also deletes the copy already stored. \"Full Backup\" saves the same contents to a file you choose; restoring one leaves what you already have untouched and adds only the boards and places this device is missing.",
         "Google 지도나 네이버 지도에서 장소를 공유하면 바로 카드가 됩니다. 별도 설정 없이 지금 바로 쓸 수 있어요.": "Share a place from Google Maps or Naver Map and it becomes a card right away — no setup needed to start.",
         "곧 영업 종료": "Closing soon",
         "공유로 바로 담기": "Save it by sharing",

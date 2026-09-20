@@ -232,8 +232,9 @@ enum BackupService {
         return backup
     }
 
-    /// Adds every board and place card in `data` that this device doesn't
-    /// already have, and leaves everything else alone.
+    /// Brings in every board and place card in `data` that this device
+    /// doesn't already have, and replaces the ones whose copy here is
+    /// older than the backup's — see `StorageService.merge`.
     ///
     /// It used to replace the library wholesale (Peragra's own
     /// `restore(from:context:)` still does). Ids are kept exactly as the
@@ -245,11 +246,14 @@ enum BackupService {
     /// actor, same reasoning as `encodeOffMainActor` — a backup carries
     /// every photo's bytes inline, so neither step is cheap.
     ///
-    /// Returns how much was actually added, so the caller can say so
-    /// rather than claiming a restore that changed nothing.
+    /// Returns how much was actually added and replaced, so the caller can
+    /// say so rather than claiming a restore that changed nothing — and so
+    /// a replacement is never silent.
     @MainActor
     @discardableResult
-    static func restore(from data: Data, storageService: StorageService) async throws -> (boards: Int, placeCards: Int) {
+    static func restore(
+        from data: Data, storageService: StorageService
+    ) async throws -> (boards: Int, added: Int, updated: Int) {
         let backup = try await Task.detached(priority: .utility) { try decode(data) }.value
         return try await restore(backup, storageService: storageService)
     }
@@ -260,7 +264,9 @@ enum BackupService {
     /// isn't decoded a second time just to apply it.
     @MainActor
     @discardableResult
-    static func restore(_ backup: BackupData, storageService: StorageService) async throws -> (boards: Int, placeCards: Int) {
+    static func restore(
+        _ backup: BackupData, storageService: StorageService
+    ) async throws -> (boards: Int, added: Int, updated: Int) {
         let added = storageService.merge(boards: backup.boards, placeCards: backup.placeCards)
         // Every photo in the backup, not just the added cards': a card
         // already on this device can still be missing its image file
