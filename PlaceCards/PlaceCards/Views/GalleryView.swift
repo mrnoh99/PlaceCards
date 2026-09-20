@@ -472,9 +472,19 @@ struct GalleryView: View {
                     selectedCard = card
                 }
             }
-            // 탭보다 뒤에 둔다. 길게 누르기를 먼저 달면 짧은 탭이
-            // 그쪽으로 먼저 가 카드가 안 열리는 일이 있다.
-            .onLongPressGesture { beginSelection(with: card) }
+            // 길게 누르기는 `.simultaneousGesture`로 단다.
+            //
+            // `.onLongPressGesture`를 그냥 달면 탭이 죽는다. SwiftUI는
+            // 나중에 단 제스처에 우선권을 주므로, 탭 뒤에 달린 길게
+            // 누르기가 터치를 먼저 가져가고 `.onTapGesture`는 끝내 불리지
+            // 않는다 — 순서를 앞으로 바꿔도 이번엔 반대로 길게 누르기가
+            // 죽을 뿐이라 답이 아니다.
+            //
+            // `.simultaneousGesture`는 경쟁시키지 않고 나란히 돌린다.
+            // 짧게 누르면 탭이, 길게 누르면 이쪽이 걸린다.
+            .simultaneousGesture(
+                LongPressGesture().onEnded { _ in beginSelection(with: card) }
+            )
     }
 
     /// List-layout counterpart of `gridCell(_:)` — identical to
@@ -507,7 +517,10 @@ struct GalleryView: View {
                 selectedCard = card
             }
         }
-        .onLongPressGesture { beginSelection(with: card) }
+        // 격자와 같은 이유로 `.simultaneousGesture`다 — 위 주석 참고.
+        .simultaneousGesture(
+            LongPressGesture().onEnded { _ in beginSelection(with: card) }
+        )
         .swipeActions(edge: .trailing) {
             if !isSelecting {
                 Button(role: .destructive) {
