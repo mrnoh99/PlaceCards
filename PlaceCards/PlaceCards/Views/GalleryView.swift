@@ -267,15 +267,23 @@ struct GalleryView: View {
         switch layout {
         case .grid:
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
+                // 칸 사이 2pt에 바깥 padding은 없다 — 사진이 화면
+                // 가장자리까지 닿아야 벽처럼 이어진다. minimum도 160에서
+                // 내려 한 줄에 더 들어가게 했다. 칸이 정사각형이 되면서
+                // 예전만큼 넓지 않아도 사진이 제대로 보인다.
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 110), spacing: Theme.gridGutter)],
+                    spacing: Theme.gridGutter
+                ) {
                     ForEach(viewModel.filteredPlaceCards) { card in
                         gridCell(card)
                     }
                 }
-                .padding()
                 CreditFooter()
+                    .padding(.top, 16)
                     .padding(.bottom, 16)
             }
+            .background(Theme.canvas)
         case .list:
             List {
                 ForEach(viewModel.filteredPlaceCards) { card in
@@ -288,6 +296,8 @@ struct GalleryView: View {
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Theme.panel)
         }
     }
 
@@ -655,11 +665,14 @@ struct GalleryView: View {
 /// `List` of `PlaceCardListRow`, not this grid (see `BoardDetailView`).
 /// `GalleryView.gridCell(_:)` wraps this in a plain `.onTapGesture` rather
 /// than a `NavigationLink`/`Button` (needed once selection mode added a
-/// second tap meaning) — the star/visited/call/map/website/Instagram
-/// controls below stay their own `.plain`-styled buttons, which still
-/// claim their own taps ahead of that surrounding gesture. Favorite/
-/// visited mirror Peragra's `PlaceRowView`, including being toggleable
-/// right from here.
+/// second tap meaning) — the visited/favorite controls stay their own
+/// `.plain`-styled buttons, which still claim their own taps ahead of
+/// that surrounding gesture. Favorite/visited mirror Peragra's
+/// `PlaceRowView`, including being toggleable right from here.
+///
+/// 전화·지도·웹사이트·인스타그램 버튼은 정사각형 칸으로 바꾸면서
+/// 뺐다. 넷 다 목록 레이아웃(`GalleryView.listRow`)과 카드 상세에
+/// 그대로 있다.
 struct PlaceCardGridCell: View {
     let card: PlaceCard
     /// Set only while the grid is sorted by distance from a chosen
@@ -667,113 +680,111 @@ struct PlaceCardGridCell: View {
     var referenceCoordinate: Coordinates? = nil
 
     @EnvironmentObject private var storageService: StorageService
-    @Environment(\.openURL) private var openURL
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .top) {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.secondary.opacity(0.15))
-                if let firstItem = card.coverPhoto,
-                   let image = MediaStore.loadThumbnail(fileName: firstItem.localPath, maxPixelSize: 500) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                } else {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-
-                HStack(alignment: .top) {
-                    if let category = card.category, !category.isEmpty {
-                        Label {
-                            Text(PlaceCategoryIcon.normalizedLabel(for: category))
-                        } icon: {
-                            Image(systemName: PlaceCategoryIcon.symbolName(for: category))
-                        }
-                        .font(.caption2.weight(.semibold))
-                        .lineLimit(1)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.thinMaterial, in: Capsule())
-                    }
-                    Spacer()
-                    HStack(spacing: 8) {
-                        Button(action: toggleVisited) {
-                            Image(systemName: card.isVisited ? "checkmark.circle.fill" : "checkmark.circle")
-                                .accessibilityLabel(card.isVisited ? "방문 표시 해제".localized : "방문으로 표시".localized)
-                                .foregroundStyle(card.isVisited ? .green : .white)
-                        }
-                        Button(action: toggleFavorite) {
-                            Image(systemName: card.isFavorite ? "star.fill" : "star")
-                                .accessibilityLabel(card.isFavorite ? "즐겨찾기 해제".localized : "즐겨찾기에 추가".localized)
-                                .foregroundStyle(card.isFavorite ? .yellow : .white)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .font(.callout)
-                    .shadow(radius: 2)
-                }
-                .padding(6)
-            }
-            .frame(height: 120)
+        // 정사각형이 이 격자의 전부다. 칸마다 높이가 다르면 아무리
+        // 촘촘히 붙여도 아래가 들쭉날쭉해져서 사진이 벽처럼 이어지지
+        // 않는다. 예전 셀은 사진 아래에 이름·장소확정·주소·거리·액션
+        // 버튼 줄을 세로로 쌓았고, 그 줄들이 카드마다 있고 없고 해서
+        // 높이가 제각각이었다.
+        //
+        // 그래서 글자는 사진 위에 얹는다.
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay { photo }
+            .overlay(alignment: .top) { topRow }
+            .overlay(alignment: .bottomLeading) { caption }
             .clipped()
+    }
 
-            Text(card.name)
-                .font(.subheadline.bold())
+    @ViewBuilder
+    private var photo: some View {
+        if let firstItem = card.coverPhoto,
+           let image = MediaStore.loadThumbnail(fileName: firstItem.localPath, maxPixelSize: 500) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+        } else {
+            ZStack {
+                Theme.tile
+                Image(systemName: "photo")
+                    .font(.title2)
+                    .foregroundStyle(Theme.secondaryText)
+            }
+        }
+    }
+
+    /// 카테고리와 방문·즐겨찾기. 예전과 같은 자리, 그리고 예전과 같이
+    /// `.overlay(alignment:)`다 — ZStack 형제로 두고 frame으로 구석에
+    /// 밀면 그 frame이 버튼 자신의 탭 영역이 되어 셀 전체를 덮는다
+    /// (00_UI개편_기초.md §2.4).
+    private var topRow: some View {
+        HStack(alignment: .top) {
+            if let category = card.category, !category.isEmpty {
+                Label {
+                    Text(PlaceCategoryIcon.normalizedLabel(for: category))
+                } icon: {
+                    Image(systemName: PlaceCategoryIcon.symbolName(for: category))
+                }
+                .font(.caption2.weight(.semibold))
                 .lineLimit(1)
-            if card.isPlaceConfirmed {
-                Label("장소확정".localized, systemImage: "checkmark.seal.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.green)
+            }
+            Spacer()
+            HStack(spacing: 10) {
+                Button(action: toggleVisited) {
+                    Image(systemName: card.isVisited ? "checkmark.circle.fill" : "checkmark.circle")
+                        .accessibilityLabel(card.isVisited ? "방문 표시 해제".localized : "방문으로 표시".localized)
+                }
+                Button(action: toggleFavorite) {
+                    Image(systemName: card.isFavorite ? "star.fill" : "star")
+                        .accessibilityLabel(card.isFavorite ? "즐겨찾기 해제".localized : "즐겨찾기에 추가".localized)
+                }
+            }
+            .buttonStyle(.plain)
+            .font(.callout)
+        }
+        // 켜짐/꺼짐을 초록·노랑이 아니라 채운 아이콘과 빈 아이콘으로
+        // 구별한다. 화면의 유채색은 강조 파랑 하나뿐이라는 규칙 때문이고,
+        // 채움 여부는 흑백으로도 읽힌다.
+        .foregroundStyle(Theme.primaryText)
+        .shadow(radius: Theme.overlayTextShadow)
+        .padding(6)
+    }
+
+    /// 사진 아래가 아니라 사진 위 왼쪽 아래 — Lightroom이 날짜·크기·
+    /// 파일명을 얹는 그 자리다. 액션 버튼(전화·지도·웹사이트·인스타)은
+    /// 여기 없다. 정사각형을 유지하면서 버튼 넷을 더 넣을 자리가 없고,
+    /// 넷 다 목록 레이아웃과 카드 상세에 그대로 있어서 없어지지 않는다.
+    private var caption: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 3) {
+                if card.isPlaceConfirmed {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.caption2)
+                        .accessibilityLabel("장소확정".localized)
+                }
+                Text(card.name)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
             }
             Text(card.address)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
                 .lineLimit(1)
-
             if let distanceText = Coordinates.distanceText(from: referenceCoordinate, to: card.coordinates) {
                 Text(distanceText)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            if card.hasAnyAction {
-                HStack(spacing: 12) {
-                    if let callURL = card.callURL {
-                        Button { openURL(callURL) } label: {
-                            Image(systemName: "phone")
-                                .accessibilityLabel("전화 걸기".localized)
-                        }
-                    }
-                    if card.hasAnyMapLink {
-                        MapOpenMenu(card: card) {
-                            Image(systemName: "map")
-                                .accessibilityLabel("지도에서 열기".localized)
-                        }
-                    }
-                    if let website = card.website, let url = URL(string: website) {
-                        Button { openURL(url) } label: {
-                            Image(systemName: "link")
-                                .accessibilityLabel("웹사이트 열기".localized)
-                        }
-                    }
-                    if let instagramURL = card.instagramURL, let url = URL(string: instagramURL) {
-                        Button { openURL(url) } label: {
-                            Image(systemName: "camera")
-                                .accessibilityLabel("인스타그램 열기".localized)
-                                .foregroundStyle(.pink)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .font(.callout)
-                .foregroundStyle(Color.accentColor)
+                    .lineLimit(1)
             }
         }
+        .foregroundStyle(Theme.primaryText)
+        // 스크림 대신 그림자다. 격자가 촘촘해서 칸마다 어두운 띠를
+        // 깔면 화면 전체가 탁해진다.
+        .shadow(radius: Theme.overlayTextShadow)
+        .padding(6)
+        // `lineLimit(1)`이 잘라 주려면 너비가 정해져 있어야 한다. 없으면
+        // 긴 주소가 칸 밖으로 나가고 `.clipped()`가 글자 중간을 자른다.
+        // 버튼이 아니라 글자 묶음에 건 frame이라 탭 영역과는 무관하다.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func toggleFavorite() {
