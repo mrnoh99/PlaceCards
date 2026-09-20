@@ -40,8 +40,20 @@ enum AppTab: Hashable {
 final class AppNavigation: ObservableObject {
     @Published var selectedTab: AppTab = .home
     /// Place card ids the Map tab should show exclusively — nil means
-    /// show everything, as usual.
+    /// show everything, as usual. 갤러리의 "지도에서 보기" 일괄 작업이
+    /// 한 번 걸어 두는 것이라, 선택 모드를 벗어나도 남는다.
     @Published var mapFilterIDs: Set<String>?
+
+    /// 지금 갤러리에서 고르고 있는 카드들. 고르는 동안에만 값이 있고
+    /// 선택 모드를 벗어나면 비워진다.
+    ///
+    /// 지도가 이것을 읽는다. 카드를 고른 채로 지도 탭을 열면 고른 것만
+    /// 보인다 — 예전에는 "지도에서 보기"를 눌러야만 그렇게 됐고, 그냥
+    /// 지도로 건너가면 고른 것과 무관한 화면이 나왔다.
+    ///
+    /// `mapFilterIDs`와 달리 한 번 걸어 두는 것이 아니라 계속 따라다닌다.
+    /// 푸는 길은 갤러리에서 선택을 놓는 것이다.
+    @Published var liveSelection: Set<String>?
     /// What the user last picked from Home's own list, or `.all` — Gallery
     /// and Map read this to scope themselves the same way, so the tabs stay
     /// in sync about "which places" without the user having to pick again
