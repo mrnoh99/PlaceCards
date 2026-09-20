@@ -84,7 +84,9 @@ struct PlacesMapView: View {
     }
 
     private var mapNavigationTitle: String {
-        if navigation.liveSelection?.isEmpty == false { return "선택한 장소".localized }
+        if navigation.liveSelection?.isEmpty == false {
+            return singleVisibleCard?.name ?? "선택한 장소".localized
+        }
         if let scopedBoard { return scopedBoard.name }
         return "지도".localized
     }
@@ -129,7 +131,9 @@ struct PlacesMapView: View {
             }
             .fullScreenCover(item: $selectedCard) { card in
                 NavigationStack {
-                    PlaceCardDetailView(card: card)
+                    // 여기서 연 카드는 지도를 좁히지 않는다 — 핀을 눌러
+                    // 열었다 닫았을 뿐인데 지도가 그 한 곳만 남기면 안 된다.
+                    PlaceCardDetailView(card: card, narrowsMapToThisCard: false)
                         .toolbar {
                             // `fullScreenCover` has no swipe-to-dismiss
                             // (unlike `.sheet`, which this replaced), so
@@ -218,10 +222,23 @@ struct PlacesMapView: View {
     @ViewBuilder
     private var scopeBanner: some View {
         if let selected = navigation.liveSelection, !selected.isEmpty {
-            banner("선택한 장소".localized + " \(visibleCards.count)")
+            // 한 곳만 남았으면 개수 대신 이름을 적는다. 카드 화면에서
+            // 곧장 넘어온 경우가 그렇고, 거기서는 "선택한 장소 1"보다
+            // 그 장소의 이름이 훨씬 많은 것을 말해 준다.
+            if let only = singleVisibleCard {
+                banner(only.name)
+            } else {
+                banner("선택한 장소".localized + " \(visibleCards.count)")
+            }
         } else if let scopedBoard {
             banner(scopedBoard.name)
         }
+    }
+
+    /// 지도에 남은 것이 딱 하나일 때 그 카드.
+    private var singleVisibleCard: PlaceCard? {
+        guard visibleCards.count == 1 else { return nil }
+        return visibleCards.first
     }
 
     private func banner(_ text: String) -> some View {

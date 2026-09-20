@@ -39,19 +39,22 @@ enum AppTab: Hashable {
 @MainActor
 final class AppNavigation: ObservableObject {
     @Published var selectedTab: AppTab = .home
-    /// 지금 갤러리에서 고르고 있는 카드들. 고르는 동안에만 값이 있고
-    /// 선택 모드를 벗어나면 비워진다.
+    /// 지금 고르고 있는 카드들. **지도를 좁히는 유일한 길이다.**
     ///
-    /// 지도가 이것을 읽는다. 카드를 고른 채로 지도 탭을 열면 고른 것만
-    /// 보인다 — 예전에는 "지도에서 보기"를 눌러야만 그렇게 됐고, 그냥
-    /// 지도로 건너가면 고른 것과 무관한 화면이 나왔다.
+    /// 거는 곳이 둘이고, 둘 다 "지금 이것을 보고 있다"는 뜻이다.
     ///
-    /// 예전에는 "지도에서 보기" 일괄 작업이 `mapFilterIDs`를 한 번 걸어
-    /// 두는 방식도 있었다. 고른 채로 지도 탭을 열면 되게 하면서 그 단추와
-    /// 값을 없앴다 — 지도를 좁히는 길이 둘이면, 한쪽을 풀어도 다른 쪽이
-    /// 남아 "전체 해제를 눌렀는데 전부가 안 보인다"가 된다.
+    /// - 갤러리의 선택 모드(`GalleryView.syncLiveSelection`) — 고르는 동안에만
+    ///   값이 있고 선택을 놓으면 비워진다.
+    /// - 카드 하나를 열어 둔 화면(`PlaceCardDetailView`) — 카드 하나도 "하나를
+    ///   고른 것"으로 친다. 그 화면이 물러날 때 스스로 놓는데, **지도 탭으로
+    ///   건너가는 중이면 놓지 않는다**(`releaseMapNarrowingIfNeeded` 참고).
     ///
-    /// 푸는 길은 갤러리에서 선택을 놓는 것 하나다.
+    /// 어느 쪽이든 고른 채로 지도 탭을 열면 고른 것만 보인다. 예전에는
+    /// "지도에서 보기" 단추를 눌러야 했고, 그 단추는 `mapFilterIDs`를 한 번
+    /// 걸어 두는 방식이었다. 둘 다 없앴다 — 지도를 좁히는 길이 둘이면 한쪽을
+    /// 풀어도 다른 쪽이 남아 "전체 해제를 눌렀는데 전부가 안 보인다"가 된다.
+    ///
+    /// 그래서 **새로 좁히는 길을 만들지 말고 이 값에 얹을 것.**
     @Published var liveSelection: Set<String>?
     /// What the user last picked from Home's own list, or `.all` — Gallery
     /// and Map read this to scope themselves the same way, so the tabs stay
