@@ -48,8 +48,8 @@ struct GalleryView: View {
     @State private var isPresentingFindDuplicates = false
     /// Where the "장소 추가" flow currently is. A new card needs a
     /// `boardId`, which used to mean the button only appeared while scoped
-    /// to one board — so from the plain "전체 보기" gallery there was no way
-    /// to add a place at all. Now the button is always there and the board
+    /// to one board — so from an unscoped gallery ("모든 카드") there was no
+    /// way to add a place at all. Now the button is always there and the board
     /// is resolved first: the scoped one, the only one when there's just
     /// one, or whichever the user picks.
     ///
@@ -395,18 +395,10 @@ struct GalleryView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        // Only way to leave a scope now that Home's board list doesn't
-        // push into (and pop back out of) a per-board screen — see
-        // `AppNavigation.galleryScope`'s own doc comment.
-        //
-        // `scopedBoard`가 아니라 `scope`를 본다. 가져오기로 좁혀져 있으면
-        // 보드가 아니라서 `scopedBoard`는 nil이고, 그걸 조건으로 삼으면
-        // 빠져나올 버튼이 사라진다.
-        if viewModel.scope != .all, !isSelecting {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("전체 보기".localized) { navigation.galleryScope = .all }
-            }
-        }
+        // 좁혀진 것을 푸는 "전체 보기" 버튼이 여기 있었다. 홈의 "모든
+        // 카드"가 같은 일을 하고, 홈은 탭이라 어디서든 한 번에 닿는다 —
+        // 화면마다 빠져나오는 길을 따로 두지 않는다. 지금 무엇으로
+        // 좁혀져 있는지는 `scopeTitle`이 제목에 적는다.
         if !isSelecting {
             ToolbarItem(placement: .primaryAction) {
                 Button {

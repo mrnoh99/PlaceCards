@@ -46,10 +46,11 @@ final class AppNavigation: ObservableObject {
     /// sync about "which places" without the user having to pick again in
     /// each one. Set by `HomeView`'s rows (a board row, "모든 카드",
     /// "가져오기" — each also switches to the Gallery tab); put back to
-    /// `.all` by Gallery's own "전체 보기" button (`GalleryView`) — not by
-    /// any Home lifecycle event, since Home's own root view now never goes
-    /// away just because a board was picked (there's no more push into a
-    /// per-board screen to pop back out of).
+    /// `.all` by Home's own "모든 카드" row — not by any Home lifecycle
+    /// event, since Home's own root view now never goes away just because a
+    /// board was picked (there's no more push into a per-board screen to
+    /// pop back out of), and not by anything in Gallery: 좁혀진 것을 푸는
+    /// 길은 홈뿐이다.
     ///
     /// 지도 탭은 보드만 안다. `.imported`로 좁혀져 있으면 `boardID`가
     /// nil이라 지도는 좁히지 않고 전부 보여 준다.
@@ -82,9 +83,10 @@ final class AppNavigation: ObservableObject {
     }
 
     /// Home's "모든 카드" row — the counterpart to `showBoardInGallery(_:)`.
-    /// Clears the board scope rather than setting one, so Gallery opens on
-    /// every card again. Until now the only way back out of a board scope
-    /// was Gallery's own "전체 보기" button, which is invisible from Home.
+    /// Clears the scope rather than setting one, so Gallery opens on every
+    /// card again. This is now the only way back out of a scope: Gallery's
+    /// own "전체 보기" button is gone, since this row does the same thing
+    /// and Home is a tab, reachable from anywhere in one tap.
     func showAllInGallery() {
         galleryScope = .all
         selectedTab = .gallery
