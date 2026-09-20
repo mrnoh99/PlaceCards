@@ -4,10 +4,13 @@ import SwiftUI
 /// handed to PlaceCards through the Share Extension
 /// (`ShareViewController`, `PlaceCardsShare` target) — mirrors
 /// `SharedPhotoBoardPickerSheet` closely, just for a shared link instead
-/// of a shared photo: shows what's about to be added (see `previewContent`),
-/// asks which board to add it to, then opens the normal "장소 추가" flow
-/// (`AddPlaceCardView`) for that board with the link already dropped into a
-/// candidate row. `AddPlaceCardView` itself already jumps to the resulting
+/// of a shared photo: opens the normal "장소 추가" flow
+/// (`AddPlaceCardView`) with the link already dropped into a candidate row.
+///
+/// 게시판은 묻지 않는다. 공유로 들어온 카드는 일단 "가져오기"로 가고,
+/// 게시판은 나중에 거기서 정한다. 단 **목록 공유는 예외**다 — 그쪽은
+/// "어느 게시판에 넣을까"가 아니라 "만들 게시판 이름이 무엇인가"이고,
+/// 장소 수십 개가 이름 없는 곳으로 쏟아지면 안 되므로 그대로 묻는다. `AddPlaceCardView` itself already jumps to the resulting
 /// card's detail view once it's created (`cameFromSharedInfo` in its own
 /// init, driving `AppNavigation.showCardDetail(_:)`) — nothing extra to
 /// wire up here for that part.
@@ -31,23 +34,17 @@ struct SharedLinkBoardPickerSheet: View {
     /// explicitly re-attached at each boundary.
     @EnvironmentObject private var navigation: AppNavigation
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedBoard: Board?
+    /// 목록 가져오기가 만든 게시판과 그 목록을 한 덩어리로 들고 간다.
+    /// 둘을 따로 두고 시트 안에서 `if let`으로 꺼내면
+    /// 00_UI개편_기초.md §2.1이 적어 둔 "빈 시트" 모양이 된다 — 표시
+    /// 시점에 그 옵셔널이 nil이면 SwiftUI는 구조적으로 빈 시트를 띄운다.
+    private struct ListImport: Identifiable {
+        let id = UUID().uuidString
+        let board: Board
+        let list: SharedPlaceList
+    }
 
-    /// Held back until `.task` runs once, then flipped on, so the content
-    /// is drawn on a second layout pass rather than the first.
-    ///
-    /// This was originally added as the fix for "공유 화면이 처음엔 비어
-    /// 있다가 앱을 다시 열면 제대로 뜬다" and it did not work, because that
-    /// was never this view's bug: `MainTabView` presented the sheet with
-    /// `.sheet(isPresented:)` and read the payload back out of a separate
-    /// optional inside the content closure, so when that optional read
-    /// `nil` the sheet presented *empty* — this view was never constructed
-    /// at all, and nothing it does to its own layout could have mattered.
-    /// That is fixed at the source now (`MainTabView.pendingShare` carries
-    /// its payload as the sheet's item). Kept here only as cheap
-    /// insurance against unrelated first-pass layout trouble; it is no
-    /// longer load-bearing for any known bug.
-    @State private var isReady = false
+    @State private var pendingListImport: ListImport?
 
     /// Resolved once via `.task` — the same "parse the URL directly, fall
     /// back to a page-title fetch for a short link" logic
@@ -78,76 +75,63 @@ struct SharedLinkBoardPickerSheet: View {
     /// shorthand only the owner understands.
     @State private var listBoardName = ""
 
-    /// The list, once the user has committed to importing it — drives the
-    /// `AddPlaceCardView` sheet below, the same way `selectedBoard` does
-    /// for a single shared place.
-    @State private var listToImport: SharedPlaceList?
-
     var body: some View {
-        NavigationStack {
-            Group {
-                if !isReady {
+        Group {
+            switch previewState {
+            case .loading:
+                // 목록 공유인지 장소 하나인지는 링크를 따라가 봐야 알 수
+                // 있고, 그 답에 따라 다음 화면이 갈린다. 그때까지만
+                // 기다린다.
+                framed(title: "공유한 링크".localized) {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if case .list(let list) = previewState {
+                }
+            case .list(let list):
+                framed(title: "공유한 목록 가져오기".localized) {
                     listContent(list)
-                } else if storageService.boards.isEmpty {
-                    ContentUnavailableView {
-                        Label("게시판이 없습니다".localized, systemImage: "square.stack")
-                    } description: {
-                        Text("먼저 홈에서 게시판을 만들어주세요.".localized)
-                    }
-                } else {
-                    List {
-                        Section("공유한 정보".localized) {
-                            previewContent
-                        }
-                        Section("추가할 게시판".localized) {
-                            ForEach(storageService.boards) { board in
-                                Button {
-                                    selectedBoard = board
-                                } label: {
-                                    Label(board.name, systemImage: board.coverIcon)
-                                }
-                                .foregroundStyle(.primary)
-                            }
-                        }
-                    }
                 }
-            }
-            .navigationTitle(isListShare ? "공유한 목록 가져오기".localized : "공유한 링크를 추가할 게시판".localized)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("취소".localized) { dismiss() }
-                }
-            }
-        }
-        .task {
-            isReady = true
-            await resolvePreview()
-        }
-        .sheet(item: $selectedBoard, onDismiss: { dismiss() }) { board in
-            if let listToImport {
+            case .resolved, .failure:
+                // 게시판을 묻지 않으므로 미리보기도 보여 줄 일이 없다 —
+                // 무엇이 들어오는지는 바로 다음 화면이 그대로 보여 준다.
+                // 예전에는 게시판을 고르기 *전에* 확인시키려고 있었다.
                 AddPlaceCardView(
-                    viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id, cameFromShare: true),
-                    initialList: listToImport
-                )
-                .environmentObject(navigation)
-            } else {
-                AddPlaceCardView(
-                    viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id, cameFromShare: true),
+                    viewModel: PlaceCardViewModel(
+                        storageService: storageService, boardId: nil, cameFromShare: true
+                    ),
                     initialImageDatas: photoDatas,
                     initialLinkText: linkText
                 )
                 .environmentObject(navigation)
             }
         }
+        .task { await resolvePreview() }
+        .sheet(item: $pendingListImport, onDismiss: { dismiss() }) { item in
+            AddPlaceCardView(
+                viewModel: PlaceCardViewModel(
+                    storageService: storageService, boardId: item.board.id, cameFromShare: true
+                ),
+                initialList: item.list
+            )
+            .environmentObject(navigation)
+        }
     }
 
-    private var isListShare: Bool {
-        if case .list = previewState { return true }
-        return false
+    /// 이 시트가 스스로 띄우는 화면들의 테두리. `AddPlaceCardView`는
+    /// 제 NavigationStack을 들고 있으므로 여기를 거치지 않는다 — 겹쳐
+    /// 놓으면 제목 줄이 두 개가 된다.
+    private func framed<Content: View>(
+        title: String, @ViewBuilder content: () -> Content
+    ) -> some View {
+        NavigationStack {
+            content()
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("취소".localized) { dismiss() }
+                    }
+                }
+        }
     }
 
     /// The whole-list import screen: what the list is, every place it
@@ -248,43 +232,10 @@ struct SharedLinkBoardPickerSheet: View {
             coverIcon: "map"
         )
         storageService.saveBoard(board)
-        selectedBoard = board
-        listToImport = list
+        pendingListImport = ListImport(board: board, list: list)
     }
 
     @ViewBuilder
-    private var previewContent: some View {
-        switch previewState {
-        case .loading:
-            HStack(spacing: 8) {
-                ProgressView()
-                Text("공유한 정보를 확인하는 중…".localized)
-                    .foregroundStyle(.secondary)
-            }
-        case .resolved(let name, let address):
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name ?? linkText)
-                    .font(.headline)
-                    .lineLimit(2)
-                if let address, !address.isEmpty {
-                    Text(address)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        case .list:
-            // Never actually rendered — a resolved list replaces this whole
-            // screen with `listContent(_:)` rather than showing a one-place
-            // preview above a board picker. Here only so this switch stays
-            // exhaustive.
-            EmptyView()
-        case .failure:
-            Text("공유한 링크에서 장소 정보를 찾지 못했습니다.".localized)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
     /// Same parse-then-fallback shape as `MapLinkImportSheet.process()`,
     /// stopping short of actually applying anything — this only ever
     /// updates `previewState`, never `linkText` itself, since the real

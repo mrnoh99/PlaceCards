@@ -598,6 +598,7 @@ enum Localization {
         // MARK: - 저장 공간
         "저장 공간": "Storage",
         "계산 중…": "Calculating…",
+        "공유한 링크": "Shared Link",
         "되돌리기": "Restore",
         "비우기": "Empty",
         "사진까지 함께 지워지며 되돌릴 수 없습니다.": "Its photos are deleted too, and this cannot be undone.",
