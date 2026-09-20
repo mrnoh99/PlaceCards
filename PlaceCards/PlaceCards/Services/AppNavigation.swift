@@ -23,7 +23,8 @@ enum GalleryScope: Hashable {
 
 enum AppTab: Hashable {
     case home
-    case gallery
+    // 갤러리 탭은 없앴다. 홈이 두 칸으로 갈라지면서 오른쪽 칸이 곧
+    // 갤러리이고, 탭으로 또 두면 같은 것이 두 군데가 된다.
     case map
     case settings
 }
@@ -76,9 +77,11 @@ final class AppNavigation: ObservableObject {
         selectedTab = .map
     }
 
+    /// 홈의 "카테고리별 보기" 칩 — 그 카테고리만 남긴 갤러리를 띄운다.
+    /// 갤러리는 홈 오른쪽 칸에 있으므로 홈으로 간다.
     func showInGallery(category: String) {
         galleryCategoryFilter = category
-        selectedTab = .gallery
+        selectedTab = .home
     }
 
     /// A single card was just created from shared-in info (see
@@ -86,6 +89,6 @@ final class AppNavigation: ObservableObject {
     /// push straight to that card.
     func showCardDetail(_ cardID: String) {
         pendingDetailCardID = cardID
-        selectedTab = .gallery
+        selectedTab = .home
     }
 }

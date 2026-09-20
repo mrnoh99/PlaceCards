@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-/// Which layout the "갤러리" tab renders its cards in — a segmented
+/// Which layout the gallery renders its cards in — a segmented
 /// toggle in the toolbar, not a Settings option, same reasoning as
 /// `PlacesMapView`'s own map-provider picker: it's a per-visit display
 /// choice, not something worth burying elsewhere. Persisted via
@@ -258,21 +258,22 @@ struct GalleryView: View {
         // only then switch to this tab.
         .onAppear {
             viewModel.scope = navigation.galleryScope
+            consumePendingCategoryFilter()
             consumePendingDetailCardID()
         }
         .onChange(of: navigation.galleryScope) { _, newValue in
             viewModel.scope = newValue
         }
-        // One-shot: `HomeView`'s "카테고리별 보기" chips set this and
-        // switch to this tab; consumed here (via `.onChange`, not
-        // `.onAppear`, so merely revisiting this tab afterward doesn't
-        // keep reapplying it once the user's cleared the filter) and
-        // reset back to nil right away. See `AppNavigation
-        // .showInGallery(category:)`.
-        .onChange(of: navigation.galleryCategoryFilter) { _, newValue in
-            guard let newValue else { return }
-            viewModel.categoryFilter = newValue
-            navigation.galleryCategoryFilter = nil
+        // One-shot: `HomeView`'s "카테고리별 보기" chips set this. 소비한
+        // 뒤 바로 nil로 되돌리므로, `.onAppear`에서도 같이 보는 것이
+        // 안전하다 — 이미 비어 있으면 아무 일도 없다.
+        //
+        // `.onAppear`가 필요해진 것은 갤러리 탭이 없어지면서다. 이 화면은
+        // 이제 홈 오른쪽 칸에 살고, 좁은 화면에서는 칩을 누른 *뒤에야*
+        // 만들어진다 — 그때는 값이 이미 정해진 뒤라 `.onChange`가 놓친다.
+        // 아래 `pendingDetailCardID`가 같은 이유로 진작 그렇게 하고 있다.
+        .onChange(of: navigation.galleryCategoryFilter) { _, _ in
+            consumePendingCategoryFilter()
         }
         // One-shot, same shape as `galleryCategoryFilter` above — a
         // card just created from shared-in info (`AddPlaceCardView`)
@@ -370,6 +371,12 @@ struct GalleryView: View {
             }
             Button("취소".localized, role: .cancel) { customCategoryInput = "" }
         }
+    }
+
+    private func consumePendingCategoryFilter() {
+        guard let category = navigation.galleryCategoryFilter else { return }
+        navigation.galleryCategoryFilter = nil
+        viewModel.categoryFilter = category
     }
 
     /// Shared by `.onAppear` and `.onChange(of: navigation.pendingDetailCardID)`
@@ -841,7 +848,7 @@ struct GalleryView: View {
     }
 }
 
-/// Used only by the "갤러리" tab now — a board's own place list is a plain
+/// Used only by the gallery grid — a board's own place list is a plain
 /// `List` of `PlaceCardListRow`, not this grid (see `BoardDetailView`).
 /// `GalleryView.gridCell(_:)` wraps this in a plain `.onTapGesture` rather
 /// than a `NavigationLink`/`Button` (needed once selection mode added a

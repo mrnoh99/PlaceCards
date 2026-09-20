@@ -108,6 +108,17 @@ struct HomeView: View {
                 navigation.galleryScope = scope
             }
         }
+        // 갤러리 탭이 없어졌으므로 갤러리를 부르는 길이 모두 여기로
+        // 온다. 카테고리 칩(`galleryCategoryFilter`)과 방금 만든 카드
+        // (`pendingDetailCardID`) 둘 다, 오른쪽 칸이 갤러리를 보고 있지
+        // 않으면 아무 일도 일어나지 않은 것처럼 보인다 — 삭제됨을 보고
+        // 있었거나 아직 아무것도 안 골랐을 때다. 그때 옮겨 준다.
+        .onChange(of: navigation.galleryCategoryFilter) { _, newValue in
+            if newValue != nil { showGalleryInDetail() }
+        }
+        .onChange(of: navigation.pendingDetailCardID) { _, newValue in
+            if newValue != nil { showGalleryInDetail() }
+        }
         .onAppear {
             // 두 칸이 다 보이는 화면에서는 오른쪽을 비워 두지 않는다.
             // 좁은 화면에서 이러면 앱을 열자마자 오른쪽 칸이 밀려
@@ -116,6 +127,13 @@ struct HomeView: View {
                 sidebarSelection = .scope(navigation.galleryScope)
             }
         }
+    }
+
+    /// 오른쪽 칸을 갤러리로 돌린다. 이미 갤러리를 보고 있으면 고른 것을
+    /// 건드리지 않는다 — 보고 있던 게시판이 "모든 카드"로 튕기면 안 된다.
+    private func showGalleryInDetail() {
+        if case .scope = sidebarSelection { return }
+        sidebarSelection = .scope(navigation.galleryScope)
     }
 
     /// 오른쪽 칸. 고른 것이 삭제됨이면 그 화면, 아니면 갤러리다.

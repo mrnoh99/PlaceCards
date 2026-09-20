@@ -109,10 +109,6 @@ struct MainTabView: View {
                     .tabItem { Label("홈".localized, systemImage: "house") }
                     .tag(AppTab.home)
 
-                GalleryView(viewModel: GalleryViewModel(storageService: storageService))
-                    .tabItem { Label("갤러리".localized, systemImage: "square.grid.2x2") }
-                    .tag(AppTab.gallery)
-
                 PlacesMapView(viewModel: MapViewModel(storageService: storageService))
                     .tabItem { Label("지도".localized, systemImage: "map") }
                     .tag(AppTab.map)
