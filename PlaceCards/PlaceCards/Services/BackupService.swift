@@ -232,17 +232,26 @@ enum BackupService {
         return backup
     }
 
-    /// Replaces every board and place card with what's in `data` —
-    /// mirrors Peragra's `restore(from:context:)`: a full wipe and
-    /// rebuild, not a merge, keeping every id exactly as it was in the
-    /// backup (so restoring the same file twice is idempotent). Decoding
-    /// and writing the photos back out both happen off the main actor,
-    /// same reasoning as `encodeOffMainActor` — a backup carries every
-    /// photo's bytes inline, so neither step is cheap.
+    /// Adds every board and place card in `data` that this device doesn't
+    /// already have, and leaves everything else alone.
+    ///
+    /// It used to replace the library wholesale (Peragra's own
+    /// `restore(from:context:)` still does). Ids are kept exactly as the
+    /// backup has them either way, which is what makes restoring the same
+    /// file twice a no-op the second time — and, now, what identifies
+    /// which cards are already here.
+    ///
+    /// Decoding and writing the photos back out both happen off the main
+    /// actor, same reasoning as `encodeOffMainActor` — a backup carries
+    /// every photo's bytes inline, so neither step is cheap.
+    ///
+    /// Returns how much was actually added, so the caller can say so
+    /// rather than claiming a restore that changed nothing.
     @MainActor
-    static func restore(from data: Data, storageService: StorageService) async throws {
+    @discardableResult
+    static func restore(from data: Data, storageService: StorageService) async throws -> (boards: Int, placeCards: Int) {
         let backup = try await Task.detached(priority: .utility) { try decode(data) }.value
-        try await restore(backup, storageService: storageService)
+        return try await restore(backup, storageService: storageService)
     }
 
     /// The already-decoded form of `restore(from:storageService:)` — for a
@@ -250,10 +259,18 @@ enum BackupService {
     /// `CloudBackupService.loadRestorableBackup()`), so the whole document
     /// isn't decoded a second time just to apply it.
     @MainActor
-    static func restore(_ backup: BackupData, storageService: StorageService) async throws {
-        storageService.replaceAll(boards: backup.boards, placeCards: backup.placeCards)
+    @discardableResult
+    static func restore(_ backup: BackupData, storageService: StorageService) async throws -> (boards: Int, placeCards: Int) {
+        let added = storageService.merge(boards: backup.boards, placeCards: backup.placeCards)
+        // Every photo in the backup, not just the added cards': a card
+        // already on this device can still be missing its image file
+        // (that is what a restore is *for*), so writing them all repairs
+        // those too. It overwrites rather than skipping, which is safe
+        // here — `MediaStore.saveImage` names files by UUID, so the same
+        // name is the same photo.
         let mediaFiles = backup.mediaFiles
         await Task.detached(priority: .utility) { writeMediaFiles(mediaFiles) }.value
+        return added
     }
 
     /// Adds a board (and its place cards) from a shared/exported file

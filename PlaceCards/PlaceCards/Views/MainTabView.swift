@@ -162,7 +162,7 @@ struct MainTabView: View {
         .alert("iCloud에서 복원됨".localized, isPresented: $showingCloudRestoreAlert) {
             Button("확인".localized, role: .cancel) {}
         } message: {
-            Text("iCloud에서 이전 백업을 찾아 게시판과 장소를 자동으로 복원했습니다.".localized)
+            Text("iCloud에서 이전 백업을 찾아 게시판과 장소를 가져왔습니다.".localized)
         }
         .alert(
             "저장된 데이터를 읽지 못했습니다".localized,

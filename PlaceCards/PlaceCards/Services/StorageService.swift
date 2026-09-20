@@ -102,27 +102,51 @@ final class StorageService: ObservableObject {
         placeCards.first { $0.id == id }
     }
 
-    /// Wholesale-replaces every board and place card — used only by
-    /// `BackupService.restore(from:storageService:)`. Only deletes media
-    /// files no card in the *restored* set still references, rather than
-    /// unconditionally wiping every current card's media first: a backup
-    /// never contains the actual image bytes (see `BackupService`'s own
-    /// doc comment), so on a same-device restore the files a restored
-    /// card still points at are still sitting on disk untouched, and
-    /// blindly deleting them before the swap would silently break photos
-    /// a lossless restore should have kept.
-    func replaceAll(boards newBoards: [Board], placeCards newPlaceCards: [PlaceCard]) {
-        let keptFileNames = Set(newPlaceCards.flatMap { $0.media.allItems.map(\.localPath) })
-        for item in placeCards.flatMap({ $0.media.allItems }) where !keptFileNames.contains(item.localPath) {
-            MediaStore.delete(fileName: item.localPath)
+    /// Adds whatever the backup has that this device doesn't, by `id`, and
+    /// touches nothing else — used only by
+    /// `BackupService.restore(from:storageService:)`.
+    ///
+    /// This used to be `replaceAll`: the restored set became the library,
+    /// wholesale, and anything added since that backup was written was
+    /// gone. That makes restoring an all-or-nothing gamble — recovering
+    /// one card you deleted by mistake costs you every card you have
+    /// added since. Adding only what is missing has no such downside, so
+    /// there is no longer a destructive path here at all.
+    ///
+    /// **A card already on this device always wins**, even when the
+    /// backup's copy is newer. "Newer" in a backup is not the same as
+    /// "better": the copy here is what the user has been looking at and
+    /// editing, and silently rewriting it from a file is exactly the
+    /// surprise this change exists to remove. Anyone who wants the
+    /// backup's version can delete the card first and restore again.
+    ///
+    /// Nothing is deleted from disk either, unlike the old `replaceAll` —
+    /// every photo still belongs to a card that still exists.
+    @discardableResult
+    func merge(boards newBoards: [Board], placeCards newPlaceCards: [PlaceCard]) -> (boards: Int, placeCards: Int) {
+        let existingBoardIDs = Set(boards.map(\.id))
+        let addedBoards = newBoards.filter { !existingBoardIDs.contains($0.id) }
+        boards.append(contentsOf: addedBoards)
+
+        let existingCardIDs = Set(placeCards.map(\.id))
+        // A card whose board exists neither here nor in the backup would
+        // be unreachable in the UI, so it is left out rather than saved
+        // somewhere it can never be seen.
+        let reachableBoardIDs = existingBoardIDs.union(newBoards.map(\.id))
+        let addedCards = newPlaceCards.filter {
+            !existingCardIDs.contains($0.id) && reachableBoardIDs.contains($0.boardId)
         }
-        boards = newBoards
-        placeCards = newPlaceCards
+        // Appended as they are, not through `save(_:)` — that stamps
+        // `updatedAt` with now, which would relabel every restored card as
+        // freshly edited and scramble any ordering that reads it.
+        placeCards.append(contentsOf: addedCards)
+
         // Written straight through rather than queued. Restoring a backup
         // is rare, user-initiated and high-stakes — the one write worth
         // blocking on, since losing it would mean the user watched a
         // restore succeed and then found their library unchanged.
         persistNow()
+        return (addedBoards.count, addedCards.count)
     }
 
     /// Writes both files immediately, on this actor, bypassing the queue.
