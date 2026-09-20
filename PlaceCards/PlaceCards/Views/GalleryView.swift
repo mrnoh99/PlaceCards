@@ -28,16 +28,23 @@ private enum GalleryLayout: String, CaseIterable, Identifiable {
 private enum AddCardStep: Identifiable {
     /// More than one board and none currently in scope, so ask first.
     case pickBoard
-    /// The board is settled; this is the actual add screen.
+    /// 카드를 만들 자리가 정해졌다.
     ///
-    /// nil이면 어느 게시판에도 넣지 않고 "가져오기"에 담는다 —
-    /// "가져오기"를 보는 중에 "+"를 누른 경우다.
-    case add(boardID: String?)
+    /// `boardID`가 nil이면 어느 게시판에도 넣지 않는다. 그런 카드도
+    /// "모든 카드"에서는 보이고, `toImported`가 true면 "가져오기"에서도
+    /// 보인다.
+    ///
+    /// 둘을 따로 싣는 것은 게시판이 없는 이유가 둘이기 때문이다.
+    /// "가져오기"를 보는 중이어서 없는 것이면 가져오기에 담아야 하고,
+    /// 게시판을 아직 하나도 안 만들어서 없는 것이면 담으면 안 된다 —
+    /// 그건 가져온 카드가 아니다.
+    case add(boardID: String?, toImported: Bool)
 
     var id: String {
         switch self {
         case .pickBoard: return "pick"
-        case .add(let boardID): return "add-" + (boardID ?? "imported")
+        case .add(let boardID, let toImported):
+            return "add-" + (boardID ?? "none") + (toImported ? "-imported" : "")
         }
     }
 }
@@ -79,7 +86,6 @@ struct GalleryView: View {
     /// presenting the add screen in the same tick as the picker closes is
     /// how a sheet ends up silently not presenting.
     @State private var pendingAddBoardID: String?
-    @State private var isShowingNoBoardAlert = false
 
     /// Multi-select mode for bulk actions — mirrors `BoardDetailView`'s
     /// own `isSelecting`/`selectedIDs`/bulk action bar exactly, just
@@ -282,25 +288,16 @@ struct GalleryView: View {
                 switch step {
                 case .pickBoard:
                     addBoardPickerSheet
-                case .add(let boardID):
+                case .add(let boardID, let toImported):
                     AddPlaceCardView(
                         viewModel: PlaceCardViewModel(
                             storageService: storageService,
                             boardId: boardID,
-                            // 게시판이 없다는 것은 "가져오기"를 보는 중에
-                            // 만들었다는 뜻이다. 가져오기에도 담지 않으면
-                            // 그 카드는 "모든 카드" 말고 어디에서도 보이지
-                            // 않는다.
-                            addsToImported: boardID == nil
+                            addsToImported: toImported
                         )
                     )
                     .environmentObject(navigation)
                 }
-            }
-            .alert("게시판이 먼저 필요합니다".localized, isPresented: $isShowingNoBoardAlert) {
-                Button("확인".localized, role: .cancel) {}
-            } message: {
-                Text("장소 카드는 게시판 안에 담깁니다. 홈 탭에서 게시판을 먼저 만들어주세요.".localized)
             }
             .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {
                 FindDuplicatesSheet(manualGroup: selectedCards)
@@ -730,13 +727,17 @@ struct GalleryView: View {
         // 들어온 것과 같은 자리에 담고, 게시판은 나중에 거기서 정하면
         // 된다 — 그것이 "가져오기"가 하는 일이다.
         if case .imported = viewModel.scope {
-            addCardStep = .add(boardID: nil)
+            addCardStep = .add(boardID: nil, toImported: true)
         } else if let scopedBoard {
-            addCardStep = .add(boardID: scopedBoard.id)
+            addCardStep = .add(boardID: scopedBoard.id, toImported: false)
         } else if storageService.boards.count == 1, let only = storageService.boards.first {
-            addCardStep = .add(boardID: only.id)
+            addCardStep = .add(boardID: only.id, toImported: false)
         } else if storageService.boards.isEmpty {
-            isShowingNoBoardAlert = true
+            // 예전에는 여기서 "게시판이 먼저 필요합니다"라고 막았다.
+            // 이제 카드는 게시판 없이도 살 수 있으므로 그냥 만든다 —
+            // "모든 카드"에서 보이고, 게시판을 만든 뒤 거기서 옮기면
+            // 된다. 가져온 것은 아니므로 가져오기에는 담지 않는다.
+            addCardStep = .add(boardID: nil, toImported: false)
         } else {
             addCardStep = .pickBoard
         }
@@ -745,7 +746,7 @@ struct GalleryView: View {
     private func consumePendingAddBoard() {
         guard let pendingAddBoardID else { return }
         self.pendingAddBoardID = nil
-        addCardStep = .add(boardID: pendingAddBoardID)
+        addCardStep = .add(boardID: pendingAddBoardID, toImported: false)
     }
 
     private var addBoardPickerSheet: some View {

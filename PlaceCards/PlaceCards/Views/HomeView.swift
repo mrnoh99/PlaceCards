@@ -70,7 +70,13 @@ struct HomeView: View {
             Group {
                 if isSearching {
                     searchResultsList
-                } else if storageService.boards.isEmpty {
+                } else if storageService.boards.isEmpty, storageService.placeCards.isEmpty {
+                    // 게시판이 없다는 것만으로 빈 화면을 내면 안 된다.
+                    // 카드는 이제 게시판 없이도 생긴다(공유로 들어온 것,
+                    // 게시판이 하나도 없을 때 "+"로 만든 것) — 그때 이
+                    // 화면을 내면 "모든 카드"·"가져오기" 줄이 같이 가려져
+                    // 그 카드에 닿을 길이 사라진다. 삭제됨에만 남은 경우도
+                    // 마찬가지라 placeCards를 통째로 본다.
                     emptyState
                 } else {
                     List {
@@ -112,39 +118,44 @@ struct HomeView: View {
                         .listRowBackground(Theme.panel)
                         .listRowSeparator(.hidden)
 
-                        Section {
-                            ForEach(storageService.boards) { board in
-                                BoardRow(board: board, cardCount: storageService.placeCards(inBoard: board.id).count)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { navigation.showBoardInGallery(board.id) }
-                                    .swipeActions(edge: .trailing) {
-                                        // Mirrors Peragra: deleting is only offered
-                                        // once the board has no saved place cards,
-                                        // so a swipe can never silently take place
-                                        // cards (and their photos) with it.
-                                        if storageService.placeCards(inBoard: board.id).isEmpty {
-                                            Button(role: .destructive) {
-                                                boardPendingDelete = board
-                                            } label: {
-                                                Label("삭제".localized, systemImage: "trash")
+                        // 게시판이 하나도 없으면 머리만 덩그러니
+                        // 남으므로 구역째 내린다. 공유로만 쓰는
+                        // 사람에게는 흔한 상태다.
+                        if !storageService.boards.isEmpty {
+                            Section {
+                                ForEach(storageService.boards) { board in
+                                    BoardRow(board: board, cardCount: storageService.placeCards(inBoard: board.id).count)
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { navigation.showBoardInGallery(board.id) }
+                                        .swipeActions(edge: .trailing) {
+                                            // Mirrors Peragra: deleting is only offered
+                                            // once the board has no saved place cards,
+                                            // so a swipe can never silently take place
+                                            // cards (and their photos) with it.
+                                            if storageService.placeCards(inBoard: board.id).isEmpty {
+                                                Button(role: .destructive) {
+                                                    boardPendingDelete = board
+                                                } label: {
+                                                    Label("삭제".localized, systemImage: "trash")
+                                                }
                                             }
                                         }
-                                    }
-                                    .swipeActions(edge: .leading) {
-                                        Button {
-                                            boardPendingEdit = board
-                                        } label: {
-                                            Label("수정".localized, systemImage: "pencil")
+                                        .swipeActions(edge: .leading) {
+                                            Button {
+                                                boardPendingEdit = board
+                                            } label: {
+                                                Label("수정".localized, systemImage: "pencil")
+                                            }
+                                            .tint(.blue)
+                                            ExportBoardMenu(board: board, storageService: storageService)
                                         }
-                                        .tint(.blue)
-                                        ExportBoardMenu(board: board, storageService: storageService)
-                                    }
+                                }
+                            } header: {
+                                sectionHeader("사용자 보드".localized)
                             }
-                        } header: {
-                            sectionHeader("사용자 보드".localized)
+                            .listRowBackground(Theme.panel)
+                            .listRowSeparator(.hidden)
                         }
-                        .listRowBackground(Theme.panel)
-                        .listRowSeparator(.hidden)
 
                         categoryBrowseSection
 
