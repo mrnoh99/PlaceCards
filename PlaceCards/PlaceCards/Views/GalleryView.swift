@@ -256,6 +256,11 @@ struct GalleryView: View {
         // itself becomes visible — synced here rather than read once
         // at init, since the user may navigate around Home first and
         // only then switch to this tab.
+        // 고르는 중인 것을 지도가 볼 수 있게 내어 둔다. 고르기를 바꾸는
+        // 길이 여럿이라(탭·길게 누르기·전체 선택·일괄 작업 뒤 정리) 그
+        // 하나하나에 붙이는 대신 상태가 바뀔 때 한곳에서 맞춘다.
+        .onChange(of: selectedIDs) { _, _ in syncLiveSelection() }
+        .onChange(of: isSelecting) { _, _ in syncLiveSelection() }
         .onAppear {
             viewModel.scope = navigation.galleryScope
             consumePendingCategoryFilter()
@@ -748,6 +753,10 @@ struct GalleryView: View {
         } else {
             selectedIDs = Set(viewModel.filteredPlaceCards.map(\.id))
         }
+    }
+
+    private func syncLiveSelection() {
+        navigation.liveSelection = (isSelecting && !selectedIDs.isEmpty) ? selectedIDs : nil
     }
 
     private func exitSelection() {

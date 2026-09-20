@@ -50,13 +50,17 @@ struct PlacesMapView: View {
 
     /// Narrowed to `navigation.mapFilterIDs` when a board's "지도에서
     /// 보기" bulk action set it (an explicit one-shot pick, so it wins);
-    /// otherwise to the board Home is currently showing, if any; otherwise
-    /// every card, as usual — then further narrowed by `searchQuery`, so
-    /// searching always searches *within* whatever's already showing.
+    /// 그다음이 갤러리에서 지금 고르고 있는 것(`liveSelection`) — 카드를
+    /// 고른 채로 이 탭을 열면 고른 것만 보인다; otherwise to the board Home
+    /// is currently showing, if any; otherwise every card, as usual — then
+    /// further narrowed by `searchQuery`, so searching always searches
+    /// *within* whatever's already showing.
     private var visibleCards: [PlaceCard] {
         let scoped: [PlaceCard]
         if let filterIDs = navigation.mapFilterIDs {
             scoped = viewModel.annotatedPlaceCards.filter { filterIDs.contains($0.id) }
+        } else if let selected = navigation.liveSelection, !selected.isEmpty {
+            scoped = viewModel.annotatedPlaceCards.filter { selected.contains($0.id) }
         } else if let boardID = navigation.galleryScope.boardID {
             scoped = viewModel.annotatedPlaceCards.filter { $0.boardIDs.contains(boardID) }
         } else {
@@ -85,6 +89,7 @@ struct PlacesMapView: View {
 
     private var mapNavigationTitle: String {
         if navigation.mapFilterIDs != nil { return "선택한 장소".localized }
+        if navigation.liveSelection?.isEmpty == false { return "선택한 장소".localized }
         if let scopedBoard { return scopedBoard.name }
         return "지도".localized
     }
