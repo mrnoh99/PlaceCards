@@ -10,6 +10,7 @@ struct PlaceCardDetailView: View {
     @State private var card: PlaceCard
 
     @EnvironmentObject private var storageService: StorageService
+    @EnvironmentObject private var navigation: AppNavigation
     @Environment(\.openURL) private var openURL
     /// Pops this screen (a `navigationDestination` push from Home/Gallery)
     /// or dismisses it (a `fullScreenCover` from the map tab) — SwiftUI
@@ -44,8 +45,16 @@ struct PlaceCardDetailView: View {
     /// same `deletePhoto(_:)`.
     @State private var photoPendingDelete: MediaItem?
 
-    init(card: PlaceCard) {
+    /// 이 카드를 보고 있는 동안 지도 탭을 이 카드 하나로 좁힐지.
+    ///
+    /// 지도 탭이 띄우는 카드 화면만 `false`다. 거기서는 이미 지도를 보고
+    /// 있던 중이고, 핀을 눌러 열었다 닫았을 뿐인데 지도가 그 한 곳으로
+    /// 좁혀져 버리면 곤란하다.
+    private let narrowsMapToThisCard: Bool
+
+    init(card: PlaceCard, narrowsMapToThisCard: Bool = true) {
         _card = State(initialValue: card)
+        self.narrowsMapToThisCard = narrowsMapToThisCard
     }
 
     var body: some View {
@@ -307,6 +316,14 @@ struct PlaceCardDetailView: View {
                 onDelete: deletePhoto
             )
         }
+        // 카드 하나를 보고 있는 것도 "하나를 고른 것"으로 친다. 갤러리에서
+        // 여럿을 고르고 지도 탭을 누르는 것과 똑같은 길(`liveSelection`)을
+        // 쓴다 — 지도를 좁히는 길이 둘이면 한쪽을 풀어도 다른 쪽이 남는다는
+        // 것을 이미 한 번 겪었다(`AppNavigation.liveSelection` 참고).
+        .onAppear {
+            guard narrowsMapToThisCard else { return }
+            navigation.liveSelection = onlyThisCard
+        }
         // Safety net alongside the memo field's own save-on-blur: in case
         // this screen goes away (back navigation, tab switch) without the
         // field ever losing focus first, this still persists whatever was
@@ -314,11 +331,34 @@ struct PlaceCardDetailView: View {
         .onDisappear {
             if isMemoFieldFocused { storageService.save(card) }
             isHeroPhotoTappable = false
+            releaseMapNarrowingIfNeeded()
         }
         .task {
             try? await Task.sleep(nanoseconds: 400_000_000)
             isHeroPhotoTappable = true
         }
+    }
+
+    private var onlyThisCard: Set<String> {
+        [card.id]
+    }
+
+    /// 이 화면이 물러날 때 지도 좁히기를 놓는다 — **단, 지도 탭으로 건너가는
+    /// 중이 아닐 때만.**
+    ///
+    /// `TabView`는 탭을 옮길 때 떠나는 탭에 `.onDisappear`를 준다(바로 위
+    /// 메모 저장이 그래서 있다). 그러니 아무 조건 없이 놓아 버리면, 카드를
+    /// 보다가 지도 탭을 누르는 바로 그 순간 — 이 기능이 쓰이는 유일한
+    /// 순간에 — 값이 먼저 사라진다. 탭 선택은 화면 생명주기보다 먼저
+    /// 바뀌므로 여기서 이미 `.map`으로 보인다.
+    ///
+    /// 내가 건 것일 때만 놓는다. 갤러리에서 여럿을 골라 둔 것을 이 화면이
+    /// 지워 버리는 일은 없어야 한다.
+    private func releaseMapNarrowingIfNeeded() {
+        guard narrowsMapToThisCard else { return }
+        guard navigation.selectedTab != .map else { return }
+        guard let current = navigation.liveSelection, current == onlyThisCard else { return }
+        navigation.liveSelection = nil
     }
 
     /// Call / website / Instagram, in one row — mirrors Peragra's
@@ -927,4 +967,5 @@ private struct WrapTagsView: View {
         PlaceCardDetailView(card: PlaceCard(boardId: "preview", name: "샘플 카페".localized, address: "서울시 강남구".localized))
     }
     .environmentObject(StorageService())
+    .environmentObject(AppNavigation())
 }
