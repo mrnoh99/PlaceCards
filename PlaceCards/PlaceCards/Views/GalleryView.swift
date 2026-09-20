@@ -790,6 +790,20 @@ struct PlaceCardGridCell: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
+                        // `scaledToFill`은 준 자리를 채우려고 둘 중 큰
+                        // 비율로 키운다. 칸보다 가로로 긴 사진(16:9
+                        // 이상)은 그 결과가 칸보다 넓어지고, 그 넓이가
+                        // ZStack -> VStack으로 그대로 올라가 아래 글자
+                        // 줄까지 칸 밖으로 밀어낸다. `.clipped()`는 그리는
+                        // 것만 자를 뿐 크기를 되돌리지 않아 막지 못한다.
+                        //
+                        // 칸이 넓은 아이패드에서는 칸 비율이 사진 비율보다
+                        // 커서 좀처럼 드러나지 않지만, 아이폰처럼 칸이
+                        // 좁으면 바로 보인다.
+                        //
+                        // maxWidth로 너비만 칸에 묶어 둔다. 사진 자체는
+                        // 여전히 넘치게 그려지고 아래 clipShape이 자른다.
+                        .frame(maxWidth: .infinity)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 } else {
                     Image(systemName: "photo")
@@ -831,6 +845,10 @@ struct PlaceCardGridCell: View {
                 .padding(6)
             }
             .frame(height: 120)
+            // 사진 말고 다른 것이 ZStack을 넓히더라도 칸을 넘지 않게
+            // 한 번 더 묶는다. 버튼이 아니라 사진 칸 전체에 건 frame이라
+            // 별·방문 버튼의 탭 영역과는 무관하다.
+            .frame(maxWidth: .infinity)
             .clipped()
 
             Text(card.name)
