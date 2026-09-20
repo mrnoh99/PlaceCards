@@ -48,18 +48,14 @@ struct PlacesMapView: View {
         return storageService.boards.first { $0.id == boardID }
     }
 
-    /// Narrowed to `navigation.mapFilterIDs` when a board's "지도에서
-    /// 보기" bulk action set it (an explicit one-shot pick, so it wins);
-    /// 그다음이 갤러리에서 지금 고르고 있는 것(`liveSelection`) — 카드를
-    /// 고른 채로 이 탭을 열면 고른 것만 보인다; otherwise to the board Home
-    /// is currently showing, if any; otherwise every card, as usual — then
-    /// further narrowed by `searchQuery`, so searching always searches
-    /// *within* whatever's already showing.
+    /// 갤러리에서 지금 고르고 있는 것(`liveSelection`)이 있으면 그것만 —
+    /// 카드를 고른 채로 이 탭을 열면 고른 것만 보인다; otherwise to the
+    /// board Home is currently showing, if any; otherwise every card, as
+    /// usual — then further narrowed by `searchQuery`, so searching always
+    /// searches *within* whatever's already showing.
     private var visibleCards: [PlaceCard] {
         let scoped: [PlaceCard]
-        if let filterIDs = navigation.mapFilterIDs {
-            scoped = viewModel.annotatedPlaceCards.filter { filterIDs.contains($0.id) }
-        } else if let selected = navigation.liveSelection, !selected.isEmpty {
+        if let selected = navigation.liveSelection, !selected.isEmpty {
             scoped = viewModel.annotatedPlaceCards.filter { selected.contains($0.id) }
         } else if let boardID = navigation.galleryScope.boardID {
             scoped = viewModel.annotatedPlaceCards.filter { $0.boardIDs.contains(boardID) }
@@ -88,7 +84,6 @@ struct PlacesMapView: View {
     }
 
     private var mapNavigationTitle: String {
-        if navigation.mapFilterIDs != nil { return "선택한 장소".localized }
         if navigation.liveSelection?.isEmpty == false { return "선택한 장소".localized }
         if let scopedBoard { return scopedBoard.name }
         return "지도".localized
@@ -110,7 +105,13 @@ struct PlacesMapView: View {
                             naverMap
                         }
                     }
-                    .overlay(alignment: .top) { excludedPlacesBanner }
+                    .overlay(alignment: .top) {
+                        VStack(spacing: 6) {
+                            scopeBanner
+                            excludedPlacesBanner
+                        }
+                        .padding(.top, 8)
+                    }
                 }
             }
             .navigationTitle(mapNavigationTitle)
@@ -124,11 +125,6 @@ struct PlacesMapView: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 220)
-                }
-                if navigation.mapFilterIDs != nil {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("전체 보기".localized) { navigation.mapFilterIDs = nil }
-                    }
                 }
             }
             .fullScreenCover(item: $selectedCard) { card in
@@ -214,6 +210,28 @@ struct PlacesMapView: View {
         return "저장된 장소에 아직 좌표가 없습니다. 카드 편집의 \"주소로 좌표 확인\"으로 좌표를 채우면 지도에 표시됩니다.".localized
     }
 
+    /// 무엇으로 좁혀져 있는지 알리는 띠.
+    ///
+    /// 제목으로 알릴 수가 없다 — 툴바의 `.principal` 자리를 지도 선택기가
+    /// 차지하고 있어서 `navigationTitle`이 화면에 나오지 않는다. 보드
+    /// 이름도 같은 이유로 안 보이고 있었다.
+    @ViewBuilder
+    private var scopeBanner: some View {
+        if let selected = navigation.liveSelection, !selected.isEmpty {
+            banner("선택한 장소".localized + " \(visibleCards.count)")
+        } else if let scopedBoard {
+            banner(scopedBoard.name)
+        }
+    }
+
+    private func banner(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(.regularMaterial, in: Capsule())
+    }
+
     /// Naver's map only ever gets the Korean subset (`naverEligibleCards`)
     /// — without this, the places it left out simply weren't there, with
     /// no way to tell that from them having been lost.
@@ -221,12 +239,7 @@ struct PlacesMapView: View {
     private var excludedPlacesBanner: some View {
         let excluded = visibleCards.count - naverEligibleCards.count
         if displayProvider == .naver, excluded > 0 {
-            Text("한국 밖 ".localized + "\(excluded)" + "곳은 Naver 지도에 표시되지 않습니다.".localized)
-                .font(.caption)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.top, 8)
+            banner("한국 밖 ".localized + "\(excluded)" + "곳은 Naver 지도에 표시되지 않습니다.".localized)
         }
     }
 

@@ -263,25 +263,21 @@ struct GalleryView: View {
         .onChange(of: isSelecting) { _, _ in syncLiveSelection() }
         .onAppear {
             viewModel.scope = navigation.galleryScope
-            consumePendingCategoryFilter()
             consumePendingDetailCardID()
         }
         .onChange(of: navigation.galleryScope) { _, newValue in
+            // 범위가 실제로 바뀔 때만 손댄다. 카테고리 칩은 범위를 먼저
+            // 맞춰 놓고 필터를 걸므로(`HomeView.browse(category:)`), 여기서
+            // 이미 같은 값이면 그 필터를 도로 지우지 않는다.
+            guard viewModel.scope != newValue else { return }
             viewModel.scope = newValue
+            // 카테고리 필터는 범위를 따라가지 않는다. 카테고리로 보고
+            // 나와서 보드에 들어가면 그 보드 안에서 또 그 카테고리만
+            // 걸려 있었다.
+            viewModel.categoryFilter = nil
         }
-        // One-shot: `HomeView`'s "카테고리별 보기" chips set this. 소비한
-        // 뒤 바로 nil로 되돌리므로, `.onAppear`에서도 같이 보는 것이
-        // 안전하다 — 이미 비어 있으면 아무 일도 없다.
-        //
-        // `.onAppear`가 필요해진 것은 갤러리 탭이 없어지면서다. 이 화면은
-        // 이제 홈 오른쪽 칸에 살고, 좁은 화면에서는 칩을 누른 *뒤에야*
-        // 만들어진다 — 그때는 값이 이미 정해진 뒤라 `.onChange`가 놓친다.
-        // 아래 `pendingDetailCardID`가 같은 이유로 진작 그렇게 하고 있다.
-        .onChange(of: navigation.galleryCategoryFilter) { _, _ in
-            consumePendingCategoryFilter()
-        }
-        // One-shot, same shape as `galleryCategoryFilter` above — a
-        // card just created from shared-in info (`AddPlaceCardView`)
+        // One-shot: a card just created from shared-in info
+        // (`AddPlaceCardView`)
         // pushes straight to its detail view once, then clears itself
         // so switching back to this tab later doesn't reopen it. Also
         // handled in `.onAppear` above (see `consumePendingDetailCardID`)
@@ -376,12 +372,6 @@ struct GalleryView: View {
             }
             Button("취소".localized, role: .cancel) { customCategoryInput = "" }
         }
-    }
-
-    private func consumePendingCategoryFilter() {
-        guard let category = navigation.galleryCategoryFilter else { return }
-        navigation.galleryCategoryFilter = nil
-        viewModel.categoryFilter = category
     }
 
     /// Shared by `.onAppear` and `.onChange(of: navigation.pendingDetailCardID)`
@@ -707,15 +697,6 @@ struct GalleryView: View {
             }
             .disabled(selectedIDs.isEmpty)
         }
-
-        Button {
-            navigation.showOnMap(selectedIDs)
-            exitSelection()
-        } label: {
-            Label("지도에서 보기".localized, systemImage: "map")
-                .font(.subheadline.weight(.medium))
-        }
-        .disabled(selectedIDs.isEmpty)
 
         Button {
             isPresentingMergeSelection = true

@@ -39,11 +39,6 @@ enum AppTab: Hashable {
 @MainActor
 final class AppNavigation: ObservableObject {
     @Published var selectedTab: AppTab = .home
-    /// Place card ids the Map tab should show exclusively — nil means
-    /// show everything, as usual. 갤러리의 "지도에서 보기" 일괄 작업이
-    /// 한 번 걸어 두는 것이라, 선택 모드를 벗어나도 남는다.
-    @Published var mapFilterIDs: Set<String>?
-
     /// 지금 갤러리에서 고르고 있는 카드들. 고르는 동안에만 값이 있고
     /// 선택 모드를 벗어나면 비워진다.
     ///
@@ -51,8 +46,12 @@ final class AppNavigation: ObservableObject {
     /// 보인다 — 예전에는 "지도에서 보기"를 눌러야만 그렇게 됐고, 그냥
     /// 지도로 건너가면 고른 것과 무관한 화면이 나왔다.
     ///
-    /// `mapFilterIDs`와 달리 한 번 걸어 두는 것이 아니라 계속 따라다닌다.
-    /// 푸는 길은 갤러리에서 선택을 놓는 것이다.
+    /// 예전에는 "지도에서 보기" 일괄 작업이 `mapFilterIDs`를 한 번 걸어
+    /// 두는 방식도 있었다. 고른 채로 지도 탭을 열면 되게 하면서 그 단추와
+    /// 값을 없앴다 — 지도를 좁히는 길이 둘이면, 한쪽을 풀어도 다른 쪽이
+    /// 남아 "전체 해제를 눌렀는데 전부가 안 보인다"가 된다.
+    ///
+    /// 푸는 길은 갤러리에서 선택을 놓는 것 하나다.
     @Published var liveSelection: Set<String>?
     /// What the user last picked from Home's own list, or `.all` — Gallery
     /// and Map read this to scope themselves the same way, so the tabs stay
@@ -68,26 +67,20 @@ final class AppNavigation: ObservableObject {
     /// nil이라 지도는 좁히지 않고 전부 보여 준다.
     @Published var galleryScope: GalleryScope = .all
 
-    /// Set by `HomeView`'s own category chips (browsing "by category"
-    /// rather than by board) — `GalleryView` consumes this once, via
-    /// `.onChange` rather than `.onAppear` (so merely revisiting the tab
-    /// doesn't keep reapplying a filter the user has since cleared), and
-    /// resets it back to nil right after, the same one-shot shape as
-    /// `mapFilterIDs`/`showOnMap(_:)` below.
-    @Published var galleryCategoryFilter: String?
+    // 카테고리 칩도 예전에는 여기 `galleryCategoryFilter`라는 우편함으로
+    // 값을 흘려보냈다. 지금은 `HomeView.browse(category:)`가 갤러리의
+    // 뷰모델을 곧장 맞춘다 — 우편함으로 보내면 범위 변경과 필터 설정이
+    // 서로 다른 갱신에 실려, 범위가 바뀔 때 필터를 비우는 쪽이 방금 건
+    // 필터를 도로 지워 버린다.
 
     /// A card just created from info handed to the app from outside it (a
-    /// shared link, a shared photo) — `GalleryView` consumes this once, the
-    /// same one-shot `.onChange`-then-clear shape as `galleryCategoryFilter`,
+    /// shared link, a shared photo) — `GalleryView` consumes this once, via
+    /// `.onChange` rather than `.onAppear` (so merely revisiting the screen
+    /// doesn't keep reopening a card), clearing it right after —
     /// pushing straight to that card's `PlaceCardDetailView` so the user
     /// lands on the very place they just shared in, instead of back on
     /// whatever screen they started from with no visible confirmation.
     @Published var pendingDetailCardID: String?
-
-    func showOnMap(_ ids: Set<String>) {
-        mapFilterIDs = ids
-        selectedTab = .map
-    }
 
     /// A single card was just created from shared-in info (see
     /// `AddPlaceCardView`'s "추가" action) — jump to Gallery and have it
