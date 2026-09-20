@@ -614,8 +614,11 @@ enum Localization {
         "완전 삭제는 삭제됨으로 옮겨지고 거기서 되돌릴 수 있습니다.": "Deleting completely moves it to Deleted, where it can be restored.",
         "왼쪽에서 게시판이나 모음을 고르세요.": "Pick a board or collection on the left.",
         "이 게시판에서만 제거": "Remove from This Board Only",
+        "이 카테고리를 단 카드가 모두 새 이름으로 바뀝니다.": "Every card with this category takes the new name.",
+        "이름 바꾸기": "Rename",
         "일 뒤 저절로 지워집니다.": " days.",
         "장의 사진": " photos",
         "지우기": "Delete",
+        "카테고리 편집": "Edit Categories",
     ]
 }

@@ -12,6 +12,7 @@ import SwiftUI
 /// `PlaceCategoryIcon.normalizedLabel(for:)` has no hardcoded rule for
 /// (it only collapses cafe variants), so this gives the user a manual way
 /// to fold any set of them into one name across every card that has one.
+/// 하나만 골라도 된다 — 그때는 합치는 것이 아니라 이름 바꾸기다.
 struct CategoryPickerSheet: View {
     /// Every category on offer, unfiltered — "전체" (clear the filter) is
     /// always shown first regardless of `searchQuery`, and isn't part of
@@ -72,27 +73,44 @@ struct CategoryPickerSheet: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     if isMerging {
-                        Button("병합 (".localized + "\(mergeSelection.count)" + ")") {
+                        Button(mergeActionTitle) {
                             mergedNameInput = mergeSelection.sorted().first ?? ""
                             isPresentingMergeNameInput = true
                         }
-                        .disabled(mergeSelection.count < 2)
+                        .disabled(mergeSelection.isEmpty)
                     } else {
                         Button("선택".localized) {
                             isMerging = true
                         }
-                        .disabled(categories.count < 2)
+                        .disabled(categories.isEmpty)
                     }
                 }
             }
-            .alert("병합할 카테고리 이름".localized, isPresented: $isPresentingMergeNameInput) {
+            .alert(mergeActionTitle, isPresented: $isPresentingMergeNameInput) {
                 TextField("카테고리 이름".localized, text: $mergedNameInput)
-                Button("병합".localized, action: performMerge)
+                Button(mergeActionTitle, action: performMerge)
                 Button("취소".localized, role: .cancel) {}
             } message: {
-                Text("선택한 ".localized + "\(mergeSelection.count)" + "개 카테고리를 이 이름으로 합칩니다.".localized)
+                Text(mergeExplanation)
             }
         }
+    }
+
+    /// 하나만 고르면 이름 바꾸기, 여럿이면 병합이다. 하는 일은 같다 —
+    /// 고른 카테고리를 단 카드를 전부 새 이름으로 바꾼다. 이름을 나눠
+    /// 부르는 것은 하나짜리를 "병합"이라 하면 무엇과 합치는지 알 수 없기
+    /// 때문이다.
+    private var mergeActionTitle: String {
+        mergeSelection.count <= 1
+            ? "이름 바꾸기".localized
+            : "병합 (".localized + "\(mergeSelection.count)" + ")"
+    }
+
+    private var mergeExplanation: String {
+        if mergeSelection.count <= 1 {
+            return "이 카테고리를 단 카드가 모두 새 이름으로 바뀝니다.".localized
+        }
+        return "선택한 ".localized + "\(mergeSelection.count)" + "개 카테고리를 이 이름으로 합칩니다.".localized
     }
 
     private func row(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -136,7 +154,9 @@ struct CategoryPickerSheet: View {
     /// (mirrors `GalleryView.applyCategory`'s own bulk category change).
     private func performMerge() {
         let mergedName = mergedNameInput.trimmingCharacters(in: .whitespaces)
-        guard !mergedName.isEmpty, mergeSelection.count >= 2 else { return }
+        // 하나만 골랐으면 이름 바꾸기다. 아래 반복문이 하는 일은 같으므로
+        // 따로 나누지 않는다.
+        guard !mergedName.isEmpty, !mergeSelection.isEmpty else { return }
 
         for card in storageService.activePlaceCards {
             guard let category = card.category, !category.isEmpty,
