@@ -22,6 +22,7 @@ open PlaceCards.xcodeproj
 
 - Xcode 16 이상, iOS 17.0 이상 필요
 - 실제 기기 설치 시 Signing & Capabilities에서 본인의 Apple ID 팀 선택 필요
+- **다른 Apple Developer 팀으로 빌드한다면** 번들 ID·App Group·iCloud 컨테이너를 전부 바꿔야 합니다 — [`00_다른_계정에서_이어받기.md`](./00_다른_계정에서_이어받기.md) 참고
 
 ### 실행에 필요한 API 키 (BYOK)
 
