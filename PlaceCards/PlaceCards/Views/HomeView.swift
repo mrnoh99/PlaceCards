@@ -123,13 +123,11 @@ struct HomeView: View {
             }
         }
         // 갤러리 탭이 없어졌으므로 갤러리를 부르는 길이 모두 여기로
-        // 온다. 카테고리 칩(`galleryCategoryFilter`)과 방금 만든 카드
-        // (`pendingDetailCardID`) 둘 다, 오른쪽 칸이 갤러리를 보고 있지
-        // 않으면 아무 일도 일어나지 않은 것처럼 보인다 — 삭제됨을 보고
-        // 있었거나 아직 아무것도 안 골랐을 때다. 그때 옮겨 준다.
-        .onChange(of: navigation.galleryCategoryFilter) { _, newValue in
-            if newValue != nil { showGalleryInDetail() }
-        }
+        // 온다. 방금 만든 카드(`pendingDetailCardID`)는 오른쪽 칸이
+        // 갤러리를 보고 있지 않으면 아무 일도 일어나지 않은 것처럼
+        // 보인다 — 삭제됨을 보고 있었거나 아직 아무것도 안 골랐을
+        // 때다. 그때 옮겨 준다. (카테고리 칩은 제 손으로
+        // `sidebarSelection`을 옮기므로 여기 들를 일이 없다.)
         .onChange(of: navigation.pendingDetailCardID) { _, newValue in
             if newValue != nil { showGalleryInDetail() }
         }
@@ -156,7 +154,13 @@ struct HomeView: View {
     private func browse(category: String) {
         navigation.galleryScope = .all
         sidebarSelection = .scope(.all)
-        navigation.galleryCategoryFilter = category
+        // 갤러리의 범위를 여기서 먼저 맞춘다. 그러지 않으면 갤러리가
+        // 범위 변경을 뒤늦게 알아채면서, 바로 아래에서 거는 필터를
+        // "범위가 바뀌었으니" 하고 도로 지운다.
+        //
+        // 오른쪽 칸의 갤러리와 같은 뷰모델이라 여기서 바로 건드릴 수 있다.
+        galleryViewModel.scope = .all
+        galleryViewModel.categoryFilter = category
     }
 
     private func showGalleryInDetail() {
