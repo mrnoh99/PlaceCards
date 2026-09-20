@@ -825,74 +825,7 @@ struct PlaceCardGridCell: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .top) {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.secondary.opacity(0.15))
-                if let firstItem = card.coverPhoto,
-                   let image = MediaStore.loadThumbnail(fileName: firstItem.localPath, maxPixelSize: 500) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        // `scaledToFill`은 준 자리를 채우려고 둘 중 큰
-                        // 비율로 키운다. 칸보다 가로로 긴 사진(16:9
-                        // 이상)은 그 결과가 칸보다 넓어지고, 그 넓이가
-                        // ZStack -> VStack으로 그대로 올라가 아래 글자
-                        // 줄까지 칸 밖으로 밀어낸다. `.clipped()`는 그리는
-                        // 것만 자를 뿐 크기를 되돌리지 않아 막지 못한다.
-                        //
-                        // 칸이 넓은 아이패드에서는 칸 비율이 사진 비율보다
-                        // 커서 좀처럼 드러나지 않지만, 아이폰처럼 칸이
-                        // 좁으면 바로 보인다.
-                        //
-                        // maxWidth로 너비만 칸에 묶어 둔다. 사진 자체는
-                        // 여전히 넘치게 그려지고 아래 clipShape이 자른다.
-                        .frame(maxWidth: .infinity)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                } else {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-
-                HStack(alignment: .top) {
-                    if let category = card.category, !category.isEmpty {
-                        Label {
-                            Text(PlaceCategoryIcon.normalizedLabel(for: category))
-                        } icon: {
-                            Image(systemName: PlaceCategoryIcon.symbolName(for: category))
-                        }
-                        .font(.caption2.weight(.semibold))
-                        .lineLimit(1)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.thinMaterial, in: Capsule())
-                    }
-                    Spacer()
-                    HStack(spacing: 8) {
-                        Button(action: toggleVisited) {
-                            Image(systemName: card.isVisited ? "checkmark.circle.fill" : "checkmark.circle")
-                                .accessibilityLabel(card.isVisited ? "방문 표시 해제".localized : "방문으로 표시".localized)
-                                .foregroundStyle(card.isVisited ? .green : .white)
-                        }
-                        Button(action: toggleFavorite) {
-                            Image(systemName: card.isFavorite ? "star.fill" : "star")
-                                .accessibilityLabel(card.isFavorite ? "즐겨찾기 해제".localized : "즐겨찾기에 추가".localized)
-                                .foregroundStyle(card.isFavorite ? .yellow : .white)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .font(.callout)
-                    .shadow(radius: 2)
-                }
-                .padding(6)
-            }
-            .frame(height: 120)
-            // 사진 말고 다른 것이 ZStack을 넓히더라도 칸을 넘지 않게
-            // 한 번 더 묶는다. 버튼이 아니라 사진 칸 전체에 건 frame이라
-            // 별·방문 버튼의 탭 영역과는 무관하다.
-            .frame(maxWidth: .infinity)
-            .clipped()
+            photoBox
 
             Text(card.name)
                 .font(.subheadline.bold())
@@ -946,6 +879,86 @@ struct PlaceCardGridCell: View {
                 .foregroundStyle(Color.accentColor)
             }
         }
+    }
+
+    /// 사진 칸.
+    ///
+    /// 사진과 위쪽 컨트롤은 ZStack의 형제가 아니라 `Color.clear` 위의
+    /// overlay다. 이게 이 칸의 핵심이다.
+    ///
+    /// `scaledToFill`은 준 자리를 채우려고 가로·세로 비율 중 큰 쪽으로
+    /// 키우므로, 칸보다 가로로 긴 사진은 결과 너비가 칸보다 커진다.
+    /// 형제로 두면 그 너비가 ZStack을 거쳐 VStack까지 올라가 아래 글자
+    /// 줄을 칸 밖으로 밀어낸다.
+    ///
+    /// `.frame(maxWidth: .infinity)`로는 못 막는다. 상한이 무한이라
+    /// 줄이는 힘이 없고, 자식이 더 크겠다고 하면 그 크기가 그대로
+    /// 올라온다. `.clipped()`도 그리는 것만 자를 뿐 크기를 되돌리지
+    /// 않는다.
+    ///
+    /// `Color.clear`는 받은 제안을 그대로 받아들이므로 칸 너비가 확정되고,
+    /// overlay는 부모 크기에 영향을 주지 못한다. 그래서 사진이 아무리
+    /// 커도 칸이 넓어지지 않는다.
+    private var photoBox: some View {
+        Color.clear
+            .frame(height: 120)
+            .overlay { photoFill }
+            .overlay(alignment: .top) { topControls }
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    @ViewBuilder
+    private var photoFill: some View {
+        if let firstItem = card.coverPhoto,
+           let image = MediaStore.loadThumbnail(fileName: firstItem.localPath, maxPixelSize: 500) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+        } else {
+            ZStack {
+                Color.secondary.opacity(0.15)
+                Image(systemName: "photo")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// 카테고리와 방문·즐겨찾기. 예전과 같은 자리이고, 버튼에 frame을
+    /// 걸어 구석으로 미는 것이 아니라 HStack과 Spacer로 놓는다 —
+    /// 00_UI개편_기초.md §2.4가 적어 둔 탭 영역 버그를 되살리지 않는다.
+    private var topControls: some View {
+        HStack(alignment: .top) {
+            if let category = card.category, !category.isEmpty {
+                Label {
+                    Text(PlaceCategoryIcon.normalizedLabel(for: category))
+                } icon: {
+                    Image(systemName: PlaceCategoryIcon.symbolName(for: category))
+                }
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.thinMaterial, in: Capsule())
+            }
+            Spacer()
+            HStack(spacing: 8) {
+                Button(action: toggleVisited) {
+                    Image(systemName: card.isVisited ? "checkmark.circle.fill" : "checkmark.circle")
+                        .accessibilityLabel(card.isVisited ? "방문 표시 해제".localized : "방문으로 표시".localized)
+                        .foregroundStyle(card.isVisited ? .green : .white)
+                }
+                Button(action: toggleFavorite) {
+                    Image(systemName: card.isFavorite ? "star.fill" : "star")
+                        .accessibilityLabel(card.isFavorite ? "즐겨찾기 해제".localized : "즐겨찾기에 추가".localized)
+                        .foregroundStyle(card.isFavorite ? .yellow : .white)
+                }
+            }
+            .buttonStyle(.plain)
+            .font(.callout)
+            .shadow(radius: 2)
+        }
+        .padding(6)
     }
 
     private func toggleFavorite() {
