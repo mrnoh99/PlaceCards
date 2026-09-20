@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### 2026-09-20 (212차) — Team ID 커밋을 되돌림 (211차 취소)
+사용자 요청 "돌려놓아라".
+
+211차가 커밋한 `DEVELOPMENT_TEAM = 492X57LLB4`가 **사용자 Xcode에서
+해석되지 않았음.** Signing 화면에 이렇게 떴음:
+
+```
+Team: Unknown Name (492X57LLB4)
+❌ No Account for Team "492X57LLB4".
+   Add a new account in Accounts settings or verify that your
+   accounts have valid credentials.
+❌ No profiles for 'com.mrnoh99.PinSpots' were found
+```
+
+"그런 ID가 없다"가 아니라 **"로그인된 계정 중 그 팀에 속한 게 없다"**는
+뜻임. 즉 ID가 틀렸거나, 그 팀의 Apple ID가 Xcode에 로그인돼 있지 않거나
+둘 중 하나인데 — **어느 쪽인지 확인되기 전에 빌드가 막혀 있으므로 먼저
+되돌림.**
+
+#### Reverted
+- `PlaceCards.xcodeproj/project.pbxproj`: 211차가 넣은 `DEVELOPMENT_TEAM`
+  네 줄 제거. **PR #74 직전 상태와 바이트 단위로 동일함을 확인했음.**
+  드롭다운에서 직접 고르는 예전 방식으로 돌아감.
+
+#### 남은 문제
+`pull` 때마다 Team을 다시 지정해야 하는 원인(211차에 적은 것)은 그대로임 —
+`DEVELOPMENT_TEAM`이 커밋돼 있지 않은데 빌드 번호 때문에 같은 파일이 자주
+바뀌기 때문. 올바른 Team ID가 확인되면 다시 넣으면 됨.
+
+**진단 순서**(다음에 이어서 할 때):
+1. Xcode → Settings → Accounts에 Apple ID가 있는지, 그 아래 Team 목록에
+   무엇이 보이는지.
+2. `security find-identity -v -p codesigning` — 비어 있으면 인증서 자체가
+   없는 것이라 계정 로그인 문제.
+3. 로컬 `project.pbxproj`를 grep하는 방법은 **쓰지 말 것.** 211차 이후로는
+   커밋된 값을 되읽을 뿐이라 순환임(실제로 그렇게 물어봤다가 헛짚었음).
+
 ### 2026-09-20 (211차) — Team ID를 커밋해서 pull 때마다 다시 지정하지 않게
 사용자 질문 "pull 후 team을 항상 다시 지정해야 하는 이유가 무엇인가 /
 자동 지정이 안된나?".
