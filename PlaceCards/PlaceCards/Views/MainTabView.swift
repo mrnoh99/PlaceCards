@@ -106,7 +106,10 @@ struct MainTabView: View {
         ZStack {
             TabView(selection: $navigation.selectedTab) {
                 HomeView(galleryViewModel: GalleryViewModel(storageService: storageService))
-                    .tabItem { Label("홈".localized, systemImage: "house") }
+                    // 탭 이름은 "갤러리"지만 타입은 그대로 `HomeView`,
+                    // 태그도 `.home`이다. 이 저장소에는 이미 다른
+                    // `GalleryView`가 있어서 이름을 옮기면 둘이 부딪힌다.
+                    .tabItem { Label("갤러리".localized, systemImage: "square.grid.2x2") }
                     .tag(AppTab.home)
 
                 PlacesMapView(viewModel: MapViewModel(storageService: storageService))
