@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### 2026-09-20 (211차) — Team ID를 커밋해서 pull 때마다 다시 지정하지 않게
+사용자 질문 "pull 후 team을 항상 다시 지정해야 하는 이유가 무엇인가 /
+자동 지정이 안된나?".
+
+자동 지정이 안 되는 게 아니라 **지정한 값이 매번 지워지고 있었음.**
+
+`project.pbxproj`에 `CODE_SIGN_STYLE = Automatic`만 있고
+**`DEVELOPMENT_TEAM` 줄이 아예 없었음.** Xcode에서 Team을 고르면 그 줄이
+추가되는데, 그건 **추적되는 파일의 로컬 수정**임. 그리고 빌드 번호를 올릴
+때마다 같은 파일을 건드렸으니(최근 10커밋 중 9개) `pull`마다 충돌하거나
+되돌려지면서 Team이 날아갔음.
+
+#### Fixed
+- `PlaceCards.xcodeproj/project.pbxproj`: 네 빌드 구성 전부에
+  `DEVELOPMENT_TEAM = 492X57LLB4;` 추가 (앱 Debug/Release, Share Extension
+  Debug/Release). 확장도 같이 서명되므로 양쪽 다 필요함.
+- Team ID는 비밀이 아님 — 배포된 앱 메타데이터에 그대로 보이는 10자리
+  식별자임. 1인 저장소라 커밋이 맞음(여러 사람이 각자 다른 Team으로
+  빌드하는 저장소라면 `.xcconfig`로 빼는 쪽이 맞음).
+- **CI는 영향 없음.** `ci.yml`이 `CODE_SIGNING_ALLOWED=NO`로 빌드하므로 이
+  값을 보지 않음.
+
+#### 사용자가 한 번 할 일
+이번 pull에서 **로컬 `project.pbxproj`가 마지막으로 한 번 충돌할 수 있음**
+(로컬에 이미 같은 줄을 들고 있으면). 원격 것으로 받으면 됨 —
+그 뒤로는 다시 지정할 일이 없음.
+
 ### 2026-09-20 (210차) — UI 개편 시작 문서
 사용자 계획 "새로운 UI를 구상하려 한다. 지금까지의 작업을 정리하여 새로운
 작업을 시작할때 기초가되게 할것이다. UI 변경을 주과제로 할것이기 때문에
