@@ -96,7 +96,7 @@ struct SharedLinkBoardPickerSheet: View {
                 // 예전에는 게시판을 고르기 *전에* 확인시키려고 있었다.
                 AddPlaceCardView(
                     viewModel: PlaceCardViewModel(
-                        storageService: storageService, boardId: nil, cameFromShare: true
+                        storageService: storageService, boardId: nil, addsToImported: true
                     ),
                     initialImageDatas: photoDatas,
                     initialLinkText: linkText
@@ -108,7 +108,7 @@ struct SharedLinkBoardPickerSheet: View {
         .sheet(item: $pendingListImport, onDismiss: { dismiss() }) { item in
             AddPlaceCardView(
                 viewModel: PlaceCardViewModel(
-                    storageService: storageService, boardId: item.board.id, cameFromShare: true
+                    storageService: storageService, boardId: item.board.id, addsToImported: true
                 ),
                 initialList: item.list
             )

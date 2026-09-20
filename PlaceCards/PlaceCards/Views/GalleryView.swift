@@ -29,12 +29,15 @@ private enum AddCardStep: Identifiable {
     /// More than one board and none currently in scope, so ask first.
     case pickBoard
     /// The board is settled; this is the actual add screen.
-    case add(boardID: String)
+    ///
+    /// nil이면 어느 게시판에도 넣지 않고 "가져오기"에 담는다 —
+    /// "가져오기"를 보는 중에 "+"를 누른 경우다.
+    case add(boardID: String?)
 
     var id: String {
         switch self {
         case .pickBoard: return "pick"
-        case .add(let boardID): return "add-\(boardID)"
+        case .add(let boardID): return "add-" + (boardID ?? "imported")
         }
     }
 }
@@ -280,8 +283,18 @@ struct GalleryView: View {
                 case .pickBoard:
                     addBoardPickerSheet
                 case .add(let boardID):
-                    AddPlaceCardView(viewModel: PlaceCardViewModel(storageService: storageService, boardId: boardID))
-                        .environmentObject(navigation)
+                    AddPlaceCardView(
+                        viewModel: PlaceCardViewModel(
+                            storageService: storageService,
+                            boardId: boardID,
+                            // 게시판이 없다는 것은 "가져오기"를 보는 중에
+                            // 만들었다는 뜻이다. 가져오기에도 담지 않으면
+                            // 그 카드는 "모든 카드" 말고 어디에서도 보이지
+                            // 않는다.
+                            addsToImported: boardID == nil
+                        )
+                    )
+                    .environmentObject(navigation)
                 }
             }
             .alert("게시판이 먼저 필요합니다".localized, isPresented: $isShowingNoBoardAlert) {
@@ -713,7 +726,12 @@ struct GalleryView: View {
     /// user picks. With no boards at all there is nothing to add into, so
     /// this says so rather than opening a sheet that couldn't save.
     private func startAddingCard() {
-        if let scopedBoard {
+        // "가져오기"를 보고 있으면 어디에 넣을지 묻지 않는다. 공유로
+        // 들어온 것과 같은 자리에 담고, 게시판은 나중에 거기서 정하면
+        // 된다 — 그것이 "가져오기"가 하는 일이다.
+        if case .imported = viewModel.scope {
+            addCardStep = .add(boardID: nil)
+        } else if let scopedBoard {
             addCardStep = .add(boardID: scopedBoard.id)
         } else if storageService.boards.count == 1, let only = storageService.boards.first {
             addCardStep = .add(boardID: only.id)

@@ -37,7 +37,7 @@ struct SharedPhotoBoardPickerSheet: View {
         // 이므로, 한 겹 줄어든 것은 덤이다.
         AddPlaceCardView(
             viewModel: PlaceCardViewModel(
-                storageService: storageService, boardId: nil, cameFromShare: true
+                storageService: storageService, boardId: nil, addsToImported: true
             ),
             // The user's own photos first, the just-shared one last:
             // whichever ends up first is the one a cover photo is taken

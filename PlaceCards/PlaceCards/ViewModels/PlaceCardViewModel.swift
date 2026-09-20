@@ -150,14 +150,17 @@ final class PlaceCardViewModel: ObservableObject {
     /// 다른 앱에서 공유해 들어온 카드가 그렇다. 그런 카드는 "가져오기"와
     /// "모든 카드"에서 보이고, 거기서 게시판으로 옮기면 된다.
     private let boardId: String?
-    /// 이 화면이 다른 앱의 공유로 열렸는지. 여기서 만들어지는 카드는
-    /// 전부 "가져오기"에 들어간다. 앱 안의 "+"로 연 경우에는 false다.
-    private let cameFromShare: Bool
+    /// 만드는 카드를 "가져오기"에도 담을지.
+    ///
+    /// 다른 앱의 공유로 열린 경우가 그렇고, 사용자가 "가져오기"를 보는
+    /// 중에 "+"로 연 경우도 그렇다. 후자는 담을 게시판이 없으므로
+    /// 담지 않으면 "모든 카드" 말고는 어디에서도 보이지 않는다.
+    private let addsToImported: Bool
 
-    init(storageService: StorageService, boardId: String?, cameFromShare: Bool = false) {
+    init(storageService: StorageService, boardId: String?, addsToImported: Bool = false) {
         self.storageService = storageService
         self.boardId = boardId
-        self.cameFromShare = cameFromShare
+        self.addsToImported = addsToImported
     }
 
     var selectedRowCount: Int {
@@ -975,7 +978,7 @@ final class PlaceCardViewModel: ObservableObject {
         // 게시판 하나에만 속하던 시절의 필드이고, 게시판이 없으면 빈
         // 문자열로 남는다.
         card.boardIDs = boardId.map { [$0] } ?? []
-        card.isImported = cameFromShare ? true : nil
+        card.isImported = addsToImported ? true : nil
         card.applyScannedDetails(details)
 
         // Hours ride along on the search result itself (`search`'s field
@@ -1136,7 +1139,7 @@ final class PlaceCardViewModel: ObservableObject {
         // 게시판 하나에만 속하던 시절의 필드이고, 게시판이 없으면 빈
         // 문자열로 남는다.
         card.boardIDs = boardId.map { [$0] } ?? []
-        card.isImported = cameFromShare ? true : nil
+        card.isImported = addsToImported ? true : nil
         card.applyScannedDetails(details)
         card.sources.append(SourceRecord(
             sourceType: source,
