@@ -202,6 +202,8 @@ struct PlaceCardDetailView: View {
                             externalLinksDisplaySection
                         }
 
+                        boardsSection
+
                         tagsSection
 
                         memoSection
@@ -644,6 +646,98 @@ struct PlaceCardDetailView: View {
                 }
             }
         }
+    }
+
+    /// 이 카드가 속한 보드들. 칩의 x는 **그 보드에서만 뺀다 — 삭제가
+    /// 아니다.** 마지막 보드에서 빼도 카드는 "모든 카드"에 그대로 남는다
+    /// (Lightroom에서 앨범에서 뺀 사진이 모든 사진에는 남는 것과 같다).
+    /// 그래서 빈 상태에도 안내 문구를 둔다 — 아무 데도 없는 것이 사고가
+    /// 아니라 정상이라는 것을 말해 주는 유일한 자리다.
+    ///
+    /// 카드가 보드 여럿에 속할 수 있다는 것이 이 앱의 기본인데, 지금까지
+    /// 그 사실이 카드 쪽에서는 아예 보이지 않았다. 보드를 하나하나 열어
+    /// 보는 것 말고는 이 카드가 어디에 들어 있는지 알 길이 없었다.
+    @ViewBuilder
+    private var boardsSection: some View {
+        HStack {
+            Text("보드".localized)
+                .font(.headline)
+            Spacer()
+            if !addableBoards.isEmpty {
+                Menu {
+                    ForEach(addableBoards) { board in
+                        Button {
+                            addTo(board)
+                        } label: {
+                            Label(board.name, systemImage: board.coverIcon)
+                        }
+                    }
+                } label: {
+                    Label("보드에 추가".localized, systemImage: "plus.circle")
+                        .font(.subheadline)
+                }
+            }
+        }
+        if memberBoards.isEmpty {
+            Text("어느 보드에도 없습니다".localized)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        } else {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    ForEach(memberBoards) { board in
+                        boardChip(board)
+                    }
+                }
+            }
+        }
+    }
+
+    private func boardChip(_ board: Board) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: board.coverIcon)
+            Text(board.name)
+            Button {
+                removeFrom(board)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .accessibilityLabel("보드에서 빼기".localized)
+            }
+            .buttonStyle(.plain)
+        }
+        .font(.caption)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Color.accentColor.opacity(0.15), in: Capsule())
+    }
+
+    /// `card.boardIDs` 순서가 아니라 홈 목록과 같은 순서로 늘어놓는다 —
+    /// 두 곳의 순서가 어긋나면 같은 것을 말하는지 알아보기 어렵다.
+    private var memberBoards: [Board] {
+        storageService.boards.filter { card.boardIDs.contains($0.id) }
+    }
+
+    private var addableBoards: [Board] {
+        storageService.boards.filter { !card.boardIDs.contains($0.id) }
+    }
+
+    private func addTo(_ board: Board) {
+        storageService.addToBoard(card, boardID: board.id)
+        refreshCardFromStore()
+    }
+
+    private func removeFrom(_ board: Board) {
+        storageService.removeFromBoard(card, boardID: board.id)
+        refreshCardFromStore()
+    }
+
+    /// 위 둘은 저장소가 **제 사본을** 고쳐 저장하므로, 이 화면이 들고 있는
+    /// `card`(`@State`)는 그대로 두면 낡는다. 태그처럼 여기서 직접 고쳐
+    /// 저장하지 않고 저장소의 API를 쓰는 것은 "보드에서 빼기"의 규칙이
+    /// 한 군데에만 있어야 하기 때문이고, 그 대가로 다시 읽어 맞춘다.
+    private func refreshCardFromStore() {
+        guard let updated = storageService.placeCard(id: card.id) else { return }
+        card = updated
     }
 
     /// Directly editable right here, like `memoSection` below — no
