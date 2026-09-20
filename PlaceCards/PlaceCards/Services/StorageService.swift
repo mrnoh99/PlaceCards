@@ -102,51 +102,81 @@ final class StorageService: ObservableObject {
         placeCards.first { $0.id == id }
     }
 
-    /// Adds whatever the backup has that this device doesn't, by `id`, and
-    /// touches nothing else — used only by
+    /// Brings a backup's contents in without ever discarding anything the
+    /// backup doesn't mention — used only by
     /// `BackupService.restore(from:storageService:)`.
+    ///
+    /// Per card, by `id`:
+    /// - not here → added.
+    /// - here, and the backup's copy has a **later `updatedAt`** → replaced
+    ///   by the backup's copy.
+    /// - here, and the backup's copy is the same age or older → left alone.
     ///
     /// This used to be `replaceAll`: the restored set became the library,
     /// wholesale, and anything added since that backup was written was
-    /// gone. That makes restoring an all-or-nothing gamble — recovering
-    /// one card you deleted by mistake costs you every card you have
-    /// added since. Adding only what is missing has no such downside, so
-    /// there is no longer a destructive path here at all.
+    /// gone. That made restoring an all-or-nothing gamble — recovering one
+    /// card you deleted by mistake cost you every card added since. A card
+    /// this backup simply doesn't contain is still never touched, so there
+    /// is no destructive path here.
     ///
-    /// **A card already on this device always wins**, even when the
-    /// backup's copy is newer. "Newer" in a backup is not the same as
-    /// "better": the copy here is what the user has been looking at and
-    /// editing, and silently rewriting it from a file is exactly the
-    /// surprise this change exists to remove. Anyone who wants the
-    /// backup's version can delete the card first and restore again.
+    /// The `updatedAt` comparison rests on that field being maintained
+    /// honestly: `save(_:)` stamps it on every edit, and the merge below
+    /// deliberately doesn't (a restored card keeps the timestamp it was
+    /// saved with, which is what makes restoring the same file twice a
+    /// no-op the second time). Its weak spot is clock skew between
+    /// devices — a card edited on a device whose clock runs behind can
+    /// lose to an older copy. There is no way around that with
+    /// timestamps, and it is the same trade every sync of this shape makes.
     ///
-    /// Nothing is deleted from disk either, unlike the old `replaceAll` —
-    /// every photo still belongs to a card that still exists.
+    /// Boards are added when missing but never replaced: `Board` has no
+    /// `updatedAt`, so there is nothing to compare, and a board is little
+    /// more than a name.
+    ///
+    /// Nothing is deleted from disk, unlike the old `replaceAll`. A photo
+    /// belonging only to a card that just got replaced is left where it
+    /// is — wasted space is recoverable and visible in Settings; deleting
+    /// a file something still needs is not.
     @discardableResult
-    func merge(boards newBoards: [Board], placeCards newPlaceCards: [PlaceCard]) -> (boards: Int, placeCards: Int) {
+    func merge(
+        boards newBoards: [Board], placeCards newPlaceCards: [PlaceCard]
+    ) -> (boards: Int, added: Int, updated: Int) {
         let existingBoardIDs = Set(boards.map(\.id))
         let addedBoards = newBoards.filter { !existingBoardIDs.contains($0.id) }
         boards.append(contentsOf: addedBoards)
 
-        let existingCardIDs = Set(placeCards.map(\.id))
         // A card whose board exists neither here nor in the backup would
         // be unreachable in the UI, so it is left out rather than saved
         // somewhere it can never be seen.
         let reachableBoardIDs = existingBoardIDs.union(newBoards.map(\.id))
-        let addedCards = newPlaceCards.filter {
-            !existingCardIDs.contains($0.id) && reachableBoardIDs.contains($0.boardId)
+        var indexByID: [String: Int] = [:]
+        for (index, card) in placeCards.enumerated() {
+            indexByID[card.id] = index
         }
-        // Appended as they are, not through `save(_:)` — that stamps
-        // `updatedAt` with now, which would relabel every restored card as
-        // freshly edited and scramble any ordering that reads it.
-        placeCards.append(contentsOf: addedCards)
+
+        var addedCount = 0
+        var updatedCount = 0
+        for card in newPlaceCards where reachableBoardIDs.contains(card.boardId) {
+            guard let index = indexByID[card.id] else {
+                indexByID[card.id] = placeCards.count
+                // Appended as-is, not through `save(_:)` — that stamps
+                // `updatedAt` with now, which would relabel every restored
+                // card as freshly edited and break the comparison above on
+                // the next restore.
+                placeCards.append(card)
+                addedCount += 1
+                continue
+            }
+            guard card.updatedAt > placeCards[index].updatedAt else { continue }
+            placeCards[index] = card
+            updatedCount += 1
+        }
 
         // Written straight through rather than queued. Restoring a backup
         // is rare, user-initiated and high-stakes — the one write worth
         // blocking on, since losing it would mean the user watched a
         // restore succeed and then found their library unchanged.
         persistNow()
-        return (addedBoards.count, addedCards.count)
+        return (addedBoards.count, addedCount, updatedCount)
     }
 
     /// Writes both files immediately, on this actor, bypassing the queue.
