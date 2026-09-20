@@ -98,7 +98,16 @@ struct HomeView: View {
         NavigationSplitView {
             sidebar
         } detail: {
-            detailPane
+            // 오른쪽 칸은 제 `NavigationStack`을 가져야 한다. 갤러리가 이
+            // 안에서 카드 상세로 밀고 들어가기 때문이다.
+            //
+            // `NavigationSplitView`의 칸은 저절로 스택이 되지 않는다.
+            // 스택 없이 `navigationDestination`을 쓰면 SwiftUI가 그것을
+            // "다음 칸"에 대한 지시로 읽는데, 오른쪽 칸 다음에는 칸이
+            // 없어서 경고를 내고 밀기가 동작하지 않는다.
+            NavigationStack {
+                detailPane
+            }
         }
         .onChange(of: sidebarSelection) { _, newValue in
             // 고른 것을 갤러리 탭과 지도 탭도 함께 본다. 한 방향으로만
@@ -136,10 +145,10 @@ struct HomeView: View {
         sidebarSelection = .scope(navigation.galleryScope)
     }
 
-    /// 오른쪽 칸. 고른 것이 삭제됨이면 그 화면, 아니면 갤러리다.
+    /// 오른쪽 칸의 내용. 고른 것이 삭제됨이면 그 화면, 아니면 갤러리다.
     ///
-    /// 갤러리는 제 `NavigationStack`을 세우지 않는다 — 여기는
-    /// `NavigationSplitView`가 이미 그릇을 대고 있다.
+    /// 갤러리는 제 `NavigationStack`을 세우지 않는다 — 이 셋을 감싸는
+    /// 스택이 바로 위에 하나 있고, 그 안에 또 세우면 두 겹이 된다.
     @ViewBuilder
     private var detailPane: some View {
         // 옵셔널을 먼저 풀고 switch한다. 옵셔널인 채로 `case .scope:`를
@@ -273,8 +282,26 @@ struct HomeView: View {
                 searchCategoryFilter = nil
             }
         }
-        .navigationDestination(item: $selectedSearchResult) { card in
-            PlaceCardDetailView(card: card)
+        // 검색 결과는 밀지 않고 띄운다.
+        //
+        // `NavigationSplitView`의 칸에서 `navigationDestination`을 쓰면
+        // SwiftUI는 그것을 "다음 칸"에 대한 지시로 읽는다. 왼쪽에서 쓰면
+        // 오른쪽 칸을 갈아 끼우겠다는 뜻이 되는데, 오른쪽 칸은 이미 왼쪽
+        // 목록의 선택이 정하고 있어 둘이 같은 자리를 놓고 다툰다. 게다가
+        // 오른쪽 칸은 제 `NavigationStack`을 가지므로 그 지시가 갈 곳도
+        // 없어진다.
+        //
+        // 모달은 칸 구조와 무관하다. 지도 탭이 같은 화면을 띄우는 방식과
+        // 같게 맞췄다.
+        .sheet(item: $selectedSearchResult) { card in
+            NavigationStack {
+                PlaceCardDetailView(card: card)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("닫기".localized) { selectedSearchResult = nil }
+                        }
+                    }
+            }
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
