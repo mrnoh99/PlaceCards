@@ -9,6 +9,10 @@ struct PlaceCardsApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(storageService)
+                // Lightroom을 본뜨는 개편이라 화면은 항상 어둡다. 기기
+                // 설정을 따라가면 밝은 모드에서 `Theme`의 검정 배경 위에
+                // 시스템 기본 검정 글씨가 얹혀 글자가 사라진다.
+                .preferredColorScheme(.dark)
         }
         // Saves are written on a background actor now
         // (`StorageService.persistNow()`'s own comment explains why), which
