@@ -7,14 +7,15 @@ import UIKit
 /// to `.sheet(item:)` — otherwise the second would silently not present.
 private struct PendingShare: Identifiable {
     enum Kind {
-        /// A shared photo, going through "pick a board, create a new card",
-        /// carrying any photos the user had picked before leaving for the
-        /// map app this one came back from — see `MapOpenContext`. Empty
-        /// for every ordinary share.
-        case photoToBoard(Data, [Data])
-        /// A shared photo offered to the card that recently launched
+        /// Shared photos (one share can carry several), going through
+        /// "create a new card", carrying any photos the user had picked
+        /// before leaving for the map app these came back from — see
+        /// `MapOpenContext`. That second list is empty for every ordinary
+        /// share.
+        case photoToBoard([Data], [Data])
+        /// Shared photos offered to the card that recently launched
         /// "지도에서 열기" — see `MapOpenContext`.
-        case photoToCard(PlaceCard, Data)
+        case photoToCard(PlaceCard, [Data])
         /// A shared link going through "pick a board, create a new card",
         /// carrying any photos the user had picked before leaving for the
         /// map app that this link came back from — see `MapOpenContext`.
@@ -191,14 +192,14 @@ struct MainTabView: View {
     @ViewBuilder
     private func shareSheet(for kind: PendingShare.Kind) -> some View {
         switch kind {
-        case .photoToBoard(let data, let photoDatas):
-            SharedPhotoBoardPickerSheet(imageData: data, photoDatas: photoDatas)
+        case .photoToBoard(let datas, let photoDatas):
+            SharedPhotoBoardPickerSheet(imageDatas: datas, photoDatas: photoDatas)
                 .environmentObject(navigation)
-        case .photoToCard(let card, let data):
+        case .photoToCard(let card, let datas):
             MapScreenshotImportSheet(
                 card: card,
-                imageData: data,
-                onCreateNewInstead: { rerouteAfterDismiss = .photoToBoard(data, []) }
+                imageDatas: datas,
+                onCreateNewInstead: { rerouteAfterDismiss = .photoToBoard(datas, []) }
             ) { _ in }
         case .linkToBoard(let text, let photoDatas):
             SharedLinkBoardPickerSheet(linkText: text, photoDatas: photoDatas)
@@ -286,13 +287,14 @@ struct MainTabView: View {
         // once. Reading it once here is correct either way.
         let recentCardID = MapOpenContext.recentCardID()
 
-        if let data = SharedImportStore.takePendingImage() {
+        let sharedImageDatas = SharedImportStore.takePendingImages()
+        if !sharedImageDatas.isEmpty {
             if let recentCardID, let card = storageService.placeCard(id: recentCardID) {
-                enqueueShare(.photoToCard(card, data))
+                enqueueShare(.photoToCard(card, sharedImageDatas))
             } else {
                 // Same lazy read as the link branch below, and for the
                 // same reason — see its comment.
-                enqueueShare(.photoToBoard(data, MapOpenContext.recentPhotoDatas()))
+                enqueueShare(.photoToBoard(sharedImageDatas, MapOpenContext.recentPhotoDatas()))
             }
             MapOpenContext.clear()
         }

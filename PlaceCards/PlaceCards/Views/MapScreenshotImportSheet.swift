@@ -20,7 +20,10 @@ struct MapScreenshotImportSheet: View {
     private static let maxAddressMatchDistanceMeters: CLLocationDistance = 100
 
     @State private var card: PlaceCard
-    let imageData: Data
+    /// 공유는 여러 장을 한꺼번에 보낼 수 있다. 전부 이 카드에 붙고,
+    /// 읽을 때도 전부 함께 넘긴다 — 여러 장을 같이 보면 한 장에서는
+    /// 잘린 정보가 채워진다.
+    let imageDatas: [Data]
     /// Called when the user says this share isn't about the offered card
     /// after all — the caller is expected to route the very same shared
     /// photo into the ordinary "pick a board, create a new card" flow
@@ -54,17 +57,21 @@ struct MapScreenshotImportSheet: View {
     @State private var isConfirmingSuggestedTags = false
 
     init(
-        card: PlaceCard, imageData: Data,
+        card: PlaceCard, imageDatas: [Data],
         onCreateNewInstead: @escaping () -> Void = {},
         onApplied: @escaping (PlaceCard) -> Void
     ) {
         _card = State(initialValue: card)
-        self.imageData = imageData
+        self.imageDatas = imageDatas
         self.onCreateNewInstead = onCreateNewInstead
         self.onApplied = onApplied
     }
 
-    private var previewImage: UIImage? { UIImage(data: imageData) }
+    /// 미리보기는 첫 장이다. 표지 사진을 고르는 규칙과 같다.
+    private var previewImage: UIImage? {
+        guard let first = imageDatas.first else { return nil }
+        return UIImage(data: first)
+    }
 
     /// Offered only before anything has been applied — once the photo has
     /// been attached to this card, starting a second card from it would
@@ -207,8 +214,10 @@ struct MapScreenshotImportSheet: View {
             didProcess = true
         }
 
-        if let fileName = try? MediaStore.saveImage(data: imageData) {
-            card.media.mapScreenshots.append(MediaItem(localPath: fileName, source: .googleMapScreenshot))
+        for data in imageDatas {
+            if let fileName = try? MediaStore.saveImage(data: data) {
+                card.media.mapScreenshots.append(MediaItem(localPath: fileName, source: .googleMapScreenshot))
+            }
         }
         storageService.save(card)
         onApplied(card)
@@ -216,7 +225,11 @@ struct MapScreenshotImportSheet: View {
         // Checked right away, independent of whether AI analysis below
         // ever runs — appended to whatever `statusMessage` that path ends
         // up setting, at every exit from this function.
-        let photoCoordinate = PhotoMetadata.extractLocation(from: imageData)
+        // 좌표가 박힌 첫 장을 쓴다. 여러 장이 전부 이 카드의 것이므로
+        // 어느 것을 골라도 같은 장소여야 하고, 한 장만 좌표가 없는
+        // 경우에 빈손이 되지 않는다.
+        let photoCoordinates = imageDatas.compactMap(PhotoMetadata.extractLocation)
+        let photoCoordinate = photoCoordinates.first
         let locationNote = await applyOrWarnPhotoCoordinate(photoCoordinate)
         defer {
             if let locationNote {
@@ -224,7 +237,8 @@ struct MapScreenshotImportSheet: View {
             }
         }
 
-        guard let jpegData = previewImage?.jpegData(compressionQuality: 0.8) else {
+        let jpegDatas = imageDatas.compactMap { UIImage(data: $0)?.jpegData(compressionQuality: 0.8) }
+        guard !jpegDatas.isEmpty else {
             statusMessage = "사진을 카드에 추가했습니다.".localized
             return
         }
@@ -234,14 +248,17 @@ struct MapScreenshotImportSheet: View {
         // case this sheet is reached from most — a map-app screenshot
         // shared straight in — and fills the same name/address fields.
         guard AIProviderChain.hasAnyConfiguredProvider() else {
-            let results = await ScreenshotPlaceScanner.extractPlaces(imageDatas: [jpegData])
+            let results = await ScreenshotPlaceScanner.extractPlaces(imageDatas: jpegDatas)
             handleAnalysisResults(results, viaOnDeviceScan: true)
             return
         }
 
         do {
             let (results, provider, isFallback) = try await AIProviderChain.run {
-                try await $0.analyzePlaces(imageDatas: [jpegData], prompt: defaultPlaceAnalysisPrompt())
+                try await $0.analyzePlaces(
+                    imageDatas: jpegDatas,
+                    prompt: defaultPlaceAnalysisPrompt(photoCoordinates: photoCoordinates)
+                )
             }
             handleAnalysisResults(results, answeredBy: isFallback ? provider : nil)
         } catch {
@@ -378,7 +395,7 @@ struct MapScreenshotImportSheet: View {
 #Preview {
     MapScreenshotImportSheet(
         card: PlaceCard(boardId: "preview", name: "샘플 카페".localized, address: "서울시 강남구".localized),
-        imageData: Data()
+        imageDatas: [Data()]
     ) { _ in }
     .environmentObject(StorageService())
 }

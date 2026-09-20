@@ -30,6 +30,14 @@ final class ShareViewController: UIViewController {
     /// feel stuck. Raised from 1.0s, which was reported as too quick to
     /// register as a message at all.
     private static let resultDisplaySeconds: TimeInterval = 1.8
+    /// Each image attachment's bytes, by the position it was shared in —
+    /// held on the controller rather than captured as a local so the
+    /// several in-flight loads don't share a mutable capture. Only ever
+    /// touched on the main queue (`handleImageAttachments` hops there),
+    /// since `loadDataRepresentation` calls back on an arbitrary one and
+    /// two finishing at once would otherwise race.
+    private var loadedImageDatas: [Data?] = []
+    private var pendingImageLoads = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -84,8 +92,9 @@ final class ShareViewController: UIViewController {
     /// triggered the match. An image takes priority when somehow both are
     /// offered, since that's the more established flow.
     private func dispatch(attachments: [NSItemProvider]) {
-        if let imageProvider = attachments.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }) {
-            handleImageAttachment(imageProvider)
+        let imageProviders = attachments.filter { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }
+        if !imageProviders.isEmpty {
+            handleImageAttachments(imageProviders)
             return
         }
         if let urlProvider = attachments.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.url.identifier) }) {
@@ -147,22 +156,58 @@ final class ShareViewController: UIViewController {
     /// does, and it handles any security-scoping itself (unlike a raw
     /// `URL` from `loadItem`, which needed `startAccessingSecurityScoped
     /// Resource()` called by hand).
-    private func handleImageAttachment(_ provider: NSItemProvider) {
-        provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { [weak self] data, error in
-            if let error {
-                SharedImportStore.recordDebugStatus("loadDataRepresentation 실패: \(error.localizedDescription)")
-                self?.finish(success: false, message: "이미지를 불러오지 못했습니다")
-                return
+    ///
+    /// Several photos can arrive at once (the user picks a few in Photos
+    /// and shares them together), so every image attachment is loaded,
+    /// not just the first. They load concurrently and finish in whatever
+    /// order the system hands them back, so each result is written into
+    /// its own slot by index and the batch is saved once the last one
+    /// lands — appending as they arrive would shuffle the photos, and the
+    /// first one matters (it becomes the card's cover).
+    ///
+    /// The counters are touched only on the main queue. `loadData
+    /// Representation`'s completion runs on an arbitrary queue, and two
+    /// of them finishing at the same moment would otherwise race on the
+    /// same array.
+    private func handleImageAttachments(_ providers: [NSItemProvider]) {
+        let capped = Array(providers.prefix(SharedImportStore.maxPendingImages))
+        loadedImageDatas = [Data?](repeating: nil, count: capped.count)
+        pendingImageLoads = capped.count
+
+        for (index, provider) in capped.enumerated() {
+            provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { [weak self] data, error in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if let error {
+                        SharedImportStore.recordDebugStatus("loadDataRepresentation 실패(\(index)): \(error.localizedDescription)")
+                    }
+                    self.loadedImageDatas[index] = data
+                    self.pendingImageLoads -= 1
+                    guard self.pendingImageLoads == 0 else { return }
+                    self.finishImageLoads(attempted: capped.count)
+                }
             }
-            guard let data else {
-                SharedImportStore.recordDebugStatus("이미지 데이터를 읽지 못함")
-                self?.finish(success: false, message: "이미지를 읽지 못했습니다")
-                return
-            }
-            SharedImportStore.savePendingImage(data)
-            SharedImportStore.recordDebugStatus("사진 저장 성공 (\(data.count) bytes)")
-            self?.finish(success: true, message: "PinSpots에 저장했습니다")
         }
+    }
+
+    /// Every load has reported back. A share of five photos where one
+    /// failed is still worth saving — the user gets the four that did,
+    /// rather than nothing.
+    private func finishImageLoads(attempted: Int) {
+        let datas = loadedImageDatas.compactMap { $0 }
+        loadedImageDatas = []
+        guard !datas.isEmpty else {
+            SharedImportStore.recordDebugStatus("이미지 데이터를 읽지 못함 (\(attempted)장 모두 실패)")
+            finish(success: false, message: "이미지를 읽지 못했습니다")
+            return
+        }
+        SharedImportStore.savePendingImages(datas)
+        let bytes = datas.reduce(0) { $0 + $1.count }
+        SharedImportStore.recordDebugStatus("사진 \(datas.count)/\(attempted)장 저장 성공 (\(bytes) bytes)")
+        finish(
+            success: true,
+            message: datas.count > 1 ? "PinSpots에 \(datas.count)장 저장했습니다" : "PinSpots에 저장했습니다"
+        )
     }
 
     /// A shared URL (the "share this page" prompt for maps.google.com) or

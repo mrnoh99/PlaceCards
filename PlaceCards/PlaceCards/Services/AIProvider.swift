@@ -212,7 +212,20 @@ enum AIProviderFactory {
 /// current "AI 응답 언어" setting (`ScanResultLanguage.current()`) — the
 /// prompt text itself stays Korean either way, only the appended
 /// instruction (and therefore the model's `description` output) changes.
-func defaultPlaceAnalysisPrompt() -> String {
+/// `photoCoordinates`는 넘긴 사진들에 박혀 있던 EXIF GPS다(좌표가 없는
+/// 사진은 빠지므로 사진 수와 개수가 다를 수 있다).
+///
+/// **사진의 GPS는 AI와 겨루는 다른 후보가 아니라 AI에게 주는 재료다.**
+/// 예전에는 AI가 글자만 읽고, 좌표는 그 결과를 나중에 검증하거나
+/// 버리는 데만 쓰였다 — 그래서 좌표가 정작 장소를 알아보는 데에는
+/// 아무 도움도 주지 못했다. 간판만 찍힌 사진, 같은 상호가 여럿인 체인,
+/// 주소가 잘린 화면은 좌표를 함께 보면 풀리는 것들이다.
+///
+/// 다만 재료일 뿐이라는 것도 분명히 적어 준다. 사진의 GPS는 그 장소가
+/// 아니라 **찍은 자리**이고(길 건너에서 찍거나, 지도 앱 화면을 다른
+/// 동네에서 캡처하거나, 편집 과정에서 남은 값일 수 있다), 화면에
+/// 보이는 글자가 좌표와 어긋나면 글자가 이긴다.
+func defaultPlaceAnalysisPrompt(photoCoordinates: [Coordinates] = []) -> String {
     let base = """
     이 이미지(들)는 지도 앱 스크린샷이거나 SNS(예: 인스타그램) 게시물 스크린샷일 수 있습니다.
     이미지에 등장하는 모든 장소(상호명)를 찾아 각각에 대해 아래 JSON 형식으로만 답하세요. 다른 설명은 하지 마세요.
@@ -225,8 +238,28 @@ func defaultPlaceAnalysisPrompt() -> String {
     {"places": [{"placeName": "장소명", "address": "주소 또는 null", "description": "이름/주소로 담기지 않는, 메모로 남길 만한 내용 또는 null", "confidence": 0.0에서 1.0 사이 숫자, "phone": "전화번호 또는 null", "website": "공식 웹사이트 URL 또는 null", "category": "업종/카테고리 또는 null", "hoursDetail": {"요일": "영업시간"} 형식의 객체 또는 null, "closingTime": "라스트오더/마감 시간 또는 null", "holidays": "정기 휴무일 또는 null", "amenities": ["편의시설", ...] 또는 빈 배열, "reservationInfo": "예약 방법/플랫폼 또는 null", "recommendedMenu": "추천 메뉴 또는 null", "awards": ["수상/인증", ...] 또는 빈 배열, "suggestedDuration": "추천 소요 시간 또는 null", "admissionFee": "입장료 또는 null", "dietaryOptions": ["식이 옵션", ...] 또는 빈 배열, "tags": ["태그", ...] 또는 빈 배열}]}
     장소를 하나도 찾지 못했으면 {"places": []}로 답하세요.
     """
-    guard let instruction = ScanResultLanguage.current().promptInstruction else { return base }
-    return base + "\n" + instruction
+    let withLocation = base + photoLocationPromptSection(photoCoordinates)
+    guard let instruction = ScanResultLanguage.current().promptInstruction else { return withLocation }
+    return withLocation + "\n" + instruction
+}
+
+/// 좌표가 하나도 없으면 빈 문자열 — 프롬프트에 "위치 정보 없음" 같은
+/// 줄을 덧붙이면 모델이 그 없음을 근거로 뭔가를 추론하려 든다.
+private func photoLocationPromptSection(_ coordinates: [Coordinates]) -> String {
+    guard !coordinates.isEmpty else { return "" }
+    let formatted = coordinates
+        .map { String(format: "(%.6f, %.6f)", $0.latitude, $0.longitude) }
+        .joined(separator: ", ")
+    let plural = coordinates.count > 1
+        ? "좌표가 여러 개면 같은 장소를 여러 장 찍은 것일 수도, 서로 다른 장소일 수도 있습니다.\n"
+        : ""
+    return """
+
+    참고로 이 사진들에는 촬영 위치(EXIF GPS)가 위도·경도로 남아 있습니다: \(formatted)
+    \(plural)이 좌표를 장소를 알아보는 데 함께 사용하세요 — 간판만 찍혀 상호는 보이는데 주소가 없는 사진, 같은 상호가 여러 지점 있는 경우, 화면에 주소가 잘려 나온 경우에 특히 그렇습니다. 좌표로 지역(시/구/동)을 좁혀 address를 더 정확하게 채워주세요.
+    단, 좌표는 **그 장소의 위치가 아니라 사진을 찍은 자리**입니다. 길 건너나 먼 곳에서 찍었을 수도 있고, 다른 동네에서 지도 앱 화면을 캡처한 것일 수도 있으며, 편집 과정에서 남은 엉뚱한 값일 수도 있습니다. 화면에 보이는 상호·주소가 좌표와 어긋나면 **화면에 보이는 글자를 따르세요.**
+    좌표만 있고 화면에 장소를 알아볼 근거가 없으면 좌표만으로 장소명을 지어내지 마세요.
+    """
 }
 
 /// Every provider below ends up with the model's raw text reply and needs

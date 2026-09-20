@@ -997,7 +997,12 @@ struct EditPlaceCardSheet: View {
 
         do {
             let (results, provider, isFallback) = try await AIProviderChain.run {
-                try await $0.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
+                try await $0.analyzePlaces(
+                    imageDatas: imageDatas,
+                    prompt: defaultPlaceAnalysisPrompt(
+                        photoCoordinates: pickedImageDatas.compactMap(PhotoMetadata.extractLocation)
+                    )
+                )
             }
             // Only ever computed for a confirmed single-place result — see
             // `handleAnalysisResults`, which applies nothing at all when
