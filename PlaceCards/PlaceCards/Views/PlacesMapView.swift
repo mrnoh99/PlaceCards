@@ -44,7 +44,7 @@ struct PlacesMapView: View {
     /// The board Home is currently showing, if any — used for the
     /// navigation title, and to look up its name.
     private var scopedBoard: Board? {
-        guard let boardID = navigation.currentHomeBoardID else { return nil }
+        guard let boardID = navigation.galleryScope.boardID else { return nil }
         return storageService.boards.first { $0.id == boardID }
     }
 
@@ -57,7 +57,7 @@ struct PlacesMapView: View {
         let scoped: [PlaceCard]
         if let filterIDs = navigation.mapFilterIDs {
             scoped = viewModel.annotatedPlaceCards.filter { filterIDs.contains($0.id) }
-        } else if let boardID = navigation.currentHomeBoardID {
+        } else if let boardID = navigation.galleryScope.boardID {
             scoped = viewModel.annotatedPlaceCards.filter { $0.boardIDs.contains(boardID) }
         } else {
             scoped = viewModel.annotatedPlaceCards

@@ -88,6 +88,13 @@ final class StorageService: ObservableObject {
         placeCards.filter { !$0.isDeleted }
     }
 
+    /// 다른 앱이 공유해 준 정보로 만들어진 카드 — 홈의 "가져오기"가
+    /// 세고 보여 주는 것. 보드와 달리 소속이 아니라 출신이므로, 이 카드들은
+    /// 자기 보드에도 그대로 들어 있다.
+    var importedPlaceCards: [PlaceCard] {
+        activePlaceCards.filter { $0.isImported == true }
+    }
+
     /// 삭제됨에 들어 있는 카드. 최근에 옮긴 것이 위로 온다.
     var deletedPlaceCards: [PlaceCard] {
         placeCards

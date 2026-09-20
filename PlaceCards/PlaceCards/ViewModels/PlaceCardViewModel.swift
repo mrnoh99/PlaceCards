@@ -147,10 +147,14 @@ final class PlaceCardViewModel: ObservableObject {
 
     private let storageService: StorageService
     private let boardId: String
+    /// 이 화면이 다른 앱의 공유로 열렸는지. 여기서 만들어지는 카드는
+    /// 전부 "가져오기"에 들어간다. 앱 안의 "+"로 연 경우에는 false다.
+    private let cameFromShare: Bool
 
-    init(storageService: StorageService, boardId: String) {
+    init(storageService: StorageService, boardId: String, cameFromShare: Bool = false) {
         self.storageService = storageService
         self.boardId = boardId
+        self.cameFromShare = cameFromShare
     }
 
     var selectedRowCount: Int {
@@ -964,6 +968,7 @@ final class PlaceCardViewModel: ObservableObject {
             tags: tags,
             memo: PlaceCard.combinedMemo(nil, appending: note)
         )
+        card.isImported = cameFromShare ? true : nil
         card.applyScannedDetails(details)
 
         // Hours ride along on the search result itself (`search`'s field
@@ -1120,6 +1125,7 @@ final class PlaceCardViewModel: ObservableObject {
             boardId: boardId, name: name, address: address, website: website, externalLinks: externalLinks,
             tags: tags, memo: PlaceCard.combinedMemo(nil, appending: note)
         )
+        card.isImported = cameFromShare ? true : nil
         card.applyScannedDetails(details)
         card.sources.append(SourceRecord(
             sourceType: source,

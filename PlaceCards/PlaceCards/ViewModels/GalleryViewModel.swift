@@ -10,12 +10,11 @@ final class GalleryViewModel: ObservableObject {
     @Published var sortMode: PlaceSortMode = .byCategory
     @Published var distanceReference: DistanceReference?
     @Published var hereCoordinate: Coordinates?
-    /// The board the Home tab is currently drilled into
-    /// (`AppNavigation.currentHomeBoardID`), synced in by `GalleryView` —
-    /// nil (Home at its board list) shows every card, as before; set,
-    /// this narrows everything below to that one board, same as opening
-    /// it from Home directly would.
-    @Published var boardScopeID: String?
+    /// What Home last narrowed to (`AppNavigation.galleryScope`), synced
+    /// in by `GalleryView` — `.all` shows every card, as before; a board
+    /// or "가져오기" narrows everything below to that, same as opening it
+    /// from Home directly would.
+    @Published var scope: GalleryScope = .all
 
     private let storageService: StorageService
 
@@ -23,14 +22,17 @@ final class GalleryViewModel: ObservableObject {
         self.storageService = storageService
     }
 
-    /// Every card in scope — every board, or just `boardScopeID` — before
+    /// Every card in scope — everything, one board, or 가져오기 — before
     /// any of the filters below narrow it further. Not `private` — also
     /// used by `GalleryView` for "중복 찾기" (finding duplicates should
     /// scan everything in scope, regardless of the active search/status/
     /// category filters, same as `BoardDetailView`'s own `allCards`).
     var scopedCards: [PlaceCard] {
-        guard let boardScopeID else { return storageService.activePlaceCards }
-        return storageService.placeCards(inBoard: boardScopeID)
+        switch scope {
+        case .all: return storageService.activePlaceCards
+        case .board(let id): return storageService.placeCards(inBoard: id)
+        case .imported: return storageService.importedPlaceCards
+        }
     }
 
     /// Search/tag-filtered, but before the all/favorite/visited chip —
@@ -40,8 +42,13 @@ final class GalleryViewModel: ObservableObject {
     private var searchFilteredPlaceCards: [PlaceCard] {
         let tags = selectedTag.map { [$0] } ?? []
         var matched = storageService.search(query: searchQuery, tags: tags)
-        if let boardScopeID {
-            matched = matched.filter { $0.boardIDs.contains(boardScopeID) }
+        switch scope {
+        case .all:
+            break
+        case .board(let id):
+            matched = matched.filter { $0.boardIDs.contains(id) }
+        case .imported:
+            matched = matched.filter { $0.isImported == true }
         }
         guard let categoryFilter else { return matched }
         return matched.filter { card in

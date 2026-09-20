@@ -86,13 +86,18 @@ struct HomeView: View {
                             .contentShape(Rectangle())
                             .onTapGesture { navigation.showAllInGallery() }
 
+                            // 다른 앱에서 공유해 들어온 정보로 만들어진
+                            // 카드. 보드가 아니라 출신으로 모은 것이라, 이
+                            // 카드들은 제 보드에도 그대로 들어 있다.
+                            // 파일에서 게시판을 들여오는 일은 예전처럼
+                            // 오른쪽 위 "+" 메뉴에 있다.
                             SystemCollectionRow(
                                 icon: "square.and.arrow.down",
                                 title: "가져오기".localized,
-                                count: nil
+                                count: storageService.importedPlaceCards.count
                             )
                             .contentShape(Rectangle())
-                            .onTapGesture { isPresentingImportBoard = true }
+                            .onTapGesture { navigation.showImportedInGallery() }
 
                             SystemCollectionRow(
                                 icon: "trash",

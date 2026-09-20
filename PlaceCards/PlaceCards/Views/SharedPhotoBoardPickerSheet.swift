@@ -88,7 +88,7 @@ struct SharedPhotoBoardPickerSheet: View {
         }
         .sheet(item: $selectedBoard, onDismiss: { dismiss() }) { board in
             AddPlaceCardView(
-                viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id),
+                viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id, cameFromShare: true),
                 // The user's own photos first, the just-shared one last:
                 // whichever ends up first is the one a cover photo is
                 // taken from, and a map screenshot — shared to be read

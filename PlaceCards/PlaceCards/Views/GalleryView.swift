@@ -86,10 +86,24 @@ struct GalleryView: View {
 
     /// The board Home is currently showing, if any — used for the
     /// navigation title only; the actual filtering already happens
-    /// inside `viewModel` via `boardScopeID`.
+    /// inside `viewModel` via `scope`. nil while scoped to 가져오기 or
+    /// to everything — neither is a board.
     private var scopedBoard: Board? {
-        guard let boardScopeID = viewModel.boardScopeID else { return nil }
-        return storageService.boards.first { $0.id == boardScopeID }
+        guard let boardID = viewModel.scope.boardID else { return nil }
+        return storageService.boards.first { $0.id == boardID }
+    }
+
+    /// 무엇으로 좁혀져 있는지 제목에 적는다. 좁혀 놓고 제목이 그냥
+    /// "갤러리"이면 카드가 왜 몇 장뿐인지 알 길이 없다.
+    private var scopeTitle: String {
+        switch viewModel.scope {
+        case .all:
+            return "갤러리".localized
+        case .board:
+            return scopedBoard.map { "갤러리 · ".localized + $0.name } ?? "갤러리".localized
+        case .imported:
+            return "갤러리 · ".localized + "가져오기".localized
+        }
     }
 
     private var selectedCards: [PlaceCard] {
@@ -122,7 +136,7 @@ struct GalleryView: View {
                     bulkActionBar
                 }
             }
-            .navigationTitle(scopedBoard.map { "갤러리 · ".localized + $0.name } ?? "갤러리".localized)
+            .navigationTitle(scopeTitle)
             // `.always` so search stays visible without a pull-down/
             // scroll — same as Home/BoardDetailView, since the only
             // intended difference between this screen and BoardDetailView
@@ -133,11 +147,11 @@ struct GalleryView: View {
             // at init, since the user may navigate around Home first and
             // only then switch to this tab.
             .onAppear {
-                viewModel.boardScopeID = navigation.currentHomeBoardID
+                viewModel.scope = navigation.galleryScope
                 consumePendingDetailCardID()
             }
-            .onChange(of: navigation.currentHomeBoardID) { _, newValue in
-                viewModel.boardScopeID = newValue
+            .onChange(of: navigation.galleryScope) { _, newValue in
+                viewModel.scope = newValue
             }
             // One-shot: `HomeView`'s "카테고리별 보기" chips set this and
             // switch to this tab; consumed here (via `.onChange`, not
@@ -381,12 +395,16 @@ struct GalleryView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        // Only way to leave a board scope now that Home's board list
-        // doesn't push into (and pop back out of) a per-board screen —
-        // see `AppNavigation.currentHomeBoardID`'s own doc comment.
-        if scopedBoard != nil, !isSelecting {
+        // Only way to leave a scope now that Home's board list doesn't
+        // push into (and pop back out of) a per-board screen — see
+        // `AppNavigation.galleryScope`'s own doc comment.
+        //
+        // `scopedBoard`가 아니라 `scope`를 본다. 가져오기로 좁혀져 있으면
+        // 보드가 아니라서 `scopedBoard`는 nil이고, 그걸 조건으로 삼으면
+        // 빠져나올 버튼이 사라진다.
+        if viewModel.scope != .all, !isSelecting {
             ToolbarItem(placement: .cancellationAction) {
-                Button("전체 보기".localized) { navigation.currentHomeBoardID = nil }
+                Button("전체 보기".localized) { navigation.galleryScope = .all }
             }
         }
         if !isSelecting {

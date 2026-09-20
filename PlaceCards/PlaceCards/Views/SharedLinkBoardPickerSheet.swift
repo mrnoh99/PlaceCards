@@ -130,13 +130,13 @@ struct SharedLinkBoardPickerSheet: View {
         .sheet(item: $selectedBoard, onDismiss: { dismiss() }) { board in
             if let listToImport {
                 AddPlaceCardView(
-                    viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id),
+                    viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id, cameFromShare: true),
                     initialList: listToImport
                 )
                 .environmentObject(navigation)
             } else {
                 AddPlaceCardView(
-                    viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id),
+                    viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id, cameFromShare: true),
                     initialImageDatas: photoDatas,
                     initialLinkText: linkText
                 )
