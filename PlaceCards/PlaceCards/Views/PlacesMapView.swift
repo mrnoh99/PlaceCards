@@ -131,9 +131,7 @@ struct PlacesMapView: View {
             }
             .fullScreenCover(item: $selectedCard) { card in
                 NavigationStack {
-                    // 여기서 연 카드는 지도를 좁히지 않는다 — 핀을 눌러
-                    // 열었다 닫았을 뿐인데 지도가 그 한 곳만 남기면 안 된다.
-                    PlaceCardDetailView(card: card, narrowsMapToThisCard: false)
+                    PlaceCardDetailView(card: card)
                         .toolbar {
                             // `fullScreenCover` has no swipe-to-dismiss
                             // (unlike `.sheet`, which this replaced), so
