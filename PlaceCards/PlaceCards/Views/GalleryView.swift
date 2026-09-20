@@ -471,7 +471,11 @@ struct GalleryView: View {
     // fires for points the cell's own buttons don't already claim.
     @ViewBuilder
     private func gridCell(_ card: PlaceCard) -> some View {
-        PlaceCardGridCell(card: card, referenceCoordinate: viewModel.distanceReferenceCoordinate)
+        PlaceCardGridCell(
+            card: card,
+            excludingBoardID: viewModel.scope.boardID,
+            referenceCoordinate: viewModel.distanceReferenceCoordinate
+        )
             .overlay(alignment: .topLeading) {
                 if isSelecting {
                     Button {
@@ -530,7 +534,11 @@ struct GalleryView: View {
                 .buttonStyle(.plain)
                 .padding(.top, 6)
             }
-            PlaceCardListRow(card: card, referenceCoordinate: viewModel.distanceReferenceCoordinate)
+            PlaceCardListRow(
+                card: card,
+                excludingBoardID: viewModel.scope.boardID,
+                referenceCoordinate: viewModel.distanceReferenceCoordinate
+            )
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -907,6 +915,8 @@ struct GalleryView: View {
 /// right from here.
 struct PlaceCardGridCell: View {
     let card: PlaceCard
+    /// 지금 보고 있는 보드 — 그 보드는 배지에서 빠진다. `BoardBadges` 참고.
+    var excludingBoardID: String? = nil
     /// Set only while the grid is sorted by distance from a chosen
     /// reference — shown as a "250m"/"1.3km" label next to the address.
     var referenceCoordinate: Coordinates? = nil
@@ -930,6 +940,9 @@ struct PlaceCardGridCell: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+
+            // 격자 칸은 목록 줄보다 좁아 하나만 이름으로 보여 준다.
+            BoardBadges(card: card, excludingBoardID: excludingBoardID, visibleCount: 1)
 
             if let distanceText = Coordinates.distanceText(from: referenceCoordinate, to: card.coordinates) {
                 Text(distanceText)
