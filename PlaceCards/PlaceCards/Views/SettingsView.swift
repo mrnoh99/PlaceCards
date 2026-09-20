@@ -289,7 +289,7 @@ struct SettingsView: View {
         } header: {
             Text("데이터".localized)
         } footer: {
-            Text("\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 파일로 저장하며, 복원하면 지금 앱에 있는 모든 데이터가 그 파일 내용으로 교체됩니다.".localized)
+            Text("\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 파일로 저장하며, 복원하면 이미 있는 항목은 그대로 두고 이 기기에 없는 게시판과 장소만 추가합니다.".localized)
         }
         .fileExporter(
             isPresented: $showingBackupExporter,
@@ -322,15 +322,19 @@ struct SettingsView: View {
                 backupMessage = "파일을 읽지 못했습니다.".localized
             }
         }
+        // No longer `role: .destructive`, and no longer warns that it
+        // can't be undone: a restore now only adds what is missing, so
+        // there is nothing here to lose. The dialog stays because the
+        // user still picked a file and deserves to see what it will do.
         .confirmationDialog(
-            "이 백업으로 모든 게시판·장소를 교체할까요?".localized,
+            "이 백업에서 없는 항목만 가져올까요?".localized,
             isPresented: $showingRestoreConfirm,
             titleVisibility: .visible
         ) {
-            Button("복원".localized, role: .destructive) { Task { await performRestore() } }
+            Button("가져오기".localized) { Task { await performRestore() } }
             Button("취소".localized, role: .cancel) { restorePendingURL = nil }
         } message: {
-            Text("되돌릴 수 없습니다.".localized)
+            Text("이미 있는 게시판과 장소는 그대로 두고, 이 기기에 없는 것만 추가합니다.".localized)
         }
     }
 
@@ -436,8 +440,14 @@ struct SettingsView: View {
             return
         }
         do {
-            try await BackupService.restore(from: data, storageService: storageService)
-            backupMessage = "백업에서 복원했습니다.".localized
+            let added = try await BackupService.restore(from: data, storageService: storageService)
+            // Says what actually happened. "복원했습니다" on a backup whose
+            // every card was already here reads as though something was
+            // replaced, which is the impression this whole change exists
+            // to remove.
+            backupMessage = added.placeCards == 0 && added.boards == 0
+                ? "이 백업에 새로 가져올 항목이 없습니다.".localized
+                : "\(added.placeCards)" + "곳을 가져왔습니다.".localized
         } catch {
             backupMessage = (error as? BackupService.BackupError)?.errorDescription ?? "그 파일에서 복원하지 못했습니다.".localized
         }
