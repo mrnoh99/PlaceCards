@@ -265,32 +265,24 @@ struct GalleryView: View {
         // 이 값이 바뀌는 일이라(`navigationDestination(item:)`), 화면이
         // 뜨고 지는 것을 지켜볼 필요가 없다.
         .onChange(of: selectedCard?.id) { _, _ in syncLiveSelection() }
+        // 범위를 넣어 주기만 한다. 카테고리 필터를 놓는 일은 뷰모델이
+        // `scope`의 `didSet`에서 한다 — 넣어 주는 자리가 여기와 아래
+        // `.onChange` 둘이고, 넓은 화면과 좁은 화면이 서로 다른 쪽으로
+        // 지나간다. 화면 쪽에서 같이 비우려 했더니 한쪽이 빠지거나
+        // (좁은 화면에서 카테고리가 보드로 딸려 왔다) 두 쪽이 겹쳐
+        // 방금 건 필터를 도로 지웠다(카테고리가 아예 안 걸렸다).
         .onAppear {
-            // 새로 열리는 갤러리는 언제나 깨끗하게 시작한다. 카테고리
-            // 필터는 범위를 따라다니지 않는다 — 카테고리를 보고 나와서
-            // 보드에 들어가면 그 보드 안에서 또 그 카테고리만 걸려 있었다.
-            //
-            // **이 일이 일어나는 자리는 대개 `.onChange`가 아니라 여기다.**
             // 좁은 화면에서는 왼쪽 목록에서 무엇을 고를 때마다 이 화면이
-            // 새로 만들어지고, 그때 `galleryScope`는 이미 새 값으로 정해진
-            // 뒤라 `.onChange`가 울릴 일이 없다. 뷰모델은 홈이 들고 있어
-            // 화면보다 오래 살므로 지난 필터가 그대로 딸려 온다.
+            // 새로 만들어진다. 그때 `galleryScope`는 이미 새 값으로 정해진
+            // 뒤라 아래 `.onChange`가 울릴 일이 없으므로 여기가 필요하다.
             viewModel.scope = navigation.galleryScope
-            viewModel.categoryFilter = nil
-            // 칩이 맡긴 것이 있으면 바로 다시 건다. 여기는 차례대로 도는
-            // 코드라 위에서 비운 것을 아래에서 되돌리는 순서가 확실하다.
             consumePendingCategoryFilter()
             consumePendingDetailCardID()
         }
+        // 넓은 화면에서는 반대로 이 화면이 그대로 살아 있어 위
+        // `.onAppear`가 울리지 않으므로 여기가 필요하다.
         .onChange(of: navigation.galleryScope) { _, newValue in
-            // 칩이 맡겨 둔 카테고리가 있으면 비켜선다. 범위와 필터를
-            // 함께 맞추는 일을 통째로 `consumePendingCategoryFilter`에
-            // 몰아준다 — 두 `.onChange` 사이의 순서는 보장되지 않으므로,
-            // 나눠 두면 비우는 쪽이 방금 건 필터를 지워 버린다.
-            guard navigation.galleryCategoryFilter == nil else { return }
-            guard viewModel.scope != newValue else { return }
             viewModel.scope = newValue
-            viewModel.categoryFilter = nil
         }
         // One-shot: `HomeView`의 카테고리 칩이 맡겨 둔 것. 소비한 뒤 바로
         // nil로 되돌리므로 `.onAppear`에서도 같이 보는 것이 안전하다 —
@@ -397,9 +389,12 @@ struct GalleryView: View {
         }
     }
 
-    /// 칩이 맡긴 카테고리를 꺼내 건다. **범위까지 여기서 함께 맞춘다** —
-    /// 위 `.onChange(of: galleryScope)`는 이 값이 차 있는 동안 비켜서
-    /// 있으므로, 둘을 한 번에 놓는 곳이 여기뿐이다.
+    /// 칩이 맡긴 카테고리를 꺼내 건다.
+    ///
+    /// 범위를 먼저 맞추고 필터를 건다. 순서가 중요하다 — 범위를 바꾸면
+    /// 뷰모델이 카테고리 필터를 놓으므로(`GalleryViewModel.scope`), 거꾸로
+    /// 하면 방금 건 것이 지워진다. 칩은 언제나 범위를 "모든 카드"로
+    /// 되돌린 뒤 보내므로 대개 이미 같은 값이고, 그때는 놓는 일도 없다.
     private func consumePendingCategoryFilter() {
         guard let category = navigation.galleryCategoryFilter else { return }
         navigation.galleryCategoryFilter = nil

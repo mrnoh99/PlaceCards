@@ -14,7 +14,21 @@ final class GalleryViewModel: ObservableObject {
     /// in by `GalleryView` — `.all` shows every card, as before; a board
     /// or "가져오기" narrows everything below to that, same as opening it
     /// from Home directly would.
-    @Published var scope: GalleryScope = .all
+    ///
+    /// **범위가 바뀌면 카테고리 필터를 놓는다.** 카테고리로 보고 나와서
+    /// 보드에 들어가면 그 보드 안에서 또 그 카테고리만 걸려 있었다.
+    ///
+    /// 그 규칙을 여기 두는 것이 핵심이다. 화면 쪽에 두었을 때는 범위를
+    /// 넣어 주는 자리가 여럿이라(`.onAppear`·`.onChange` 둘, 넓은 화면과
+    /// 좁은 화면이 서로 다른 쪽으로 지나간다) 어느 하나가 빠지거나, 반대로
+    /// 두 곳이 겹쳐 방금 건 필터를 도로 지웠다. 범위를 바꾸는 그 순간에
+    /// 붙여 두면 넣어 주는 자리가 몇이든, 어떤 순서로 지나가든 같다.
+    @Published var scope: GalleryScope = .all {
+        didSet {
+            guard oldValue != scope else { return }
+            categoryFilter = nil
+        }
+    }
 
     private let storageService: StorageService
 
