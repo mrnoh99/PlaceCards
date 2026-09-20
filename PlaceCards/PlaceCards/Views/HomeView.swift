@@ -192,6 +192,8 @@ struct HomeView: View {
                     .listRowBackground(Theme.panel)
                     .listRowSeparator(.hidden)
 
+                    categoryBrowseSection
+
                     // 게시판이 하나도 없으면 머리만 덩그러니
                     // 남으므로 구역째 내린다. 공유로만 쓰는
                     // 사람에게는 흔한 상태다.
@@ -229,8 +231,6 @@ struct HomeView: View {
                         .listRowBackground(Theme.panel)
                         .listRowSeparator(.hidden)
                     }
-
-                    categoryBrowseSection
 
                     // Last row of the list, so it sits under the
                     // content rather than pinned over it — the same
