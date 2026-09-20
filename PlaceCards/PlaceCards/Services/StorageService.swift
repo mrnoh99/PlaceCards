@@ -114,6 +114,19 @@ final class StorageService: ObservableObject {
         save(card)
     }
 
+    /// "가져오기"에서만 뺀다. 삭제가 아니다 — 카드는 제 보드에 그대로
+    /// 남고, 어느 보드에도 없더라도 "모든 카드"에는 남는다.
+    ///
+    /// 보드와 달리 소속이 아니라 출신이라 `boardIDs`가 아니라 표시를
+    /// 지운다. 한 번 빼면 다시 넣을 길은 없다 — 들어온 경로는 만들 때
+    /// 한 번만 알 수 있기 때문이다.
+    func removeFromImported(_ placeCard: PlaceCard) {
+        guard placeCard.isImported == true else { return }
+        var card = placeCard
+        card.isImported = nil
+        save(card)
+    }
+
     /// 보드 하나에서만 뺀다. 삭제가 아니다.
     ///
     /// 마지막 보드였다면 카드는 어느 보드에도 속하지 않게 되지만 그대로

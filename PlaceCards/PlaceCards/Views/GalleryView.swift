@@ -120,6 +120,40 @@ struct GalleryView: View {
         }
     }
 
+    /// 삭제 대화상자에 곁들이는 "여기서만 빼기"의 이름. 지금 보고 있는
+    /// 것이 게시판이나 가져오기일 때만 있다 — "모든 카드"를 보고 있으면
+    /// 뺄 "여기"가 없어서 완전 삭제만 남는다.
+    private var scopeRemovalTitle: String? {
+        switch viewModel.scope {
+        case .all:
+            return nil
+        case .board:
+            return scopedBoard == nil ? nil : "이 게시판에서만 제거".localized
+        case .imported:
+            return "가져오기에서만 제거".localized
+        }
+    }
+
+    /// 두 갈래가 각각 무엇인지 한 줄로 적는다. "삭제"가 두 가지 다른
+    /// 일을 할 수 있게 됐으므로, 어느 쪽을 누르는지 모르고 고르는 일이
+    /// 없어야 한다.
+    private var deleteChoiceMessage: String {
+        let full = "완전 삭제는 삭제됨으로 옮겨지고 거기서 되돌릴 수 있습니다.".localized
+        guard scopeRemovalTitle != nil else { return full }
+        return "여기서만 빼면 카드는 다른 곳에 그대로 남습니다.".localized + " " + full
+    }
+
+    private func removeFromScope(_ cards: [PlaceCard]) {
+        switch viewModel.scope {
+        case .all:
+            break
+        case .board(let id):
+            for card in cards { storageService.removeFromBoard(card, boardID: id) }
+        case .imported:
+            for card in cards { storageService.removeFromImported(card) }
+        }
+    }
+
     private var selectedCards: [PlaceCard] {
         viewModel.filteredPlaceCards.filter { selectedIDs.contains($0.id) }
     }
@@ -262,7 +296,13 @@ struct GalleryView: View {
                 ),
                 titleVisibility: .visible
             ) {
-                Button("삭제".localized, role: .destructive) {
+                if let scopeRemovalTitle {
+                    Button(scopeRemovalTitle) {
+                        if let card = cardPendingDelete { removeFromScope([card]) }
+                        cardPendingDelete = nil
+                    }
+                }
+                Button("완전 삭제".localized, role: .destructive) {
                     if let card = cardPendingDelete {
                         storageService.delete(card)
                     }
@@ -270,19 +310,25 @@ struct GalleryView: View {
                 }
                 Button("취소".localized, role: .cancel) { cardPendingDelete = nil }
             } message: {
-                Text("삭제됨으로 옮겨집니다. 거기서 되돌릴 수 있습니다.".localized)
+                Text(deleteChoiceMessage)
             }
             .confirmationDialog(
                 bulkDeleteConfirmationTitle,
                 isPresented: $isConfirmingBulkDelete,
                 titleVisibility: .visible
             ) {
+                if let scopeRemovalTitle {
+                    Button(scopeRemovalTitle) {
+                        removeFromScope(selectedCards)
+                        exitSelection()
+                    }
+                }
                 Button(bulkDeleteConfirmationButtonTitle, role: .destructive) {
                     deleteSelected()
                 }
                 Button("취소".localized, role: .cancel) {}
             } message: {
-                Text("삭제됨으로 옮겨집니다. 거기서 되돌릴 수 있습니다.".localized)
+                Text(deleteChoiceMessage)
             }
             .alert("카테고리 입력".localized, isPresented: $isPresentingCustomCategoryInput) {
                 TextField("카테고리".localized, text: $customCategoryInput)
@@ -315,7 +361,7 @@ struct GalleryView: View {
     }
 
     private var bulkDeleteConfirmationButtonTitle: String {
-        "\(selectedIDs.count)" + "개 삭제".localized
+        "\(selectedIDs.count)" + "개 완전 삭제".localized
     }
 
     /// Grid or list, per `layout` — same underlying `viewModel
@@ -572,20 +618,6 @@ struct GalleryView: View {
         }
         .disabled(selectedIDs.isEmpty)
 
-        // 지금 보고 있는 게시판에서만 뺀다. 삭제가 아니므로 카드는 다른
-        // 게시판과 "모든 카드"에 그대로 남는다. 게시판 하나로 좁혀 보고
-        // 있을 때만 뜬다 — 전체를 보고 있으면 어느 게시판에서 뺄지가
-        // 정해지지 않는다.
-        if let scopedBoard {
-            Button {
-                removeSelectedFromScopedBoard(scopedBoard)
-            } label: {
-                Label("게시판에서 제거".localized, systemImage: "minus.circle")
-                    .font(.subheadline.weight(.medium))
-            }
-            .disabled(selectedIDs.isEmpty)
-        }
-
         if !storageService.boards.isEmpty {
             Menu {
                 ForEach(storageService.boards) { board in
@@ -730,14 +762,6 @@ struct GalleryView: View {
         for id in selectedIDs {
             guard let card = storageService.placeCard(id: id) else { continue }
             storageService.addToBoard(card, boardID: board.id)
-        }
-        exitSelection()
-    }
-
-    private func removeSelectedFromScopedBoard(_ board: Board) {
-        for id in selectedIDs {
-            guard let card = storageService.placeCard(id: id) else { continue }
-            storageService.removeFromBoard(card, boardID: board.id)
         }
         exitSelection()
     }

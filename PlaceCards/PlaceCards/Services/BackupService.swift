@@ -314,6 +314,14 @@ enum BackupService {
             var newCard = card
             newCard.id = UUID().uuidString
             newCard.boardIDs = mapped
+            // 바깥에서 받아 들여온 카드는 "가져오기"에도 들어간다. 파일로
+            // 받은 게시판도, Google Takeout도(TakeoutImport가 만든
+            // BackupData가 결국 여기로 온다) 같은 길이다.
+            //
+            // `restore`는 이 길을 타지 않는다. 그쪽은 남의 정보를 들여오는
+            // 것이 아니라 제 백업을 되돌리는 것이라, 표시하면 쓰던 카드가
+            // 전부 가져오기로 쏟아진다.
+            newCard.isImported = true
             storageService.save(newCard)
         }
         return importedBoards
