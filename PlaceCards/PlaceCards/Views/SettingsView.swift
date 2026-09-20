@@ -32,7 +32,7 @@ struct SettingsView: View {
 
     private var storageUsageText: String {
         guard let mediaUsage else { return "계산 중…".localized }
-        let places = "\(storageService.placeCards.count)" + "개 장소".localized
+        let places = "\(storageService.activePlaceCards.count)" + "개 장소".localized
         let photos = "\(mediaUsage.fileCount)" + "장의 사진".localized
         let size = ByteCountFormatter.string(fromByteCount: mediaUsage.totalBytes, countStyle: .file)
         return places + " · " + photos + " · " + size
@@ -396,7 +396,7 @@ struct SettingsView: View {
     /// bytes in it, so there is nothing here worth an async hop.
     private func startCSVExport() {
         csvDocument = CSVDocument(
-            data: CSVExport.csv(boards: storageService.boards, placeCards: storageService.placeCards)
+            data: CSVExport.csv(boards: storageService.boards, placeCards: storageService.activePlaceCards)
         )
         showingCSVExporter = true
     }

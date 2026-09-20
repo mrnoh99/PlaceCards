@@ -138,7 +138,7 @@ struct CategoryPickerSheet: View {
         let mergedName = mergedNameInput.trimmingCharacters(in: .whitespaces)
         guard !mergedName.isEmpty, mergeSelection.count >= 2 else { return }
 
-        for card in storageService.placeCards {
+        for card in storageService.activePlaceCards {
             guard let category = card.category, !category.isEmpty,
                   mergeSelection.contains(PlaceCategoryIcon.normalizedLabel(for: category)) else { continue }
             var updated = card

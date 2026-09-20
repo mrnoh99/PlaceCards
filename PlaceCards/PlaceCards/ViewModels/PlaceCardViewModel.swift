@@ -146,11 +146,21 @@ final class PlaceCardViewModel: ObservableObject {
     private var isCancellingVerification = false
 
     private let storageService: StorageService
-    private let boardId: String
+    /// 카드를 넣을 게시판. nil이면 어느 게시판에도 넣지 않는다 —
+    /// 다른 앱에서 공유해 들어온 카드가 그렇다. 그런 카드는 "가져오기"와
+    /// "모든 카드"에서 보이고, 거기서 게시판으로 옮기면 된다.
+    private let boardId: String?
+    /// 만드는 카드를 "가져오기"에도 담을지.
+    ///
+    /// 다른 앱의 공유로 열린 경우가 그렇고, 사용자가 "가져오기"를 보는
+    /// 중에 "+"로 연 경우도 그렇다. 후자는 담을 게시판이 없으므로
+    /// 담지 않으면 "모든 카드" 말고는 어디에서도 보이지 않는다.
+    private let addsToImported: Bool
 
-    init(storageService: StorageService, boardId: String) {
+    init(storageService: StorageService, boardId: String?, addsToImported: Bool = false) {
         self.storageService = storageService
         self.boardId = boardId
+        self.addsToImported = addsToImported
     }
 
     var selectedRowCount: Int {
@@ -948,7 +958,7 @@ final class PlaceCardViewModel: ObservableObject {
         externalLinks: [ExternalLink] = []
     ) async throws -> PlaceCard {
         var card = PlaceCard(
-            boardId: boardId,
+            boardId: boardId ?? "",
             name: result.name,
             category: result.category,
             address: result.address,
@@ -964,6 +974,11 @@ final class PlaceCardViewModel: ObservableObject {
             tags: tags,
             memo: PlaceCard.combinedMemo(nil, appending: note)
         )
+        // 소속을 정하는 것은 `boardIDs`다. 위의 `boardId`는 카드가
+        // 게시판 하나에만 속하던 시절의 필드이고, 게시판이 없으면 빈
+        // 문자열로 남는다.
+        card.boardIDs = boardId.map { [$0] } ?? []
+        card.isImported = addsToImported ? true : nil
         card.applyScannedDetails(details)
 
         // Hours ride along on the search result itself (`search`'s field
@@ -1117,9 +1132,14 @@ final class PlaceCardViewModel: ObservableObject {
         externalLinks: [ExternalLink] = [], sharedCoordinates: Coordinates? = nil
     ) async -> PlaceCard {
         var card = PlaceCard(
-            boardId: boardId, name: name, address: address, website: website, externalLinks: externalLinks,
+            boardId: boardId ?? "", name: name, address: address, website: website, externalLinks: externalLinks,
             tags: tags, memo: PlaceCard.combinedMemo(nil, appending: note)
         )
+        // 소속을 정하는 것은 `boardIDs`다. 위의 `boardId`는 카드가
+        // 게시판 하나에만 속하던 시절의 필드이고, 게시판이 없으면 빈
+        // 문자열로 남는다.
+        card.boardIDs = boardId.map { [$0] } ?? []
+        card.isImported = addsToImported ? true : nil
         card.applyScannedDetails(details)
         card.sources.append(SourceRecord(
             sourceType: source,

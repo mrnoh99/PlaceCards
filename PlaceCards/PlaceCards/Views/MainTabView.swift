@@ -105,13 +105,12 @@ struct MainTabView: View {
     var body: some View {
         ZStack {
             TabView(selection: $navigation.selectedTab) {
-                HomeView()
-                    .tabItem { Label("홈".localized, systemImage: "house") }
-                    .tag(AppTab.home)
-
-                GalleryView(viewModel: GalleryViewModel(storageService: storageService))
+                HomeView(galleryViewModel: GalleryViewModel(storageService: storageService))
+                    // 탭 이름은 "갤러리"지만 타입은 그대로 `HomeView`,
+                    // 태그도 `.home`이다. 이 저장소에는 이미 다른
+                    // `GalleryView`가 있어서 이름을 옮기면 둘이 부딪힌다.
                     .tabItem { Label("갤러리".localized, systemImage: "square.grid.2x2") }
-                    .tag(AppTab.gallery)
+                    .tag(AppTab.home)
 
                 PlacesMapView(viewModel: MapViewModel(storageService: storageService))
                     .tabItem { Label("지도".localized, systemImage: "map") }
@@ -143,6 +142,10 @@ struct MainTabView: View {
             consumePendingKeySetupIfNeeded()
             checkForSharedImage()
             await restoreFromCloudIfNeeded()
+            // 클라우드 복원 뒤에 돈다. 복원이 삭제됨에 있던 카드를 도로
+            // 들여올 수 있고, 그중 기한이 지난 것은 여기서 정리된다.
+            // 삭제됨을 그냥 두면 사진 파일이 영영 남아 저장 공간을 먹는다.
+            storageService.purgeExpiredTrash()
             withAnimation { isPerformingStartupWork = false }
 
             // Fire-and-forget from here on — exporting the current data

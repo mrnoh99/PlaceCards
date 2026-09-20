@@ -291,19 +291,38 @@ enum BackupService {
     @discardableResult
     static func importBoard(_ backup: BackupData, storageService: StorageService) -> [Board] {
         writeMediaFiles(backup.mediaFiles)
+
+        // 보드 id를 먼저 전부 새로 매긴 뒤, 카드는 그 다음에 한 번만
+        // 돈다. 예전에는 보드마다 그 안의 카드를 돌며 새 id를 붙였는데,
+        // 카드가 여러 보드에 들어갈 수 있게 된 지금 그렇게 하면 두 보드에
+        // 든 카드가 서로 다른 id를 단 두 장으로 복제된다.
+        var newBoardIDs: [String: String] = [:]
         var importedBoards: [Board] = []
         for board in backup.boards {
             var newBoard = board
             newBoard.id = UUID().uuidString
-            let oldBoardID = board.id
-            for card in backup.placeCards where card.boardId == oldBoardID {
-                var newCard = card
-                newCard.id = UUID().uuidString
-                newCard.boardId = newBoard.id
-                storageService.save(newCard)
-            }
+            newBoardIDs[board.id] = newBoard.id
             storageService.saveBoard(newBoard)
             importedBoards.append(newBoard)
+        }
+
+        for card in backup.placeCards {
+            // 이 가져오기에 들어 있지 않은 보드는 버린다. 백업이 카드가
+            // 속한 보드를 전부 담고 있다는 보장이 없다.
+            let mapped = card.boardIDs.compactMap { newBoardIDs[$0] }
+            guard !mapped.isEmpty else { continue }
+            var newCard = card
+            newCard.id = UUID().uuidString
+            newCard.boardIDs = mapped
+            // 바깥에서 받아 들여온 카드는 "가져오기"에도 들어간다. 파일로
+            // 받은 게시판도, Google Takeout도(TakeoutImport가 만든
+            // BackupData가 결국 여기로 온다) 같은 길이다.
+            //
+            // `restore`는 이 길을 타지 않는다. 그쪽은 남의 정보를 들여오는
+            // 것이 아니라 제 백업을 되돌리는 것이라, 표시하면 쓰던 카드가
+            // 전부 가져오기로 쏟아진다.
+            newCard.isImported = true
+            storageService.save(newCard)
         }
         return importedBoards
     }

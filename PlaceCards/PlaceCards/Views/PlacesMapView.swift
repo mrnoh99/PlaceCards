@@ -44,7 +44,7 @@ struct PlacesMapView: View {
     /// The board Home is currently showing, if any — used for the
     /// navigation title, and to look up its name.
     private var scopedBoard: Board? {
-        guard let boardID = navigation.currentHomeBoardID else { return nil }
+        guard let boardID = navigation.galleryScope.boardID else { return nil }
         return storageService.boards.first { $0.id == boardID }
     }
 
@@ -57,8 +57,8 @@ struct PlacesMapView: View {
         let scoped: [PlaceCard]
         if let filterIDs = navigation.mapFilterIDs {
             scoped = viewModel.annotatedPlaceCards.filter { filterIDs.contains($0.id) }
-        } else if let boardID = navigation.currentHomeBoardID {
-            scoped = viewModel.annotatedPlaceCards.filter { $0.boardId == boardID }
+        } else if let boardID = navigation.galleryScope.boardID {
+            scoped = viewModel.annotatedPlaceCards.filter { $0.boardIDs.contains(boardID) }
         } else {
             scoped = viewModel.annotatedPlaceCards
         }
@@ -200,7 +200,7 @@ struct PlacesMapView: View {
     }
 
     private var nothingToShowReason: String {
-        if storageService.placeCards.isEmpty {
+        if storageService.activePlaceCards.isEmpty {
             return "아직 저장된 장소가 없습니다. 갤러리 탭의 \"장소 추가\"로 첫 장소를 담아보세요.".localized
         }
         if !searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {

@@ -5,6 +5,13 @@ import Combine
 /// files in the app's documents directory. Kept deliberately simple (no
 /// CoreData/SwiftData) so the schema can evolve freely while the data model
 /// is still settling.
+/// 삭제됨에 이만큼 머문 카드는 저절로 지워진다.
+///
+/// `StorageService`가 `@MainActor`라 그 안에 두면 화면의 평범한 계산
+/// 프로퍼티(`TrashView.retentionNotice`)에서 읽는 것이 액터를 넘는 일이
+/// 된다. 바꿀 일 없는 숫자 하나일 뿐이므로 클래스 밖에 둔다.
+let trashRetention: TimeInterval = 30 * 24 * 60 * 60
+
 @MainActor
 final class StorageService: ObservableObject {
     @Published private(set) var boards: [Board] = []
@@ -52,13 +59,21 @@ final class StorageService: ObservableObject {
         persistBoards()
     }
 
-    /// Deletes the board and every PlaceCard inside it (and each of their
-    /// photos on disk), so nothing is left orphaned. Callers that want
-    /// Peragra's stricter "only an empty board can be deleted" rule should
-    /// check `placeCards(inBoard:).isEmpty` themselves before calling this.
+    /// 보드를 없애고, 그 보드에 들어 있던 카드에서는 이 보드만 뺀다.
+    ///
+    /// 예전에는 보드 안의 카드를 사진째로 같이 지웠다. 카드가 보드
+    /// 하나에만 속하던 때는 그게 "고아를 남기지 않는" 방법이었지만, 이제
+    /// 한 카드가 여러 보드에 들어가므로 다른 보드에서 멀쩡히 쓰이는 카드를
+    /// 같이 데려가게 된다. 어느 보드에도 안 남게 된 카드는 지워지지 않고
+    /// "모든 카드"에 남는다.
+    ///
+    /// 화면은 여전히 빈 보드에만 삭제를 내주므로(`HomeView`) 이 반복문이
+    /// 실제로 도는 일은 드물다.
     func deleteBoard(_ board: Board) {
-        for card in placeCards(inBoard: board.id) {
-            delete(card)
+        for card in placeCards where card.boardIDs.contains(board.id) {
+            var updated = card
+            updated.boardIDs = updated.boardIDs.filter { $0 != board.id }
+            save(updated)
         }
         boards.removeAll { $0.id == board.id }
         persistBoards()
@@ -66,8 +81,61 @@ final class StorageService: ObservableObject {
 
     // MARK: - PlaceCards
 
+    /// 삭제됨에 들어 있지 않은 카드 전부 — "모든 카드"가 세는 것이고,
+    /// 갤러리·지도·검색이 보는 것이다. `placeCards`는 삭제된 것까지 들고
+    /// 있으므로 화면에서 그대로 쓰면 안 된다.
+    var activePlaceCards: [PlaceCard] {
+        placeCards.filter { !$0.isDeleted }
+    }
+
+    /// 다른 앱이 공유해 준 정보로 만들어진 카드 — 홈의 "가져오기"가
+    /// 세고 보여 주는 것. 보드와 달리 소속이 아니라 출신이므로, 이 카드들은
+    /// 자기 보드에도 그대로 들어 있다.
+    var importedPlaceCards: [PlaceCard] {
+        activePlaceCards.filter { $0.isImported == true }
+    }
+
+    /// 삭제됨에 들어 있는 카드. 최근에 옮긴 것이 위로 온다.
+    var deletedPlaceCards: [PlaceCard] {
+        placeCards
+            .filter(\.isDeleted)
+            .sorted { ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast) }
+    }
+
     func placeCards(inBoard boardId: String) -> [PlaceCard] {
-        placeCards.filter { $0.boardId == boardId }
+        placeCards.filter { !$0.isDeleted && $0.boardIDs.contains(boardId) }
+    }
+
+    /// 카드를 보드 하나에 더 넣는다. 이미 들어 있으면 아무 일도 없다.
+    func addToBoard(_ placeCard: PlaceCard, boardID: String) {
+        guard !placeCard.boardIDs.contains(boardID) else { return }
+        var card = placeCard
+        card.boardIDs = card.boardIDs + [boardID]
+        save(card)
+    }
+
+    /// "가져오기"에서만 뺀다. 삭제가 아니다 — 카드는 제 보드에 그대로
+    /// 남고, 어느 보드에도 없더라도 "모든 카드"에는 남는다.
+    ///
+    /// 보드와 달리 소속이 아니라 출신이라 `boardIDs`가 아니라 표시를
+    /// 지운다. 한 번 빼면 다시 넣을 길은 없다 — 들어온 경로는 만들 때
+    /// 한 번만 알 수 있기 때문이다.
+    func removeFromImported(_ placeCard: PlaceCard) {
+        guard placeCard.isImported == true else { return }
+        var card = placeCard
+        card.isImported = nil
+        save(card)
+    }
+
+    /// 보드 하나에서만 뺀다. 삭제가 아니다.
+    ///
+    /// 마지막 보드였다면 카드는 어느 보드에도 속하지 않게 되지만 그대로
+    /// 남아 "모든 카드"에서 보인다 — Lightroom에서 앨범에서 뺀 사진이
+    /// 모든 사진에는 남아 있는 것과 같다.
+    func removeFromBoard(_ placeCard: PlaceCard, boardID: String) {
+        var card = placeCard
+        card.boardIDs = card.boardIDs.filter { $0 != boardID }
+        save(card)
     }
 
     func save(_ placeCard: PlaceCard) {
@@ -81,12 +149,52 @@ final class StorageService: ObservableObject {
         persistPlaceCards()
     }
 
+    /// 삭제됨으로 옮긴다. 예전에는 이 함수가 사진 파일까지 디스크에서
+    /// 지우는 되돌릴 수 없는 삭제였다 — 이제 되돌릴 수 있어야 하므로
+    /// 표시만 남기고, 진짜로 지우는 일은 `purge(_:)`가 한다.
+    ///
+    /// 보드 목록은 건드리지 않는다. 화면들이 `isDeleted`로 걸러내므로
+    /// 카드는 모든 보드와 "모든 카드"에서 사라지고, `restore(_:)`가
+    /// 표시만 지우면 있던 자리로 돌아온다.
     func delete(_ placeCard: PlaceCard) {
+        guard !placeCard.isDeleted else { return }
+        var card = placeCard
+        card.deletedAt = Date()
+        save(card)
+    }
+
+    func restore(_ placeCard: PlaceCard) {
+        guard placeCard.isDeleted else { return }
+        var card = placeCard
+        card.deletedAt = nil
+        save(card)
+    }
+
+    /// 되돌릴 수 없다. 사진 파일까지 디스크에서 지운다 — 예전
+    /// `delete(_:)`가 하던 일 그대로다.
+    func purge(_ placeCard: PlaceCard) {
         for item in placeCard.media.allItems {
             MediaStore.delete(fileName: item.localPath)
         }
         placeCards.removeAll { $0.id == placeCard.id }
         persistPlaceCards()
+    }
+
+    func emptyTrash() {
+        // `deletedPlaceCards`는 그때그때 새로 만든 배열이라, 그 안을 돌며
+        // `placeCards`를 줄여도 문제되지 않는다.
+        for card in deletedPlaceCards {
+            purge(card)
+        }
+    }
+
+    /// 앱이 뜰 때 한 번 돈다(`MainTabView`). 삭제됨을 그냥 두면 사진
+    /// 파일이 영원히 남아 저장 공간을 먹는다.
+    func purgeExpiredTrash(now: Date = Date()) {
+        let cutoff = now.addingTimeInterval(-trashRetention)
+        for card in placeCards where (card.deletedAt.map { $0 < cutoff } ?? false) {
+            purge(card)
+        }
     }
 
     /// Removes a card that's just been merged into another one
@@ -146,7 +254,8 @@ final class StorageService: ObservableObject {
 
         // A card whose board exists neither here nor in the backup would
         // be unreachable in the UI, so it is left out rather than saved
-        // somewhere it can never be seen.
+        // somewhere it can never be seen. 보드가 하나도 없는 카드는
+        // 예외다 — 이제 "모든 카드"에서 보이므로 닿을 수 있다.
         let reachableBoardIDs = existingBoardIDs.union(newBoards.map(\.id))
         var indexByID: [String: Int] = [:]
         for (index, card) in placeCards.enumerated() {
@@ -155,7 +264,8 @@ final class StorageService: ObservableObject {
 
         var addedCount = 0
         var updatedCount = 0
-        for card in newPlaceCards where reachableBoardIDs.contains(card.boardId) {
+        for card in newPlaceCards where card.boardIDs.isEmpty
+            || card.boardIDs.contains(where: reachableBoardIDs.contains) {
             guard let index = indexByID[card.id] else {
                 indexByID[card.id] = placeCards.count
                 // Appended as-is, not through `save(_:)` — that stamps
@@ -191,7 +301,8 @@ final class StorageService: ObservableObject {
     }
 
     func search(query: String, tags: [String] = []) -> [PlaceCard] {
-        placeCards.filter { card in
+        // 삭제됨에 있는 카드는 검색에도 안 걸린다.
+        activePlaceCards.filter { card in
             let matchesTags = tags.isEmpty || !Set(tags).isDisjoint(with: Set(card.tags))
             return card.matchesSearch(query) && matchesTags
         }

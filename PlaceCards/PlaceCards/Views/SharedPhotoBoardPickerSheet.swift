@@ -1,10 +1,18 @@
 import SwiftUI
 
 /// Shown when a photo was handed to PlaceCards through the Share
-/// Extension (`ShareViewController`, `PlaceCardsShare` target) — since
-/// every card belongs to a board, this asks which board to add it to,
-/// then opens the normal "장소 추가" flow (`AddPlaceCardView`) for that
-/// board with the shared photo already picked.
+/// Extension (`ShareViewController`, `PlaceCardsShare` target) — opens the
+/// normal "장소 추가" flow (`AddPlaceCardView`) with the shared photo
+/// already picked.
+///
+/// 이름에 "BoardPicker"가 남아 있지만 더 이상 게시판을 묻지 않는다.
+/// 공유로 들어온 카드는 일단 "가져오기"로 가고, 게시판은 나중에 거기서
+/// 정한다. 이름을 그대로 둔 것은 `MainTabView`의 공유 표시 장치
+/// (`.sheet(item:)`·큐·`presentShortly`)를 건드리지 않기 위해서다 —
+/// 00_UI개편_기초.md §2.1이 그 부분을 특별히 경고한다.
+///
+/// 게시판을 고르는 단계가 사라지면서 "게시판이 없습니다" 막다른 길도
+/// 없어졌다. 게시판을 하나도 만들지 않은 채 공유해도 카드가 만들어진다.
 struct SharedPhotoBoardPickerSheet: View {
     let imageData: Data
     /// Photos the user had already picked in `AddPlaceCardView` before
@@ -20,84 +28,25 @@ struct SharedPhotoBoardPickerSheet: View {
     /// comment on this same property for why a second level of `.sheet`
     /// needs it re-attached explicitly.
     @EnvironmentObject private var navigation: AppNavigation
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedBoard: Board?
-    /// Flipped true from `.task`, so the list is drawn on a second layout
-    /// pass rather than the first. Kept in step with
-    /// `SharedLinkBoardPickerSheet`'s identical property — see its comment
-    /// for why this turned out not to be the cause of the blank-share
-    /// report, and where that was actually fixed.
-    @State private var isReady = false
-
-    private var previewImage: UIImage? { UIImage(data: imageData) }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if !isReady {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if storageService.boards.isEmpty {
-                    ContentUnavailableView {
-                        Label("게시판이 없습니다".localized, systemImage: "square.stack")
-                    } description: {
-                        Text("먼저 홈에서 게시판을 만들어주세요.".localized)
-                    }
-                } else {
-                    List {
-                        // The photo equivalent of the link sheet's "공유한
-                        // 정보" preview: which board to file this under is
-                        // hard to answer without seeing what "this" even
-                        // is, and several screenshots taken back to back
-                        // look identical in the share sheet.
-                        Section("공유한 사진".localized) {
-                            if let previewImage {
-                                Image(uiImage: previewImage)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxHeight: 180)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                            } else {
-                                Text("사진을 미리 볼 수 없습니다.".localized)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                        Section("추가할 게시판".localized) {
-                            ForEach(storageService.boards) { board in
-                                Button {
-                                    selectedBoard = board
-                                } label: {
-                                    Label(board.name, systemImage: board.coverIcon)
-                                }
-                                .foregroundStyle(.primary)
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("공유한 사진을 추가할 게시판".localized)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("취소".localized) { dismiss() }
-                }
-            }
-            .task { isReady = true }
-        }
-        .sheet(item: $selectedBoard, onDismiss: { dismiss() }) { board in
-            AddPlaceCardView(
-                viewModel: PlaceCardViewModel(storageService: storageService, boardId: board.id),
-                // The user's own photos first, the just-shared one last:
-                // whichever ends up first is the one a cover photo is
-                // taken from, and a map screenshot — shared to be read
-                // for its text, not looked at — is the worse choice for
-                // that than a photo they actually took of the place.
-                initialImageDatas: photoDatas + [imageData]
-            )
-            .environmentObject(navigation)
-        }
+        // 게시판을 고르지 않으므로 여기서 바로 "장소 추가"다. 예전에는
+        // 이 시트가 게시판 목록을 보여 주고 고른 뒤에 중첩 시트로
+        // `AddPlaceCardView`를 띄웠다 — 시트를 겹쳐 쌓는 것은
+        // `MainTabView`의 주석이 "조용히 안 뜨는" 원인으로 적어 둔 모양
+        // 이므로, 한 겹 줄어든 것은 덤이다.
+        AddPlaceCardView(
+            viewModel: PlaceCardViewModel(
+                storageService: storageService, boardId: nil, addsToImported: true
+            ),
+            // The user's own photos first, the just-shared one last:
+            // whichever ends up first is the one a cover photo is taken
+            // from, and a map screenshot — shared to be read for its text,
+            // not looked at — is the worse choice for that than a photo
+            // they actually took of the place.
+            initialImageDatas: photoDatas + [imageData]
+        )
+        .environmentObject(navigation)
     }
 }
 
