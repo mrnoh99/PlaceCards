@@ -77,13 +77,6 @@ final class AppNavigation: ObservableObject {
         selectedTab = .map
     }
 
-    /// 홈의 "카테고리별 보기" 칩 — 그 카테고리만 남긴 갤러리를 띄운다.
-    /// 갤러리는 홈 오른쪽 칸에 있으므로 홈으로 간다.
-    func showInGallery(category: String) {
-        galleryCategoryFilter = category
-        selectedTab = .home
-    }
-
     /// A single card was just created from shared-in info (see
     /// `AddPlaceCardView`'s "추가" action) — jump to Gallery and have it
     /// push straight to that card.

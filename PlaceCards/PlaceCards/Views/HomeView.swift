@@ -84,7 +84,7 @@ struct HomeView: View {
     /// Every category present across every board's cards — offered as
     /// "카테고리별 보기" chips above the board list, each jumping straight
     /// to the Gallery tab pre-filtered to that category
-    /// (`AppNavigation.showInGallery(category:)`).
+    /// (`browse(category:)`).
     private var allCategories: [String] {
         let normalized = storageService.activePlaceCards.compactMap { card -> String? in
             guard let category = card.category, !category.isEmpty else { return nil }
@@ -145,6 +145,20 @@ struct HomeView: View {
 
     /// 오른쪽 칸을 갤러리로 돌린다. 이미 갤러리를 보고 있으면 고른 것을
     /// 건드리지 않는다 — 보고 있던 게시판이 "모든 카드"로 튕기면 안 된다.
+    /// 카테고리 칩 — 범위를 "모든 카드"로 되돌린 뒤 그 카테고리만 남긴다.
+    ///
+    /// 칩 목록은 처음부터 **모든 카드**에서 모은 것이다(`allCategories`).
+    /// 누를 때 범위를 그대로 두면, 보드를 보고 나온 뒤에는 그 보드 안에서만
+    /// 걸러져 칩에 보이던 카드가 사라진다 — 목록과 결과가 어긋난다.
+    ///
+    /// `galleryScope`와 `sidebarSelection`을 같이 옮긴다. 하나만 옮기면
+    /// 왼쪽 목록은 보드를 짚고 있는데 오른쪽은 전체를 보여 주는 꼴이 된다.
+    private func browse(category: String) {
+        navigation.galleryScope = .all
+        sidebarSelection = .scope(.all)
+        navigation.galleryCategoryFilter = category
+    }
+
     private func showGalleryInDetail() {
         if case .scope = sidebarSelection { return }
         sidebarSelection = .scope(navigation.galleryScope)
@@ -338,7 +352,7 @@ struct HomeView: View {
         .onChange(of: categoryEditorPick) { _, newValue in
             guard let newValue else { return }
             categoryEditorPick = nil
-            navigation.showInGallery(category: newValue)
+            browse(category: newValue)
         }
         .sheet(item: $boardPendingEdit) { board in
             EditBoardSheet(board: board)
@@ -406,7 +420,7 @@ struct HomeView: View {
                     HStack(spacing: 8) {
                         ForEach(allCategories, id: \.self) { category in
                             searchCategoryChip(title: category, isSelected: false) {
-                                navigation.showInGallery(category: category)
+                                browse(category: category)
                             }
                         }
                     }
