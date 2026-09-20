@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 /// Which layout the "갤러리" tab renders its cards in — a segmented
@@ -5,7 +6,8 @@ import SwiftUI
 /// `PlacesMapView`'s own map-provider picker: it's a per-visit display
 /// choice, not something worth burying elsewhere. Persisted via
 /// `@AppStorage` purely so it doesn't reset every time the tab is left
-/// and revisited.
+/// and revisited — 그리고 범위(보드·모든 카드·가져오기)마다 따로
+/// 기억한다. `GalleryView.layoutByScopeRaw`를 볼 것.
 private enum GalleryLayout: String, CaseIterable, Identifiable {
     case grid, list
 
@@ -42,7 +44,19 @@ struct GalleryView: View {
     @EnvironmentObject private var navigation: AppNavigation
     @EnvironmentObject private var storageService: StorageService
 
-    @AppStorage("galleryLayout") private var layoutRaw: String = GalleryLayout.grid.rawValue
+    /// 범위마다 격자/목록을 따로 기억한다. 사진이 중요한 보드와 주소가
+    /// 중요한 보드가 따로 있어서, 전역 설정 하나이던 때는 보드를 옮길
+    /// 때마다 다시 바꿔야 했다.
+    ///
+    /// 사전 하나를 JSON 문자열로 담는다. `@AppStorage`는 키가 고정이라
+    /// 범위마다 다른 키를 쓸 수 없고, `UserDefaults`를 직접 읽으면 값이
+    /// 바뀌어도 화면이 다시 그려지지 않는다.
+    @AppStorage("galleryLayoutByScope") private var layoutByScopeRaw: String = "{}"
+
+    /// 범위별 값이 생기기 전에 쓰던 전역 설정. 아직 지우지 않는다 —
+    /// 범위에 저장된 값이 없을 때 기본으로 삼아, 목록으로 보던 사람이
+    /// 이 변경 뒤에 갑자기 격자로 되돌아가지 않게 한다.
+    @AppStorage("galleryLayout") private var legacyLayoutRaw: String = GalleryLayout.grid.rawValue
     @State private var selectedCard: PlaceCard?
     @State private var cardPendingDelete: PlaceCard?
     @State private var isPresentingFindDuplicates = false
@@ -110,8 +124,39 @@ struct GalleryView: View {
         viewModel.filteredPlaceCards.filter { selectedIDs.contains($0.id) }
     }
 
+    /// 범위 하나를 가리키는 열쇠. 보드는 id로 구별하고, 보드가 아닌
+    /// 모음은 제 이름을 쓴다.
+    private var scopeLayoutKey: String {
+        switch viewModel.scope {
+        case .all: return "all"
+        case .board(let id): return "board:" + id
+        case .imported: return "imported"
+        }
+    }
+
+    private var layoutByScope: [String: String] {
+        guard let data = layoutByScopeRaw.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([String: String].self, from: data)
+        else { return [:] }
+        return decoded
+    }
+
     private var layout: GalleryLayout {
-        GalleryLayout(rawValue: layoutRaw) ?? .grid
+        if let stored = layoutByScope[scopeLayoutKey],
+           let storedLayout = GalleryLayout(rawValue: stored) {
+            return storedLayout
+        }
+        return GalleryLayout(rawValue: legacyLayoutRaw) ?? .grid
+    }
+
+    /// 지운 보드의 항목은 사전에 남는다. 짧은 문자열 하나뿐이라 해롭지
+    /// 않고, 지우려면 보드 삭제 쪽에 손을 대야 해서 그대로 둔다.
+    private func setLayout(_ newLayout: GalleryLayout) {
+        var map = layoutByScope
+        map[scopeLayoutKey] = newLayout.rawValue
+        guard let data = try? JSONEncoder().encode(map),
+              let text = String(data: data, encoding: .utf8) else { return }
+        layoutByScopeRaw = text
     }
 
     var body: some View {
@@ -410,7 +455,7 @@ struct GalleryView: View {
         }
         ToolbarItem(placement: .primaryAction) {
             Button {
-                layoutRaw = (layout == .grid ? GalleryLayout.list : .grid).rawValue
+                setLayout(layout == .grid ? .list : .grid)
             } label: {
                 Image(systemName: layout == .grid ? GalleryLayout.list.systemImage : GalleryLayout.grid.systemImage)
                     .accessibilityLabel(layout == .grid ? "목록으로 보기".localized : "격자로 보기".localized)
