@@ -173,8 +173,13 @@ final class PlaceCardViewModel: ObservableObject {
     /// handed over together) becomes several rows here, each still
     /// individually editable/deselectable before saving. `rawImageDatas`
     /// are the original, unmodified bytes as picked (not `images`'
-    /// re-encoded JPEGs, which have already lost their EXIF) — read only
-    /// for `photoLocationHint`.
+    /// re-encoded JPEGs, which have already lost their EXIF) — read for
+    /// their GPS, which goes **into the AI prompt** as well as into
+    /// `photoLocationHint`. The two are not competing answers: the model
+    /// gets the coordinates up front so it can use them to tell one
+    /// branch of a chain from another, or place a photo whose address is
+    /// cut off; the hint below is what that same GPS contributes when
+    /// there is no AI at all.
     func analyzeImages(_ images: [UIImage], rawImageDatas: [Data], source: SourceType) async {
         isLoading = true
         errorMessage = nil
@@ -210,7 +215,10 @@ final class PlaceCardViewModel: ObservableObject {
         } else {
             do {
                 let (aiResults, provider, isFallback) = try await AIProviderChain.run {
-                    try await $0.analyzePlaces(imageDatas: imageDatas, prompt: defaultPlaceAnalysisPrompt())
+                    try await $0.analyzePlaces(
+                        imageDatas: imageDatas,
+                        prompt: defaultPlaceAnalysisPrompt(photoCoordinates: photoCoordinates)
+                    )
                 }
                 results = aiResults
                 if isFallback { notes.append(provider.fallbackNoteSuffix.trimmingCharacters(in: .whitespaces)) }
@@ -341,12 +349,19 @@ final class PlaceCardViewModel: ObservableObject {
     }
 
     /// Cross-checks a candidate `photoLocationHint` (this batch's own photo
-    /// GPS) against the AI-identified place's own address before trusting
+    /// GPS) against the identified place's own address before trusting
     /// it — a photo's EXIF GPS can be wrong for the place it's meant to
     /// document (saved from elsewhere, taken earlier in the same trip,
     /// stale metadata carried over from an edit), so agreement with the
-    /// address the AI actually read off the photo is real corroborating
-    /// evidence, not a redundant check. Returns `(candidate, nil)` on
+    /// address is real corroborating evidence, not a redundant check.
+    ///
+    /// The AI is handed these same coordinates before it answers (see
+    /// `defaultPlaceAnalysisPrompt`), which makes a disagreement *more*
+    /// meaningful than it used to be, not less: the model saw the GPS and
+    /// still read a place somewhere else off the image, so the visible
+    /// text is what it's going on, and the photo's own position is the
+    /// weaker claim. On the on-device path nothing saw the GPS, and this
+    /// is the only check there is. Returns `(candidate, nil)` on
     /// agreement; when there's no address to check it against or the
     /// address fails to geocode, there's nothing to contradict the photo,
     /// so it's still trusted — but the caller is told via the note so the

@@ -14,7 +14,10 @@ import SwiftUI
 /// 게시판을 고르는 단계가 사라지면서 "게시판이 없습니다" 막다른 길도
 /// 없어졌다. 게시판을 하나도 만들지 않은 채 공유해도 카드가 만들어진다.
 struct SharedPhotoBoardPickerSheet: View {
-    let imageData: Data
+    /// 한 번에 여러 장을 공유할 수 있다. 전부 같은 새 카드로 들어간다 —
+    /// 한 장소를 여러 각도로 찍어 한꺼번에 보내는 것이 흔한 쓰임이고,
+    /// 장마다 카드를 만들면 그 반대가 된다.
+    let imageDatas: [Data]
     /// Photos the user had already picked in `AddPlaceCardView` before
     /// leaving for a map app to find where they were taken — carried into
     /// the same new card as the screenshot they shared back, so one trip
@@ -44,14 +47,14 @@ struct SharedPhotoBoardPickerSheet: View {
             // from, and a map screenshot — shared to be read for its text,
             // not looked at — is the worse choice for that than a photo
             // they actually took of the place.
-            initialImageDatas: photoDatas + [imageData]
+            initialImageDatas: photoDatas + imageDatas
         )
         .environmentObject(navigation)
     }
 }
 
 #Preview {
-    SharedPhotoBoardPickerSheet(imageData: Data())
+    SharedPhotoBoardPickerSheet(imageDatas: [Data()])
         .environmentObject(StorageService())
         .environmentObject(AppNavigation())
 }

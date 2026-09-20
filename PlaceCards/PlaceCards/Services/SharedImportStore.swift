@@ -27,25 +27,71 @@ enum SharedImportStore {
     /// PlaceCards and PlaceCardsShare targets, with a team selected so
     /// Xcode can register the group with Apple) — everything else in this
     /// flow fails silently when that's missing, since both
-    /// `savePendingImage` and `takePendingImage` are no-ops without a
+    /// `savePendingImages` and `takePendingImages` are no-ops without a
     /// container. Exposed so Settings can surface this instead of leaving
     /// "the shared photo never showed up" a mystery.
     static var isAppGroupAvailable: Bool { containerURL != nil }
 
-    /// Called by the Share Extension once it has the shared item's bytes.
-    static func savePendingImage(_ data: Data) {
-        guard let url = containerURL?.appendingPathComponent(pendingFileName) else { return }
-        try? data.write(to: url, options: .atomic)
+    /// How many photos one share can hand over. Matches
+    /// `AddPlaceCardView.maxPhotos` — the same ceiling the in-app picker
+    /// uses — and `NSExtensionActivationSupportsImageWithMaxCount` in the
+    /// extension's own Info.plist, which is what actually decides whether
+    /// PinSpots even appears in the share sheet for a multi-photo
+    /// selection.
+    static let maxPendingImages = 10
+
+    /// The first photo keeps the original file name, and the rest get a
+    /// numbered one. That is deliberate rather than tidy: a build of the
+    /// app that predates multi-photo sharing reads only the base name, so
+    /// it still finds the first photo instead of finding nothing at all.
+    private static func pendingImageURL(index: Int) -> URL? {
+        guard let containerURL else { return nil }
+        return containerURL.appendingPathComponent(
+            index == 0 ? pendingFileName : "pending-shared-image-\(index).jpg"
+        )
     }
 
-    /// Reads and deletes the pending shared image, if any — this consumes
-    /// it, so call it only once per hand-off (right when the main app
-    /// becomes active).
-    static func takePendingImage() -> Data? {
-        guard let url = containerURL?.appendingPathComponent(pendingFileName),
-              let data = try? Data(contentsOf: url) else { return nil }
-        try? FileManager.default.removeItem(at: url)
-        return data
+    /// Called by the Share Extension once it has the shared items' bytes.
+    /// Anything past `maxPendingImages` is dropped here rather than
+    /// written and ignored later.
+    static func savePendingImages(_ datas: [Data]) {
+        guard containerURL != nil else { return }
+        // Clear the whole set first. Without this, a share of three
+        // photos followed by a share of one would leave the previous
+        // share's second and third photos on disk, and the next read
+        // would hand all three to the app as if they had arrived
+        // together.
+        removePendingImageFiles()
+        for (index, data) in datas.prefix(maxPendingImages).enumerated() {
+            guard let url = pendingImageURL(index: index) else { return }
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
+    /// Reads and deletes every pending shared photo — this consumes them,
+    /// so call it only once per hand-off (right when the main app becomes
+    /// active). Empty when nothing is waiting.
+    ///
+    /// Stops at the first gap rather than scanning the whole range, so a
+    /// leftover numbered file from an interrupted write can never graft
+    /// itself onto an unrelated later share. Every slot is deleted
+    /// afterwards regardless, gap or not.
+    static func takePendingImages() -> [Data] {
+        var datas: [Data] = []
+        for index in 0..<maxPendingImages {
+            guard let url = pendingImageURL(index: index),
+                  let data = try? Data(contentsOf: url) else { break }
+            datas.append(data)
+        }
+        removePendingImageFiles()
+        return datas
+    }
+
+    private static func removePendingImageFiles() {
+        for index in 0..<maxPendingImages {
+            guard let url = pendingImageURL(index: index) else { return }
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     /// Written by the Share Extension at every branch of its handling
@@ -74,7 +120,7 @@ enum SharedImportStore {
     /// plain text (e.g. the URL iOS offers to share right after a
     /// screenshot taken inside Safari/a web view, or Naver Map's own
     /// "공유" text) rather than an image — a separate pending slot from
-    /// `savePendingImage` so an image share and a link share in quick
+    /// `savePendingImages` so an image share and a link share in quick
     /// succession can't clobber each other.
     static func savePendingLink(_ text: String) {
         guard let url = containerURL?.appendingPathComponent(pendingLinkFileName) else { return }
