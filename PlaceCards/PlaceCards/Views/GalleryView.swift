@@ -261,20 +261,43 @@ struct GalleryView: View {
         // 하나하나에 붙이는 대신 상태가 바뀔 때 한곳에서 맞춘다.
         .onChange(of: selectedIDs) { _, _ in syncLiveSelection() }
         .onChange(of: isSelecting) { _, _ in syncLiveSelection() }
+        // 카드 하나를 열고 닫는 것도 같은 신호다. 미는 것도 무르는 것도
+        // 이 값이 바뀌는 일이라(`navigationDestination(item:)`), 화면이
+        // 뜨고 지는 것을 지켜볼 필요가 없다.
+        .onChange(of: selectedCard?.id) { _, _ in syncLiveSelection() }
         .onAppear {
+            // 새로 열리는 갤러리는 언제나 깨끗하게 시작한다. 카테고리
+            // 필터는 범위를 따라다니지 않는다 — 카테고리를 보고 나와서
+            // 보드에 들어가면 그 보드 안에서 또 그 카테고리만 걸려 있었다.
+            //
+            // **이 일이 일어나는 자리는 대개 `.onChange`가 아니라 여기다.**
+            // 좁은 화면에서는 왼쪽 목록에서 무엇을 고를 때마다 이 화면이
+            // 새로 만들어지고, 그때 `galleryScope`는 이미 새 값으로 정해진
+            // 뒤라 `.onChange`가 울릴 일이 없다. 뷰모델은 홈이 들고 있어
+            // 화면보다 오래 살므로 지난 필터가 그대로 딸려 온다.
             viewModel.scope = navigation.galleryScope
+            viewModel.categoryFilter = nil
+            // 칩이 맡긴 것이 있으면 바로 다시 건다. 여기는 차례대로 도는
+            // 코드라 위에서 비운 것을 아래에서 되돌리는 순서가 확실하다.
+            consumePendingCategoryFilter()
             consumePendingDetailCardID()
         }
         .onChange(of: navigation.galleryScope) { _, newValue in
-            // 범위가 실제로 바뀔 때만 손댄다. 카테고리 칩은 범위를 먼저
-            // 맞춰 놓고 필터를 걸므로(`HomeView.browse(category:)`), 여기서
-            // 이미 같은 값이면 그 필터를 도로 지우지 않는다.
+            // 칩이 맡겨 둔 카테고리가 있으면 비켜선다. 범위와 필터를
+            // 함께 맞추는 일을 통째로 `consumePendingCategoryFilter`에
+            // 몰아준다 — 두 `.onChange` 사이의 순서는 보장되지 않으므로,
+            // 나눠 두면 비우는 쪽이 방금 건 필터를 지워 버린다.
+            guard navigation.galleryCategoryFilter == nil else { return }
             guard viewModel.scope != newValue else { return }
             viewModel.scope = newValue
-            // 카테고리 필터는 범위를 따라가지 않는다. 카테고리로 보고
-            // 나와서 보드에 들어가면 그 보드 안에서 또 그 카테고리만
-            // 걸려 있었다.
             viewModel.categoryFilter = nil
+        }
+        // One-shot: `HomeView`의 카테고리 칩이 맡겨 둔 것. 소비한 뒤 바로
+        // nil로 되돌리므로 `.onAppear`에서도 같이 보는 것이 안전하다 —
+        // 이미 비어 있으면 아무 일도 없다. 넓은 화면에서는 이 화면이
+        // 그대로 살아 있어 `.onAppear`가 울리지 않으므로 여기가 필요하다.
+        .onChange(of: navigation.galleryCategoryFilter) { _, _ in
+            consumePendingCategoryFilter()
         }
         // One-shot: a card just created from shared-in info
         // (`AddPlaceCardView`)
@@ -372,6 +395,16 @@ struct GalleryView: View {
             }
             Button("취소".localized, role: .cancel) { customCategoryInput = "" }
         }
+    }
+
+    /// 칩이 맡긴 카테고리를 꺼내 건다. **범위까지 여기서 함께 맞춘다** —
+    /// 위 `.onChange(of: galleryScope)`는 이 값이 차 있는 동안 비켜서
+    /// 있으므로, 둘을 한 번에 놓는 곳이 여기뿐이다.
+    private func consumePendingCategoryFilter() {
+        guard let category = navigation.galleryCategoryFilter else { return }
+        navigation.galleryCategoryFilter = nil
+        viewModel.scope = navigation.galleryScope
+        viewModel.categoryFilter = category
     }
 
     /// Shared by `.onAppear` and `.onChange(of: navigation.pendingDetailCardID)`
@@ -736,8 +769,25 @@ struct GalleryView: View {
         }
     }
 
+    /// 지도가 읽을 "지금 보고 있는 것"을 한곳에서 맞춘다.
+    ///
+    /// 여럿을 고른 선택 모드가 먼저고, 그다음이 카드 하나를 열어 둔
+    /// 상태다. 카드 하나도 "하나를 고른 것"으로 친다.
+    ///
+    /// **화면 생명주기(`.onAppear`/`.onDisappear`)에 기대지 않는다.**
+    /// `TabView`는 탭을 옮길 때 떠나는 탭에 `.onDisappear`를 주므로,
+    /// 거기서 놓으면 지도 탭을 누른 바로 그 순간 — 이 값이 쓰이는 유일한
+    /// 순간에 — 먼저 사라진다. 한 번 그렇게 만들었다가 되돌렸다.
+    /// 여기 걸린 `.onChange` 셋은 전부 사용자의 조작으로 상태가 바뀔 때만
+    /// 울리므로 탭을 오가는 것과 무관하다.
     private func syncLiveSelection() {
-        navigation.liveSelection = (isSelecting && !selectedIDs.isEmpty) ? selectedIDs : nil
+        if isSelecting, !selectedIDs.isEmpty {
+            navigation.liveSelection = selectedIDs
+        } else if let selectedCard {
+            navigation.liveSelection = [selectedCard.id]
+        } else {
+            navigation.liveSelection = nil
+        }
     }
 
     private func exitSelection() {

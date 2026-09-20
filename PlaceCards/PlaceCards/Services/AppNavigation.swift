@@ -43,11 +43,15 @@ final class AppNavigation: ObservableObject {
     ///
     /// 거는 곳이 둘이고, 둘 다 "지금 이것을 보고 있다"는 뜻이다.
     ///
-    /// - 갤러리의 선택 모드(`GalleryView.syncLiveSelection`) — 고르는 동안에만
-    ///   값이 있고 선택을 놓으면 비워진다.
-    /// - 카드 하나를 열어 둔 화면(`PlaceCardDetailView`) — 카드 하나도 "하나를
-    ///   고른 것"으로 친다. 그 화면이 물러날 때 스스로 놓는데, **지도 탭으로
-    ///   건너가는 중이면 놓지 않는다**(`releaseMapNarrowingIfNeeded` 참고).
+    /// - 갤러리의 선택 모드 — 고르는 동안에만 값이 있고 선택을 놓으면 비워진다.
+    /// - 카드 하나를 열어 둔 것(`GalleryView.selectedCard`) — 카드 하나도
+    ///   "하나를 고른 것"으로 친다.
+    ///
+    /// 둘 다 `GalleryView.syncLiveSelection`이 한곳에서 맞추고, **화면이 뜨고
+    /// 지는 것에는 기대지 않는다.** `TabView`는 탭을 옮길 때 떠나는 탭에
+    /// `.onDisappear`를 주므로, 거기서 놓으면 지도 탭을 누른 바로 그 순간 —
+    /// 이 값이 쓰이는 유일한 순간에 — 먼저 사라진다. 한 번 그렇게 만들었다가
+    /// 되돌렸다.
     ///
     /// 어느 쪽이든 고른 채로 지도 탭을 열면 고른 것만 보인다. 예전에는
     /// "지도에서 보기" 단추를 눌러야 했고, 그 단추는 `mapFilterIDs`를 한 번
@@ -70,11 +74,14 @@ final class AppNavigation: ObservableObject {
     /// nil이라 지도는 좁히지 않고 전부 보여 준다.
     @Published var galleryScope: GalleryScope = .all
 
-    // 카테고리 칩도 예전에는 여기 `galleryCategoryFilter`라는 우편함으로
-    // 값을 흘려보냈다. 지금은 `HomeView.browse(category:)`가 갤러리의
-    // 뷰모델을 곧장 맞춘다 — 우편함으로 보내면 범위 변경과 필터 설정이
-    // 서로 다른 갱신에 실려, 범위가 바뀔 때 필터를 비우는 쪽이 방금 건
-    // 필터를 도로 지워 버린다.
+    /// 홈의 "카테고리별 보기" 칩이 맡겨 두는 카테고리. `GalleryView`가
+    /// 한 번 꺼내 쓰고 바로 nil로 되돌린다 — 한 번 쓰고 비우는 우편함이다.
+    ///
+    /// 꺼내 쓰는 쪽(`consumePendingCategoryFilter`)이 **범위와 필터를 함께**
+    /// 맞춘다. 범위가 바뀌면 카테고리 필터를 비우는 규칙이 따로 있어서,
+    /// 둘을 나눠 두면 그 둘이 서로 다른 갱신에 실려 비우는 쪽이 방금 건
+    /// 필터를 지워 버린다. 이 값이 차 있는 동안 비우는 쪽은 비켜선다.
+    @Published var galleryCategoryFilter: String?
 
     /// A card just created from info handed to the app from outside it (a
     /// shared link, a shared photo) — `GalleryView` consumes this once, via
