@@ -32,6 +32,11 @@ struct HomeView: View {
     /// `searchCategoryChips` once there are results to narrow.
     @State private var searchCategoryFilter: String?
     @State private var isPresentingImportBoard = false
+    @State private var isPresentingCategoryEditor = false
+    /// `CategoryPickerSheet`이 고른 것을 받는 자리. 그 화면은 고르기와
+    /// 편집을 같이 하므로 바인딩이 필요하고, 여기서는 고른 것을 그대로
+    /// 갤러리 필터로 넘긴 뒤 비운다.
+    @State private var categoryEditorPick: String?
     /// 왼쪽에서 고른 것. `List(selection:)`이 이걸 채우고, 좁은 화면에서는
     /// 값이 생기는 순간 오른쪽 칸이 밀려 들어온다.
     @State private var sidebarSelection: HomeSelection?
@@ -327,6 +332,14 @@ struct HomeView: View {
         .sheet(isPresented: $isPresentingImportBoard) {
             ImportBoardSheet()
         }
+        .sheet(isPresented: $isPresentingCategoryEditor) {
+            CategoryPickerSheet(categories: allCategories, selection: $categoryEditorPick)
+        }
+        .onChange(of: categoryEditorPick) { _, newValue in
+            guard let newValue else { return }
+            categoryEditorPick = nil
+            navigation.showInGallery(category: newValue)
+        }
         .sheet(item: $boardPendingEdit) { board in
             EditBoardSheet(board: board)
         }
@@ -377,14 +390,18 @@ struct HomeView: View {
         }
     }
 
-    /// Sits above the board list — tapping a category jumps straight to
-    /// the Gallery tab pre-filtered to it (across every board, not just
-    /// whichever one that place happens to live in). Hidden when no card
-    /// anywhere has a category yet.
+    /// Sits above the board list — tapping a category narrows the gallery
+    /// to it (across every board, not just whichever one that place happens
+    /// to live in). Hidden when no card anywhere has a category yet.
+    ///
+    /// 머리에 편집 단추가 붙는다. 카테고리는 AI가 읽어 온 자유 문자열이라
+    /// "식당"/"레스토랑"/"음식점"처럼 사실상 같은 것이 여럿으로 갈라지기
+    /// 쉬운데, 그것을 고칠 자리가 갤러리 안쪽에만 있었다. 목록을 보는
+    /// 자리에서 바로 닿게 한다.
     @ViewBuilder
     private var categoryBrowseSection: some View {
         if !allCategories.isEmpty {
-            Section("카테고리별 보기".localized) {
+            Section {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(allCategories, id: \.self) { category in
@@ -394,6 +411,20 @@ struct HomeView: View {
                         }
                     }
                 }
+            } header: {
+                HStack {
+                    sectionHeader("카테고리별 보기".localized)
+                    Spacer()
+                    Button {
+                        isPresentingCategoryEditor = true
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .accessibilityLabel("카테고리 편집".localized)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.accent)
+                }
+                .background(Theme.panel)
             }
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
