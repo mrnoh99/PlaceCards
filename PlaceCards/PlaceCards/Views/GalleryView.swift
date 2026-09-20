@@ -103,8 +103,13 @@ struct GalleryView: View {
     /// that set changes. See `SharePlaces`.
     @State private var exportPlacesFileURL: URL?
 
-    init(viewModel: GalleryViewModel) {
+    /// 이 화면이 스스로 `NavigationStack`을 세울지. 갤러리 탭에서는
+    /// true, 홈의 2단 구성 오른쪽에 들어갈 때는 false다.
+    private let providesNavigationStack: Bool
+
+    init(viewModel: GalleryViewModel, providesNavigationStack: Bool = true) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.providesNavigationStack = providesNavigationStack
     }
 
     /// The board Home is currently showing, if any — used for the
@@ -202,156 +207,168 @@ struct GalleryView: View {
         layoutByScopeRaw = text
     }
 
+    @ViewBuilder
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                PlaceStatusFilterBar(
-                    sortMode: $viewModel.sortMode,
-                    distanceReference: $viewModel.distanceReference,
-                    hereCoordinate: $viewModel.hereCoordinate,
-                    referenceCandidates: viewModel.referenceCandidates,
-                    categoryFilter: $viewModel.categoryFilter,
-                    categories: viewModel.allCategories,
-                    filter: $viewModel.statusFilter,
-                    allCount: viewModel.totalCount,
-                    favoriteCount: viewModel.favoriteCount,
-                    visitedCount: viewModel.visitedCount
-                )
-                cardsContent
+        // 갤러리 탭에서는 스스로 그릇을 세우고, 홈의 2단 구성
+        // 오른쪽에 들어갈 때는 세우지 않는다 — 그쪽은
+        // NavigationSplitView가 이미 대고 있어서 하나 더 세우면
+        // 제목 줄이 두 겹이 된다.
+        if providesNavigationStack {
+            NavigationStack { content }
+        } else {
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        VStack(spacing: 0) {
+            PlaceStatusFilterBar(
+                sortMode: $viewModel.sortMode,
+                distanceReference: $viewModel.distanceReference,
+                hereCoordinate: $viewModel.hereCoordinate,
+                referenceCandidates: viewModel.referenceCandidates,
+                categoryFilter: $viewModel.categoryFilter,
+                categories: viewModel.allCategories,
+                filter: $viewModel.statusFilter,
+                allCount: viewModel.totalCount,
+                favoriteCount: viewModel.favoriteCount,
+                visitedCount: viewModel.visitedCount
+            )
+            cardsContent
+        }
+        .safeAreaInset(edge: .bottom) {
+            if isSelecting {
+                bulkActionBar
             }
-            .safeAreaInset(edge: .bottom) {
-                if isSelecting {
-                    bulkActionBar
-                }
+        }
+        // 길게 눌러 들어가는 선택 모드는 눈으로만 알아채기 어렵다.
+        // 고를 때마다 가볍게 울려 손에 알린다. iOS 17부터 있는
+        // 것이고 이 앱의 배포 타깃이 17.0이다.
+        .sensoryFeedback(.selection, trigger: selectedIDs)
+        .navigationTitle(scopeTitle)
+        // `.always` so search stays visible without a pull-down/
+        // scroll — same as Home/BoardDetailView, since the only
+        // intended difference between this screen and BoardDetailView
+        // is grid vs. list.
+        .searchable(text: $viewModel.searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "카드 검색".localized)
+        // Home tab's board (if any) is only known once this tab
+        // itself becomes visible — synced here rather than read once
+        // at init, since the user may navigate around Home first and
+        // only then switch to this tab.
+        .onAppear {
+            viewModel.scope = navigation.galleryScope
+            consumePendingDetailCardID()
+        }
+        .onChange(of: navigation.galleryScope) { _, newValue in
+            viewModel.scope = newValue
+        }
+        // One-shot: `HomeView`'s "카테고리별 보기" chips set this and
+        // switch to this tab; consumed here (via `.onChange`, not
+        // `.onAppear`, so merely revisiting this tab afterward doesn't
+        // keep reapplying it once the user's cleared the filter) and
+        // reset back to nil right away. See `AppNavigation
+        // .showInGallery(category:)`.
+        .onChange(of: navigation.galleryCategoryFilter) { _, newValue in
+            guard let newValue else { return }
+            viewModel.categoryFilter = newValue
+            navigation.galleryCategoryFilter = nil
+        }
+        // One-shot, same shape as `galleryCategoryFilter` above — a
+        // card just created from shared-in info (`AddPlaceCardView`)
+        // pushes straight to its detail view once, then clears itself
+        // so switching back to this tab later doesn't reopen it. Also
+        // handled in `.onAppear` above (see `consumePendingDetailCardID`)
+        // for the *first* share of a session: `AddPlaceCardView` sets
+        // this and switches to this tab together, and if this view
+        // hasn't been visited yet this session, switching tabs is what
+        // actually mounts/reveals it — `.onChange` alone can miss a
+        // value that was already set before that happened, showing the
+        // plain card list instead of pushing straight to the detail.
+        .onChange(of: navigation.pendingDetailCardID) { _, _ in
+            consumePendingDetailCardID()
+        }
+        .toolbar { toolbarContent }
+        .overlay {
+            if viewModel.filteredPlaceCards.isEmpty {
+                ContentUnavailableView.search
             }
-            // 길게 눌러 들어가는 선택 모드는 눈으로만 알아채기 어렵다.
-            // 고를 때마다 가볍게 울려 손에 알린다. iOS 17부터 있는
-            // 것이고 이 앱의 배포 타깃이 17.0이다.
-            .sensoryFeedback(.selection, trigger: selectedIDs)
-            .navigationTitle(scopeTitle)
-            // `.always` so search stays visible without a pull-down/
-            // scroll — same as Home/BoardDetailView, since the only
-            // intended difference between this screen and BoardDetailView
-            // is grid vs. list.
-            .searchable(text: $viewModel.searchQuery, placement: .navigationBarDrawer(displayMode: .always), prompt: "카드 검색".localized)
-            // Home tab's board (if any) is only known once this tab
-            // itself becomes visible — synced here rather than read once
-            // at init, since the user may navigate around Home first and
-            // only then switch to this tab.
-            .onAppear {
-                viewModel.scope = navigation.galleryScope
-                consumePendingDetailCardID()
-            }
-            .onChange(of: navigation.galleryScope) { _, newValue in
-                viewModel.scope = newValue
-            }
-            // One-shot: `HomeView`'s "카테고리별 보기" chips set this and
-            // switch to this tab; consumed here (via `.onChange`, not
-            // `.onAppear`, so merely revisiting this tab afterward doesn't
-            // keep reapplying it once the user's cleared the filter) and
-            // reset back to nil right away. See `AppNavigation
-            // .showInGallery(category:)`.
-            .onChange(of: navigation.galleryCategoryFilter) { _, newValue in
-                guard let newValue else { return }
-                viewModel.categoryFilter = newValue
-                navigation.galleryCategoryFilter = nil
-            }
-            // One-shot, same shape as `galleryCategoryFilter` above — a
-            // card just created from shared-in info (`AddPlaceCardView`)
-            // pushes straight to its detail view once, then clears itself
-            // so switching back to this tab later doesn't reopen it. Also
-            // handled in `.onAppear` above (see `consumePendingDetailCardID`)
-            // for the *first* share of a session: `AddPlaceCardView` sets
-            // this and switches to this tab together, and if this view
-            // hasn't been visited yet this session, switching tabs is what
-            // actually mounts/reveals it — `.onChange` alone can miss a
-            // value that was already set before that happened, showing the
-            // plain card list instead of pushing straight to the detail.
-            .onChange(of: navigation.pendingDetailCardID) { _, _ in
-                consumePendingDetailCardID()
-            }
-            .toolbar { toolbarContent }
-            .overlay {
-                if viewModel.filteredPlaceCards.isEmpty {
-                    ContentUnavailableView.search
-                }
-            }
-            .task { refreshExportPlacesFile() }
-            .onChange(of: viewModel.filteredPlaceCards.count) { _, _ in refreshExportPlacesFile() }
-            .navigationDestination(item: $selectedCard) { card in
-                PlaceCardDetailView(card: card)
-            }
-            .sheet(isPresented: $isPresentingFindDuplicates) {
-                FindDuplicatesSheet(cards: viewModel.scopedCards)
-            }
-            .sheet(item: $addCardStep, onDismiss: consumePendingAddBoard) { step in
-                switch step {
-                case .pickBoard:
-                    addBoardPickerSheet
-                case .add(let boardID, let toImported):
-                    AddPlaceCardView(
-                        viewModel: PlaceCardViewModel(
-                            storageService: storageService,
-                            boardId: boardID,
-                            addsToImported: toImported
-                        )
+        }
+        .task { refreshExportPlacesFile() }
+        .onChange(of: viewModel.filteredPlaceCards.count) { _, _ in refreshExportPlacesFile() }
+        .navigationDestination(item: $selectedCard) { card in
+            PlaceCardDetailView(card: card)
+        }
+        .sheet(isPresented: $isPresentingFindDuplicates) {
+            FindDuplicatesSheet(cards: viewModel.scopedCards)
+        }
+        .sheet(item: $addCardStep, onDismiss: consumePendingAddBoard) { step in
+            switch step {
+            case .pickBoard:
+                addBoardPickerSheet
+            case .add(let boardID, let toImported):
+                AddPlaceCardView(
+                    viewModel: PlaceCardViewModel(
+                        storageService: storageService,
+                        boardId: boardID,
+                        addsToImported: toImported
                     )
-                    .environmentObject(navigation)
-                }
+                )
+                .environmentObject(navigation)
             }
-            .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {
-                FindDuplicatesSheet(manualGroup: selectedCards)
-            }
-            .confirmationDialog(
-                deleteCardConfirmationTitle,
-                isPresented: Binding(
-                    get: { cardPendingDelete != nil },
-                    set: { if !$0 { cardPendingDelete = nil } }
-                ),
-                titleVisibility: .visible
-            ) {
-                if let scopeRemovalTitle {
-                    Button(scopeRemovalTitle) {
-                        if let card = cardPendingDelete { removeFromScope([card]) }
-                        cardPendingDelete = nil
-                    }
-                }
-                Button("완전 삭제".localized, role: .destructive) {
-                    if let card = cardPendingDelete {
-                        storageService.delete(card)
-                    }
+        }
+        .sheet(isPresented: $isPresentingMergeSelection, onDismiss: exitSelection) {
+            FindDuplicatesSheet(manualGroup: selectedCards)
+        }
+        .confirmationDialog(
+            deleteCardConfirmationTitle,
+            isPresented: Binding(
+                get: { cardPendingDelete != nil },
+                set: { if !$0 { cardPendingDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let scopeRemovalTitle {
+                Button(scopeRemovalTitle) {
+                    if let card = cardPendingDelete { removeFromScope([card]) }
                     cardPendingDelete = nil
                 }
-                Button("취소".localized, role: .cancel) { cardPendingDelete = nil }
-            } message: {
-                Text(deleteChoiceMessage)
             }
-            .confirmationDialog(
-                bulkDeleteConfirmationTitle,
-                isPresented: $isConfirmingBulkDelete,
-                titleVisibility: .visible
-            ) {
-                if let scopeRemovalTitle {
-                    Button(scopeRemovalTitle) {
-                        removeFromScope(selectedCards)
-                        exitSelection()
-                    }
+            Button("완전 삭제".localized, role: .destructive) {
+                if let card = cardPendingDelete {
+                    storageService.delete(card)
                 }
-                Button(bulkDeleteConfirmationButtonTitle, role: .destructive) {
-                    deleteSelected()
-                }
-                Button("취소".localized, role: .cancel) {}
-            } message: {
-                Text(deleteChoiceMessage)
+                cardPendingDelete = nil
             }
-            .alert("카테고리 입력".localized, isPresented: $isPresentingCustomCategoryInput) {
-                TextField("카테고리".localized, text: $customCategoryInput)
-                Button("변경".localized) {
-                    applyCategory(customCategoryInput)
-                    customCategoryInput = ""
+            Button("취소".localized, role: .cancel) { cardPendingDelete = nil }
+        } message: {
+            Text(deleteChoiceMessage)
+        }
+        .confirmationDialog(
+            bulkDeleteConfirmationTitle,
+            isPresented: $isConfirmingBulkDelete,
+            titleVisibility: .visible
+        ) {
+            if let scopeRemovalTitle {
+                Button(scopeRemovalTitle) {
+                    removeFromScope(selectedCards)
+                    exitSelection()
                 }
-                Button("취소".localized, role: .cancel) { customCategoryInput = "" }
             }
+            Button(bulkDeleteConfirmationButtonTitle, role: .destructive) {
+                deleteSelected()
+            }
+            Button("취소".localized, role: .cancel) {}
+        } message: {
+            Text(deleteChoiceMessage)
+        }
+        .alert("카테고리 입력".localized, isPresented: $isPresentingCustomCategoryInput) {
+            TextField("카테고리".localized, text: $customCategoryInput)
+            Button("변경".localized) {
+                applyCategory(customCategoryInput)
+                customCategoryInput = ""
+            }
+            Button("취소".localized, role: .cancel) { customCategoryInput = "" }
         }
     }
 

@@ -598,6 +598,7 @@ enum Localization {
         // MARK: - 저장 공간
         "저장 공간": "Storage",
         "계산 중…": "Calculating…",
+        "고른 것이 없습니다": "Nothing Selected",
         "공유한 링크": "Shared Link",
         "되돌리기": "Restore",
         "비우기": "Empty",
@@ -611,6 +612,7 @@ enum Localization {
         "여기서만 빼면 카드는 다른 곳에 그대로 남습니다.": "Removing it here leaves the card everywhere else.",
         "완전 삭제": "Delete Completely",
         "완전 삭제는 삭제됨으로 옮겨지고 거기서 되돌릴 수 있습니다.": "Deleting completely moves it to Deleted, where it can be restored.",
+        "왼쪽에서 게시판이나 모음을 고르세요.": "Pick a board or collection on the left.",
         "이 게시판에서만 제거": "Remove from This Board Only",
         "일 뒤 저절로 지워집니다.": " days.",
         "장의 사진": " photos",

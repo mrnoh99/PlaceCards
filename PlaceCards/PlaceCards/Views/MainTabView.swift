@@ -105,7 +105,7 @@ struct MainTabView: View {
     var body: some View {
         ZStack {
             TabView(selection: $navigation.selectedTab) {
-                HomeView()
+                HomeView(galleryViewModel: GalleryViewModel(storageService: storageService))
                     .tabItem { Label("홈".localized, systemImage: "house") }
                     .tag(AppTab.home)
 
