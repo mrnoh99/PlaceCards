@@ -8,6 +8,8 @@ import SwiftUI
 /// stay toggleable right from here, same as the grid cell.
 struct PlaceCardListRow: View {
     let card: PlaceCard
+    /// 지금 보고 있는 보드 — 그 보드는 배지에서 빠진다. `BoardBadges` 참고.
+    var excludingBoardID: String? = nil
     /// Set only while the list is sorted by distance from a chosen
     /// reference — shown as a "250m"/"1.3km" label alongside the
     /// category, mirroring Peragra's `PlaceRowView` distance label.
@@ -67,6 +69,8 @@ struct PlaceCardListRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+
+                BoardBadges(card: card, excludingBoardID: excludingBoardID, visibleCount: 2)
 
                 HStack(spacing: 10) {
                     if let rating = card.rating {
@@ -154,6 +158,55 @@ struct PlaceCardListRow: View {
         var updated = card
         updated.isVisited.toggle()
         storageService.save(updated)
+    }
+}
+
+/// 이 카드가 속한 보드를, **지금 보고 있는 보드는 빼고** 늘어놓는다.
+///
+/// 보고 있는 보드를 빼는 것이 핵심이다. 그 보드를 열어 둔 채로 보는
+/// 목록에서는 모든 칸에 같은 이름이 붙으므로, 아무것도 구별해 주지
+/// 못하면서 자리만 먹는다. 여기서 알고 싶은 것은 "이 카드가 **여기 말고**
+/// 또 어디에 있나"다.
+///
+/// 카드 상세의 "보드" 구역(`PlaceCardDetailView.boardsSection`)과 달리
+/// 읽기만 한다 — 좁은 칸에 x를 넣으면 목록을 넘기다 잘못 누르기 쉽고,
+/// 보드에서 빼는 것은 되돌리기 화면이 따로 없는 동작이다.
+struct BoardBadges: View {
+    let card: PlaceCard
+    /// 지금 보고 있는 보드. "모든 카드"·"가져오기"·검색처럼 보드로
+    /// 좁혀져 있지 않으면 nil이고, 그때는 아무것도 빠지지 않는다.
+    var excludingBoardID: String? = nil
+    /// 이름까지 보여 줄 최대 개수. 넘치는 만큼은 "+2"로 줄인다.
+    /// 격자 칸은 좁아 하나, 목록 줄은 둘 — 폭이 다르니 수도 다르다.
+    var visibleCount: Int = 1
+
+    @EnvironmentObject private var storageService: StorageService
+
+    /// `card.boardIDs` 순서가 아니라 홈 목록 순서를 따른다(카드 상세의
+    /// 칩과 같은 규칙). 실재하지 않는 보드 id는 교집합에서 빠진다.
+    private var boards: [Board] {
+        storageService.boards.filter {
+            $0.id != excludingBoardID && card.boardIDs.contains($0.id)
+        }
+    }
+
+    var body: some View {
+        if !boards.isEmpty {
+            HStack(spacing: 4) {
+                ForEach(Array(boards.prefix(visibleCount))) { board in
+                    Label(board.name, systemImage: board.coverIcon)
+                        .lineLimit(1)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.accentColor.opacity(0.15), in: Capsule())
+                }
+                if boards.count > visibleCount {
+                    Text("+\(boards.count - visibleCount)")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.caption2)
+        }
     }
 }
 
