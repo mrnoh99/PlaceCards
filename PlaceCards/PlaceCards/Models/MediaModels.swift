@@ -101,8 +101,20 @@ struct MediaItem: Codable, Identifiable, Equatable {
     var localPath: String
     var url: String?
     var caption: String?
+    /// 이 앱에 들어온 때. 찍힌 때가 아니다 — 그건 아래 `capturedAt`이다.
     var uploadedAt: Date = Date()
     var source: SourceType
+    /// 사진이 **찍힌** 때와 자리(EXIF). 둘 다 없을 수 있다.
+    ///
+    /// 저장할 때 읽어 두는 것이 핵심이다. 사용자가 고른 사진은
+    /// `MediaStore.saveImage(_ image:)`가 `UIImage`로 다시 인코딩해서
+    /// 넣으므로 디스크에 남는 파일에는 EXIF가 없다 — 그때 읽지 않으면
+    /// 나중에 읽을 길이 영영 없다.
+    ///
+    /// 옵셔널로 더했으므로 이 필드가 생기기 전에 저장된 사진은 nil로
+    /// 디코딩된다(00_UI개편_기초.md §3).
+    var capturedAt: Date?
+    var capturedCoordinates: Coordinates?
 }
 
 /// Groups a place's media by where it came from, matching the four

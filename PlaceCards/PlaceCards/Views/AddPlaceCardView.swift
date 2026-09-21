@@ -147,7 +147,12 @@ struct AddPlaceCardView: View {
                             Task {
                                 let expected = viewModel.selectedRowCount
                                 let created = await viewModel.createCards(
-                                    images: pickedImages, source: Self.defaultSource
+                                    images: pickedImages,
+                                    // 원본 바이트는 여기까지만 있다. 저장은
+                                    // `UIImage`를 다시 인코딩하므로 그 파일에는
+                                    // EXIF가 남지 않는다.
+                                    photoCaptures: pickedImageDatas.map(PhotoMetadata.extractCapture),
+                                    source: Self.defaultSource
                                 )
                                 // Anything short of what was asked for leaves
                                 // this screen open with `viewModel
