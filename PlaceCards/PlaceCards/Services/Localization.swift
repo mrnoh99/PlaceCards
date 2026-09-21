@@ -327,6 +327,8 @@ enum Localization {
         "예약 방법": "Reservation method",
         "예약 방법 (예: 캐치테이블 예약)": "Reservation method (e.g. Catch Table booking)",
         "완료": "Done",
+        "보드 순서": "Board Order",
+        "보드 순서 바꾸기": "Reorder Boards",
         "외부 링크": "External links",
         "요일": "Day",
         "요청 시간이 초과되었습니다.": "The request timed out.",

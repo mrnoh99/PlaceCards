@@ -33,6 +33,7 @@ struct HomeView: View {
     @State private var searchCategoryFilter: String?
     @State private var isPresentingImportBoard = false
     @State private var isPresentingCategoryEditor = false
+    @State private var isPresentingBoardReorder = false
     /// `CategoryPickerSheet`이 고른 것을 받는 자리. 그 화면은 고르기와
     /// 편집을 같이 하므로 바인딩이 필요하고, 여기서는 고른 것을 그대로
     /// 갤러리 필터로 넘긴 뒤 비운다.
@@ -275,7 +276,19 @@ struct HomeView: View {
                                     }
                             }
                         } header: {
-                            sectionHeader("사용자 보드".localized)
+                            HStack {
+                                sectionHeader("사용자 보드".localized)
+                                Spacer()
+                                Button {
+                                    isPresentingBoardReorder = true
+                                } label: {
+                                    Image(systemName: "arrow.up.arrow.down")
+                                        .accessibilityLabel("보드 순서 바꾸기".localized)
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(Theme.accent)
+                            }
+                            .background(Theme.panel)
                         }
                         .listRowBackground(Theme.panel)
                         .listRowSeparator(.hidden)
@@ -351,6 +364,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $isPresentingCategoryEditor) {
             CategoryPickerSheet(categories: allCategories, selection: $categoryEditorPick)
+        }
+        .sheet(isPresented: $isPresentingBoardReorder) {
+            BoardReorderSheet()
         }
         .onChange(of: categoryEditorPick) { _, newValue in
             guard let newValue else { return }
@@ -660,4 +676,40 @@ private struct ExportBoardMenu: View {
     return HomeView(galleryViewModel: GalleryViewModel(storageService: storage))
         .environmentObject(storage)
         .environmentObject(AppNavigation())
+}
+
+/// 보드 순서만 바꾸는 화면.
+///
+/// 왼쪽 목록에서 바로 끌어 옮기게 하지 않은 이유가 있다. 그 목록은
+/// `List(selection:)`이고 **그 선택이 곧 오른쪽 칸에 무엇을 보여 줄지를
+/// 정한다.** 끌어 옮기려면 편집 모드로 들어가야 하는데, 편집 모드에서의
+/// 선택은 "여럿 고르기"라 그 둘이 같은 자리를 놓고 다툰다. 따로 띄우면
+/// 그 다툼이 아예 없다.
+///
+/// 순서를 바꾸는 것 말고 할 일이 없는 화면이라 편집 모드를 켜 둔 채로
+/// 연다 — "편집"을 한 번 더 누르게 할 이유가 없다.
+private struct BoardReorderSheet: View {
+    @EnvironmentObject private var storageService: StorageService
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(storageService.boards) { board in
+                    Label(board.name, systemImage: board.coverIcon)
+                }
+                .onMove { source, destination in
+                    storageService.moveBoards(fromOffsets: source, toOffset: destination)
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("보드 순서".localized)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("완료".localized) { dismiss() }
+                }
+            }
+        }
+    }
 }
