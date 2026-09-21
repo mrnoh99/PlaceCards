@@ -120,6 +120,9 @@ final class StorageService: ObservableObject {
     /// 보드와 달리 소속이 아니라 출신이라 `boardIDs`가 아니라 표시를
     /// 지운다. 한 번 빼면 다시 넣을 길은 없다 — 들어온 경로는 만들 때
     /// 한 번만 알 수 있기 때문이다.
+    ///
+    /// 손으로 빼는 길이 이것이고, `save(_:)`가 장소 확정을 보고 저절로
+    /// 빼기도 한다(거기 주석 참고).
     func removeFromImported(_ placeCard: PlaceCard) {
         guard placeCard.isImported == true else { return }
         var card = placeCard
@@ -142,6 +145,24 @@ final class StorageService: ObservableObject {
         var card = placeCard
         card.updatedAt = Date()
         if let index = placeCards.firstIndex(where: { $0.id == card.id }) {
+            // "가져오기"는 받은 것을 쌓아 두는 곳이지 머무는 곳이 아니다.
+            // 장소가 확정되면 그 카드에 대해 할 일이 끝난 것이므로 여기서
+            // 내보낸다 — 그러지 않으면 손본 것과 아직 안 본 것이 한데
+            // 섞여, 무엇이 남았는지 알아보려면 하나하나 열어 봐야 한다.
+            //
+            // **확정된 상태가 아니라 확정되는 순간을 본다.** 상태만 보면
+            // 확정된 채로 들어오는 카드(이미 검증된 Google 지도 링크
+            // 공유)가 "가져오기"에 한 번도 안 보이고 지나간다. 공유로
+            // 들어온 것은 전부 거기 모인다는 것이 이 앱의 약속이라
+            // 그러면 안 된다. 새 카드(아래 else)를 건드리지 않는 것도
+            // 같은 이유다.
+            //
+            // 저장하는 길이 여럿이라(카드 편집의 Google 새로고침, 검색
+            // 결과 고르기, 공유 시트의 자동 확정) 그 하나하나에 붙이는
+            // 대신 전부가 지나가는 이 한곳에 둔다.
+            if card.isImported == true, card.isPlaceConfirmed, !placeCards[index].isPlaceConfirmed {
+                card.isImported = nil
+            }
             placeCards[index] = card
         } else {
             placeCards.append(card)
