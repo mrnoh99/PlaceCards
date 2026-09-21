@@ -230,6 +230,35 @@ struct MainTabView: View {
         presentNextShare()
     }
 
+    /// 지도 앱을 다녀오려고 `AddPlaceCardView`가 스스로 닫힐 걸 대비해
+    /// 사진을 맡겨 뒀을 때(`MapOpenContext.recordMapOpen(photoDatas:)`),
+    /// 그 화면이 아직도 떠 있으면(=`pendingShare`) 스스로 닫는다.
+    ///
+    /// **왜 필요한가.** 시트는 한 번에 하나만 뜨는 구조라, 공유가
+    /// 돌아왔을 때 지금 뜬 시트가 그 한 자리를 차지하고 있으면 새 시트는
+    /// 큐에 들어가 조용히 기다린다 — 지도에서 스크린샷을 공유해 돌아와도
+    /// **사용자가 지금 화면을 손수 닫아야만** 다음이 뜬다. 그런데 지도로
+    /// 나가기 전 화면이 정확히 방금 떠난 그 `AddPlaceCardView`라면, 그건
+    /// 닫혀도 잃을 게 없다 — 그 화면이 들고 있던 사진은 이미
+    /// `MapOpenContext`에 저장돼 있고, 곧 뜰 새 화면도 그 사진 그대로
+    /// 다시 열리기 때문이다(`leavingForMapApp()`).
+    ///
+    /// **신호는 `recentPhotoDatas`가 비어 있지 않다는 것 하나다.** 이
+    /// 값을 채우는 곳이 `AddPlaceCardView.leavingForMapApp()` 한 곳뿐이라,
+    /// 값이 있다는 것 자체가 "방금 그 화면에서 지도로 나갔다가 돌아왔다"는
+    /// 뜻이다. 지금 뜬 시트가 무엇이든(사진 가져오기든 링크 가져오기든)
+    /// `AddPlaceCardView`가 그 안에 있는 두 종류뿐이므로 더 가려낼 필요가
+    /// 없다.
+    ///
+    /// `pendingShare`를 nil로 두면 SwiftUI가 그 시트를 닫고, 이미 있는
+    /// `.sheet(item:, onDismiss: handleShareDismissed)` 경로를 그대로
+    /// 타고 큐의 다음 것을 띄운다 — 사용자가 손으로 닫을 때와 같은
+    /// 길이라 별도로 다룰 것이 없다.
+    private func dismissCurrentShareIfResumingMapTrip(recentPhotoDatas: [Data]) {
+        guard !recentPhotoDatas.isEmpty, pendingShare != nil else { return }
+        pendingShare = nil
+    }
+
     private func presentNextShare() {
         guard !isPresentationScheduled, pendingShare == nil, !queuedShares.isEmpty else { return }
         isPresentationScheduled = true
@@ -294,7 +323,9 @@ struct MainTabView: View {
             } else {
                 // Same lazy read as the link branch below, and for the
                 // same reason — see its comment.
-                enqueueShare(.photoToBoard(sharedImageDatas, MapOpenContext.recentPhotoDatas()))
+                let recentPhotoDatas = MapOpenContext.recentPhotoDatas()
+                dismissCurrentShareIfResumingMapTrip(recentPhotoDatas: recentPhotoDatas)
+                enqueueShare(.photoToBoard(sharedImageDatas, recentPhotoDatas))
             }
             MapOpenContext.clear()
         }
@@ -317,11 +348,23 @@ struct MainTabView: View {
                 // following the link (see `GoogleMapsListParser`), so this
                 // one case pays for that check before choosing a screen;
                 // every other share routes immediately as before.
+                //
+                // `dismissCurrentShareIfResumingMapTrip`을 부르지 않는다 —
+                // `recentCardID`가 있다는 것은 지도로 나간 게 `AddPlaceCardView`가
+                // 아니라 이미 있는 카드였다는 뜻이고(`MapOpenContext.recordMapOpen
+                // (cardID:)`), 그 카드 화면(`.linkToCard`)은 애초에 `pendingShare`
+                // 자리를 차지하지 않는다.
                 Task {
                     let isList = await isSharedListLink(text)
-                    enqueueShare(isList ? .linkToBoard(text, recentPhotoDatas) : .linkToCard(card, text))
+                    if isList {
+                        dismissCurrentShareIfResumingMapTrip(recentPhotoDatas: recentPhotoDatas)
+                        enqueueShare(.linkToBoard(text, recentPhotoDatas))
+                    } else {
+                        enqueueShare(.linkToCard(card, text))
+                    }
                 }
             } else {
+                dismissCurrentShareIfResumingMapTrip(recentPhotoDatas: recentPhotoDatas)
                 enqueueShare(.linkToBoard(text, recentPhotoDatas))
             }
             MapOpenContext.clear()
