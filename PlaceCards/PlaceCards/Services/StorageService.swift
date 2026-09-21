@@ -368,6 +368,17 @@ final class StorageService: ObservableObject {
         return nil
     }
 
+    /// 왼쪽 목록의 보드 순서를 바꾼다.
+    ///
+    /// 순서를 적는 필드를 따로 두지 않는다 — **배열 그 자체가 순서다.**
+    /// `persistBoards()`가 배열 순서대로 쓰고 읽을 때 그대로 돌아오므로,
+    /// 새 필드를 더해 저장 포맷을 건드릴 이유가 없다(백업도 같은 순서로
+    /// 오간다).
+    func moveBoards(fromOffsets source: IndexSet, toOffset destination: Int) {
+        boards.move(fromOffsets: source, toOffset: destination)
+        persistBoards()
+    }
+
     private func persistBoards() {
         boardsGeneration += 1
         let generation = boardsGeneration

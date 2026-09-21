@@ -216,7 +216,11 @@ struct MapScreenshotImportSheet: View {
 
         for data in imageDatas {
             if let fileName = try? MediaStore.saveImage(data: data) {
-                card.media.mapScreenshots.append(MediaItem(localPath: fileName, source: .googleMapScreenshot))
+                let capture = PhotoMetadata.extractCapture(from: data)
+                card.media.mapScreenshots.append(MediaItem(
+                    localPath: fileName, source: .googleMapScreenshot,
+                    capturedAt: capture.takenAt, capturedCoordinates: capture.coordinates
+                ))
             }
         }
         storageService.save(card)

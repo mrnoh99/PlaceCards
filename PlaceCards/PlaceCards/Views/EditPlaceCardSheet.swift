@@ -1522,10 +1522,26 @@ struct EditPlaceCardSheet: View {
         let trimmedMemo = memoText.trimmingCharacters(in: .whitespacesAndNewlines)
         updated.memo = trimmedMemo.isEmpty ? nil : trimmedMemo
 
-        for image in pickedImages {
-            if let fileName = try? MediaStore.saveImage(image) {
-                updated.media.onsitePhotos.append(MediaItem(localPath: fileName, source: .onsitePhoto))
-            }
+        // 원본 바이트에서 찍힌 때·자리를 먼저 읽는다. 아래 저장은
+        // `UIImage`를 다시 인코딩하므로 그 파일에는 EXIF가 남지 않는다.
+        for (index, image) in pickedImages.enumerated() {
+            guard let fileName = try? MediaStore.saveImage(image) else { continue }
+            let capture = index < pickedImageDatas.count
+                ? PhotoMetadata.extractCapture(from: pickedImageDatas[index])
+                : PhotoMetadata.Capture()
+            updated.media.onsitePhotos.append(MediaItem(
+                localPath: fileName, source: .onsitePhoto,
+                capturedAt: capture.takenAt, capturedCoordinates: capture.coordinates
+            ))
+        }
+        // 사진을 붙인 김에 방문 날짜도 채운다 — 현장에서 찍힌 것만.
+        // 찾은 게 있을 때만 "방문함"으로 돌린다. 그러지 않으면 사용자가
+        // 일부러 꺼 둔 표시를 사진 없는 저장마다 도로 켜 버린다.
+        let foundVisitDates = PhotoVisitDates.candidates(for: updated)
+        if !foundVisitDates.isEmpty {
+            updated.visitDates.append(contentsOf: foundVisitDates)
+            updated.visitDates.sort()
+            updated.isVisited = true
         }
 
         for photoData in fetchedGooglePhotoData {

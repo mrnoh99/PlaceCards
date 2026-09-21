@@ -43,6 +43,8 @@ struct PlaceCardDetailView: View {
     /// separate view with its own lifetime, and both end up calling the
     /// same `deletePhoto(_:)`.
     @State private var photoPendingDelete: MediaItem?
+    /// "사진에서 찾기"의 결과 한 줄. 찾았든 못 찾았든 말해 준다.
+    @State private var photoVisitDateMessage: String?
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
@@ -469,6 +471,16 @@ struct PlaceCardDetailView: View {
                 Text("방문 날짜".localized)
                     .font(.headline)
                 Spacer()
+                // 아이콘만 — 옆의 "오늘 방문"과 한 줄에 서므로 좁은
+                // 화면에서 둘 다 글자까지 내놓으면 제목을 밀어낸다.
+                // 이름은 손대지 않는 접근성 라벨로 남는다.
+                Button(action: addVisitDatesFromPhotos) {
+                    Label("사진에서 방문일 찾기".localized, systemImage: "calendar.badge.plus")
+                        .labelStyle(.iconOnly)
+                }
+                .font(.subheadline)
+                .disabled(card.media.onsitePhotos.isEmpty || card.coordinates == nil)
+
                 if hasVisitToday {
                     Label("오늘 방문함".localized, systemImage: "checkmark.circle.fill")
                         .font(.subheadline)
@@ -479,6 +491,11 @@ struct PlaceCardDetailView: View {
                     }
                     .font(.subheadline)
                 }
+            }
+            if let photoVisitDateMessage {
+                Text(photoVisitDateMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             if card.visitDates.isEmpty {
                 Text("아직 방문 기록이 없습니다.".localized)
@@ -860,6 +877,28 @@ struct PlaceCardDetailView: View {
 
     private var hasVisitToday: Bool {
         card.visitDates.contains { Calendar.current.isDateInToday($0) }
+    }
+
+    /// 이미 만들어 둔 카드의 사진을 훑어 방문 날짜를 채운다.
+    ///
+    /// 사진을 붙이는 순간에도 같은 일이 저절로 일어나지만(`createPlaceCard`,
+    /// `EditPlaceCardSheet`), 그 전에 만들어진 카드에는 소급되지 않는다.
+    /// 좌표를 나중에 채운 카드도 마찬가지다 — 좌표가 없으면 사진이 현장에서
+    /// 찍혔는지 알 길이 없어 그때는 아무것도 안 했을 것이기 때문이다.
+    ///
+    /// 찾지 못했을 때도 말해 준다. 아무 일도 안 일어나면 단추가 고장 난
+    /// 것인지 찾을 게 없었던 것인지 구별이 안 된다.
+    private func addVisitDatesFromPhotos() {
+        let found = PhotoVisitDates.candidates(for: card)
+        guard !found.isEmpty else {
+            photoVisitDateMessage = "현장에서 찍힌 사진의 촬영 날짜를 찾지 못했습니다.".localized
+            return
+        }
+        card.visitDates.append(contentsOf: found)
+        card.visitDates.sort()
+        if !card.isVisited { card.isVisited = true }
+        storageService.save(card)
+        photoVisitDateMessage = "사진에서 방문 날짜 ".localized + "\(found.count)" + "개를 찾았습니다.".localized
     }
 
     /// Whether this photo is the one currently representing the card —

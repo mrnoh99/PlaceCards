@@ -882,7 +882,12 @@ final class PlaceCardViewModel: ObservableObject {
     ///
     /// Both stop being expressible once the save reads the picker instead
     /// of a copy taken at some earlier moment.
-    func createCards(images: [UIImage], source: SourceType) async -> [PlaceCard] {
+    /// `photoCaptures`는 `images`와 자리를 맞춘 EXIF다(없으면 빈 배열).
+    /// 사진을 저장하는 자리까지 인자로 끌고 가는 것은, 거기서는 이미
+    /// `UIImage`뿐이라 다시 읽을 수 없기 때문이다.
+    func createCards(
+        images: [UIImage], photoCaptures: [PhotoMetadata.Capture] = [], source: SourceType
+    ) async -> [PlaceCard] {
         isSaving = true
         defer { isSaving = false }
 
@@ -911,14 +916,15 @@ final class PlaceCardViewModel: ObservableObject {
                         let links = Self.externalLinks(source: row.originSource, mapURL: row.scannedMapURL)
                         if let chosen = row.chosenResult {
                             let card = try? await self.createPlaceCard(
-                                from: chosen, images: images, source: source,
+                                from: chosen, images: images, photoCaptures: photoCaptures, source: source,
                                 note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
                                 tags: row.tags, externalLinks: links
                             )
                             return (index, card)
                         } else {
                             let card = await self.createManualPlaceCard(
-                                name: row.name, address: row.address, images: images, source: source,
+                                name: row.name, address: row.address, images: images,
+                                photoCaptures: photoCaptures, source: source,
                                 note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
                                 tags: row.tags, externalLinks: links, sharedCoordinates: row.scannedCoordinates
                             )
@@ -968,7 +974,8 @@ final class PlaceCardViewModel: ObservableObject {
     /// for one instead (`fetchGooglePhotoFallback(name:address:
     /// coordinates:)` below).
     func createPlaceCard(
-        from result: PlaceSearchResult, images: [UIImage], source: SourceType,
+        from result: PlaceSearchResult, images: [UIImage],
+        photoCaptures: [PhotoMetadata.Capture] = [], source: SourceType,
         note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = [],
         externalLinks: [ExternalLink] = []
     ) async throws -> PlaceCard {
@@ -1009,9 +1016,13 @@ final class PlaceCardViewModel: ObservableObject {
             card.openingPeriods = result.openingPeriods
         }
 
-        for image in images {
+        for (index, image) in images.enumerated() {
             let fileName = try MediaStore.saveImage(image)
-            let item = MediaItem(localPath: fileName, source: source)
+            let capture = index < photoCaptures.count ? photoCaptures[index] : PhotoMetadata.Capture()
+            let item = MediaItem(
+                localPath: fileName, source: source,
+                capturedAt: capture.takenAt, capturedCoordinates: capture.coordinates
+            )
             switch source {
             case .naverMapScreenshot, .googleMapScreenshot, .kakaoMapScreenshot, .instagramScreenshot:
                 card.media.mapScreenshots.append(item)
@@ -1025,6 +1036,13 @@ final class PlaceCardViewModel: ObservableObject {
                  .googleTakeout, .unsplashSearch:
                 card.media.onsitePhotos.append(item)
             }
+        }
+        // 붙인 사진 중 현장에서 찍힌 것이 있으면 그 날짜가 방문 기록이 된다.
+        let foundVisitDates = PhotoVisitDates.candidates(for: card)
+        if !foundVisitDates.isEmpty {
+            card.visitDates.append(contentsOf: foundVisitDates)
+            card.visitDates.sort()
+            card.isVisited = true
         }
 
         // No longer skipped when the user supplied their own photo. It
@@ -1142,7 +1160,8 @@ final class PlaceCardViewModel: ObservableObject {
     /// what the AI scan could read off the screenshot (phone/category/
     /// hours/amenities), same as `createPlaceCard(from:)`.
     func createManualPlaceCard(
-        name: String, address: String, images: [UIImage] = [], source: SourceType = .userManualInput,
+        name: String, address: String, images: [UIImage] = [],
+        photoCaptures: [PhotoMetadata.Capture] = [], source: SourceType = .userManualInput,
         note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = [],
         externalLinks: [ExternalLink] = [], sharedCoordinates: Coordinates? = nil
     ) async -> PlaceCard {
@@ -1161,10 +1180,13 @@ final class PlaceCardViewModel: ObservableObject {
             dataProvided: sharedCoordinates == nil ? ["name", "address"] : ["name", "address", "coordinates"]
         ))
 
-        for image in images {
-            if let fileName = try? MediaStore.saveImage(image) {
-                card.media.onsitePhotos.append(MediaItem(localPath: fileName, source: source))
-            }
+        for (index, image) in images.enumerated() {
+            guard let fileName = try? MediaStore.saveImage(image) else { continue }
+            let capture = index < photoCaptures.count ? photoCaptures[index] : PhotoMetadata.Capture()
+            card.media.onsitePhotos.append(MediaItem(
+                localPath: fileName, source: source,
+                capturedAt: capture.takenAt, capturedCoordinates: capture.coordinates
+            ))
         }
 
         // The share's own coordinate wins outright: a map app handed over
