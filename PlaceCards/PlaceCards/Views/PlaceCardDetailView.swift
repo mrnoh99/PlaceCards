@@ -310,7 +310,7 @@ struct PlaceCardDetailView: View {
             Button("담기".localized) { savePhotosToLibrary() }
             Button("취소".localized, role: .cancel) {}
         } message: {
-            Text("사진 앱의 PinSpots 앨범에 이 카드의 사진을 전부 담습니다. 한 장만 담으려면 사진을 눌러 크게 연 뒤 오른쪽 위 메뉴를 쓰세요. 사진 앱에서 고른 사진이었다면 라이브러리에 한 장 더 생깁니다.".localized)
+            Text("사진 앱의 PinSpots 앨범에 이 카드의 사진을 전부 담습니다. 한 장만 담으려면 사진을 눌러 크게 연 뒤 오른쪽 위 메뉴를 쓰세요. 사진 앱에서 고른 사진이었다면 라이브러리에 한 장 더 생깁니다. 사진 앱의 앨범 → 유틸리티 → 중복 항목에서 병합하면 원본과 하나로 합쳐지고, 그 원본이 PinSpots 앨범에 남습니다.".localized)
         }
         .sheet(isPresented: $isPresentingPhotoViewer) {
             PhotoViewerSheet(
@@ -1107,7 +1107,7 @@ private struct PhotoViewerSheet: View {
                 }
                 Button("취소".localized, role: .cancel) { itemPendingLibrarySave = nil }
             } message: {
-                Text("사진 앱의 PinSpots 앨범에 이 사진 한 장을 담습니다. 사진 앱에서 고른 사진이었다면 라이브러리에 한 장 더 생깁니다.".localized)
+                Text("사진 앱의 PinSpots 앨범에 이 사진 한 장을 담습니다. 사진 앱에서 고른 사진이었다면 라이브러리에 한 장 더 생깁니다. 사진 앱의 앨범 → 유틸리티 → 중복 항목에서 병합하면 원본과 하나로 합쳐지고, 그 원본이 PinSpots 앨범에 남습니다.".localized)
             }
             .alert(
                 "사진 앱에 담기".localized,
