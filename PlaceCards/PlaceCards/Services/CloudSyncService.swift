@@ -113,15 +113,20 @@ final class CloudSyncService: ObservableObject {
         case preparing
         case receiving
         case sending(done: Int, total: Int)
-        /// `added`·`updated`는 내려받아 병합한 결과, `uploaded`는 올린 수다.
-        /// 셋을 따로 보인다 — `updated`는 이 기기의 카드가 다른 기기 것으로
-        /// **바뀌었다**는 뜻이라, 사용자가 예상과 다르면 바로 알아채야 한다.
-        case finished(added: Int, updated: Int, uploaded: Int)
+        case photos(done: Int, total: Int)
+        /// `added`·`updated`는 내려받아 병합한 결과, `uploaded`는 올린 카드
+        /// 수다. 셋을 따로 보인다 — `updated`는 이 기기의 카드가 다른 기기
+        /// 것으로 **바뀌었다**는 뜻이라, 사용자가 예상과 다르면 바로 알아채야
+        /// 한다. 사진은 오간 장수를 따로 센다.
+        case finished(
+            added: Int, updated: Int, uploaded: Int,
+            photosReceived: Int, photosSent: Int
+        )
         case failed(String)
 
         var isBusy: Bool {
             switch self {
-            case .preparing, .receiving, .sending: return true
+            case .preparing, .receiving, .sending, .photos: return true
             case .idle, .finished, .failed: return false
             }
         }
@@ -135,6 +140,16 @@ final class CloudSyncService: ObservableObject {
     private static let zoneName = "PlaceCards"
     private static let cardRecordType = "PlaceCardDoc"
     private static let boardRecordType = "BoardDoc"
+    /// 사진은 **다른 존**에 둔다. 카드 존은 동기화할 때마다 통째로 받는데,
+    /// 사진이 같은 존에 있으면 그때마다 사진까지 전부 내려받는다. 존이
+    /// 나뉘어 있으면 사진 쪽은 `desiredKeys = []`로 **이름만** 받아 무엇이
+    /// 이미 있는지 보고, 없는 것만 골라 주고받을 수 있다.
+    private static let photoZoneName = "PlaceCardsPhotos"
+    private static let photoRecordType = "PhotoAsset"
+    private static let photoFieldKey = "file"
+    /// 사진은 레코드 하나가 수백 KB다. 카드처럼 200개씩 묶으면 한 번에
+    /// 오가는 양이 너무 커진다.
+    private static let photoBatchSize = 10
     /// CloudKit의 한 번 요청 한도는 400건이다. 절반쯤에서 끊어 여유를 둔다.
     private static let batchSize = 200
 
@@ -238,7 +253,8 @@ final class CloudSyncService: ObservableObject {
 
         let total = records.count
         guard total > 0 else {
-            syncState = .finished(added: received.added, updated: received.updated, uploaded: 0)
+            await finishWithPhotos(database: database, storageService: storageService,
+                                   received: received, uploaded: 0)
             return
         }
 
@@ -258,7 +274,32 @@ final class CloudSyncService: ObservableObject {
             syncState = .sending(done: sent, total: total)
         }
 
-        syncState = .finished(added: received.added, updated: received.updated, uploaded: total)
+        await finishWithPhotos(database: database, storageService: storageService,
+                               received: received, uploaded: total)
+    }
+
+    /// 카드가 다 오간 뒤 사진을 주고받고 결과를 낸다.
+    ///
+    /// 사진이 실패해도 **카드는 이미 끝났다.** 병합은 디스크에 쓰였고 올리기도
+    /// 됐다. 그래서 사진 실패를 통째로 실패처럼 보이게 하지 않고, 사진 쪽이
+    /// 안 됐다고만 말한다 — 다음 동기화 때 이름으로 견주어 다시 대상이 된다.
+    private func finishWithPhotos(
+        database: CKDatabase,
+        storageService: StorageService,
+        received: ReceiveResult,
+        uploaded: Int
+    ) async {
+        syncState = .photos(done: 0, total: 0)
+        do {
+            let photos = try await syncPhotos(in: database, storageService: storageService)
+            syncState = .finished(
+                added: received.added, updated: received.updated, uploaded: uploaded,
+                photosReceived: photos.received, photosSent: photos.sent
+            )
+        } catch {
+            syncState = .failed("사진을 주고받지 못했습니다(장소는 끝났습니다): ".localized
+                                + error.localizedDescription)
+        }
     }
 
     /// 존의 레코드를 전부 받아 디코딩한 뒤 `StorageService.merge`에 넘긴다.
@@ -352,6 +393,141 @@ final class CloudSyncService: ObservableObject {
         return ReceiveResult(added: result.added, updated: result.updated, unreadableIDs: unreadableIDs)
     }
 
+    // MARK: - 사진 (3-c)
+
+    /// 카드가 가리키는 사진 파일을 주고받는다. 카드 쪽 동기화가 **끝난
+    /// 뒤에** 부른다 — 그래야 방금 받은 카드의 사진도 같이 가져온다.
+    ///
+    /// 파일 이름(`MediaItem.localPath`, `UUID().jpg`)을 그대로 레코드
+    /// 이름으로 쓴다. 이름이 곧 내용의 신원이라 같은 사진이 두 번 올라갈
+    /// 수 없고, "서버에 있는 이름"과 "이 기기에 있는 파일"을 견주는 것만으로
+    /// 무엇을 주고받을지 정해진다. 그래서 이미 오간 사진은 다시 오가지
+    /// 않는다 — 사진은 카드와 달리 한 장이 수백 KB라 이게 중요하다.
+    ///
+    /// 카드가 안 가리키는 파일은 올리지 않는다. 이 기기에만 남은 찌꺼기를
+    /// 남의 기기까지 옮길 이유가 없다.
+    private func syncPhotos(
+        in database: CKDatabase,
+        storageService: StorageService
+    ) async throws -> (received: Int, sent: Int) {
+        let zone = CKRecordZone(zoneName: Self.photoZoneName)
+        try await createZoneIfNeeded(zone, in: database)
+
+        // 병합이 끝난 뒤의 카드에서 뽑는다.
+        var referenced: Set<String> = []
+        for card in storageService.placeCards {
+            for item in card.media.allItems {
+                referenced.insert(item.localPath)
+            }
+        }
+        guard !referenced.isEmpty else { return (0, 0) }
+
+        // 이름만 받는다. 사진 본체는 아직 한 장도 안 온다.
+        var onServer: Set<String> = []
+        var token: CKServerChangeToken?
+        var complete = false
+        for _ in 0..<50 {
+            let page = try await fetchChanges(
+                from: database, zoneID: zone.zoneID, since: token, desiredKeys: []
+            )
+            for record in page.records {
+                onServer.insert(record.recordID.recordName)
+            }
+            token = page.token
+            if !page.moreComing {
+                complete = true
+                break
+            }
+        }
+        guard complete else {
+            throw PlaceCardsError.networkError("iCloud에서 자료를 다 받지 못했습니다.".localized)
+        }
+
+        let toReceive = referenced.filter { onServer.contains($0) && !MediaStore.exists(fileName: $0) }
+        let toSend = referenced.filter { !onServer.contains($0) && MediaStore.exists(fileName: $0) }
+        let total = toReceive.count + toSend.count
+        guard total > 0 else { return (0, 0) }
+
+        var done = 0
+        var received = 0
+        var sent = 0
+
+        // 이름 순으로 세워 둔다. `Set`을 그냥 돌면 순서가 실행마다 달라져
+        // 중간에 끊겼을 때 무엇까지 됐는지 종잡을 수 없다.
+        let receiveList = toReceive.sorted()
+        var index = 0
+        while index < receiveList.count {
+            let end = min(index + Self.photoBatchSize, receiveList.count)
+            let ids = receiveList[index..<end].map {
+                CKRecord.ID(recordName: $0, zoneID: zone.zoneID)
+            }
+            received += try await downloadPhotos(ids: ids, from: database)
+            done += ids.count
+            index = end
+            syncState = .photos(done: done, total: total)
+        }
+
+        let sendList = toSend.sorted()
+        index = 0
+        while index < sendList.count {
+            let end = min(index + Self.photoBatchSize, sendList.count)
+            var records: [CKRecord] = []
+            for fileName in sendList[index..<end] {
+                let record = CKRecord(
+                    recordType: Self.photoRecordType,
+                    recordID: CKRecord.ID(recordName: fileName, zoneID: zone.zoneID)
+                )
+                record[Self.photoFieldKey] = CKAsset(fileURL: MediaStore.fileURL(fileName: fileName))
+                records.append(record)
+            }
+            try await save(records, in: database)
+            sent += records.count
+            done += records.count
+            index = end
+            syncState = .photos(done: done, total: total)
+        }
+
+        return (received, sent)
+    }
+
+    /// 받은 자산을 **블록 안에서 바로 파일로 쓴다.** 두 가지 이유다:
+    /// `CKAsset`이 가리키는 임시 파일은 연산이 끝나면 사라지고, 사진 여러
+    /// 장을 `Data`로 들고 있다가 나중에 쓰면 그만큼 메모리에 쌓인다.
+    private func downloadPhotos(ids: [CKRecord.ID], from database: CKDatabase) async throws -> Int {
+        let collector = PhotoCollector()
+        // 블록은 CloudKit의 배경 큐에서 돈다. 이 타입이 `@MainActor`라
+        // `Self.`로 꺼내는 값도 같이 격리되므로, 블록 밖에서 미리 꺼내 둔다.
+        let fieldKey = Self.photoFieldKey
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let operation = CKFetchRecordsOperation(recordIDs: ids)
+            operation.perRecordResultBlock = { recordID, result in
+                guard case .success(let record) = result,
+                      let asset = record[fieldKey] as? CKAsset,
+                      let fileURL = asset.fileURL,
+                      let data = try? Data(contentsOf: fileURL) else { return }
+                // 한 장이 실패해도 나머지는 받는다. 못 받은 사진은 다음
+                // 동기화 때 다시 대상이 된다 — 이름으로 견주기 때문이다.
+                if (try? MediaStore.writeData(data, fileName: recordID.recordName)) != nil {
+                    collector.written += 1
+                }
+            }
+            operation.fetchRecordsResultBlock = { result in
+                switch result {
+                case .success:
+                    continuation.resume(returning: ())
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+            database.add(operation)
+        }
+        return collector.written
+    }
+
+    private final class PhotoCollector {
+        var written = 0
+    }
+
     private struct ChangePage {
         var records: [CKRecord]
         /// 서버가 있다고는 했는데 가져오지 못한 레코드. 못 받은 것을 이
@@ -374,15 +550,21 @@ final class CloudSyncService: ObservableObject {
         var zoneError: Error?
     }
 
+    /// `desiredKeys`에 빈 배열을 넘기면 **필드를 하나도 안 실어** 보낸다.
+    /// 사진 존에서 "무엇이 이미 올라가 있나"만 알아볼 때 쓴다 — 그걸 위해
+    /// 사진 본체까지 받아 오면 안 받으려고 확인하는 의미가 없어진다.
+    /// nil이면 평소대로 전부 싣는다.
     private func fetchChanges(
         from database: CKDatabase,
         zoneID: CKRecordZone.ID,
-        since token: CKServerChangeToken?
+        since token: CKServerChangeToken?,
+        desiredKeys: [CKRecord.FieldKey]? = nil
     ) async throws -> ChangePage {
         let collector = ChangeCollector()
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let configuration = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
             configuration.previousServerChangeToken = token
+            configuration.desiredKeys = desiredKeys
             let operation = CKFetchRecordZoneChangesOperation(
                 recordZoneIDs: [zoneID],
                 configurationsByRecordZoneID: [zoneID: configuration]
