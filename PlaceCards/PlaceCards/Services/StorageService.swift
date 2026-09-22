@@ -112,7 +112,11 @@ final class StorageService: ObservableObject {
 
     // MARK: - Boards
 
+    /// `save(_ placeCard:)`가 카드에 하는 것과 같이 시각을 찍는다. 이걸
+    /// 안 찍으면 이름을 바꿔도 다른 기기가 그게 더 나중 것인 줄 모른다.
     func saveBoard(_ board: Board) {
+        var board = board
+        board.updatedAt = Date()
         if let index = boards.firstIndex(where: { $0.id == board.id }) {
             boards[index] = board
         } else {
@@ -327,9 +331,10 @@ final class StorageService: ObservableObject {
     /// lose to an older copy. There is no way around that with
     /// timestamps, and it is the same trade every sync of this shape makes.
     ///
-    /// Boards are added when missing but never replaced: `Board` has no
-    /// `updatedAt`, so there is nothing to compare, and a board is little
-    /// more than a name.
+    /// 게시판도 카드와 같은 규칙이다 — 없으면 더하고, `changedAt`이 더
+    /// 나중이면 그 내용으로 바꾼다. 예전에는 더하기만 했는데 `Board`에
+    /// 견줄 시각이 없어서였고, 그 탓에 한 기기에서 바꾼 이름이 다른
+    /// 기기로 가지 못했다.
     ///
     /// Nothing is deleted from disk, unlike the old `replaceAll`. A photo
     /// belonging only to a card that just got replaced is left where it
@@ -342,6 +347,19 @@ final class StorageService: ObservableObject {
         let existingBoardIDs = Set(boards.map(\.id))
         let addedBoards = newBoards.filter { !existingBoardIDs.contains($0.id) }
         boards.append(contentsOf: addedBoards)
+
+        // 이미 있는 게시판은 **더 나중에 고친 쪽**으로 바꾼다. 카드에 쓰는
+        // 규칙과 같다. 예전에는 더하기만 하고 여기를 그냥 지나쳤는데,
+        // 그때는 `Board`에 견줄 시각이 없었기 때문이다 — 그래서 한 기기에서
+        // 이름을 바꿔도 다른 기기에는 옛 이름이 그대로 남았다.
+        //
+        // 시각이 같으면 넘어간다. 그래야 같은 백업을 두 번 복원해도 두 번째는
+        // 아무 일도 안 일어난다.
+        for board in newBoards {
+            guard let index = boards.firstIndex(where: { $0.id == board.id }) else { continue }
+            guard board.changedAt > boards[index].changedAt else { continue }
+            boards[index] = board
+        }
 
         // A card whose board exists neither here nor in the backup would
         // be unreachable in the UI, so it is left out rather than saved

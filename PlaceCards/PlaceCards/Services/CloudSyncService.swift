@@ -226,8 +226,8 @@ final class CloudSyncService: ObservableObject {
     /// 병합 규칙은 새로 만들지 않고 `StorageService.merge`를 그대로 쓴다 —
     /// 백업 복원이 쓰는 바로 그 규칙이다: 이 기기에 없는 카드는 추가,
     /// `updatedAt`이 더 나중인 카드는 그 내용으로 교체, 클라우드에 없는
-    /// 카드는 건드리지 않는다. 보드는 없으면 추가하고 바꾸지는 않는다
-    /// (`Board`에는 `updatedAt`이 없어 견줄 것이 없다). 이미 쓰이고 있는
+    /// 카드는 건드리지 않는다. 보드도 같은 규칙으로 이름 바뀐 것이 옮겨
+    /// 간다(`Board.changedAt`). 이미 쓰이고 있는
     /// 규칙을 재사용하는 것이, 여기서 컴파일조차 확인할 수 없는(CLAUDE.md §1)
     /// 병합 코드를 새로 쓰는 것보다 안전하다.
     ///
@@ -307,7 +307,7 @@ final class CloudSyncService: ObservableObject {
                 )
                 let payload = try encoder.encode(board)
                 record["payload"] = payload
-                record["updatedAt"] = board.createdAt
+                record["updatedAt"] = board.changedAt
                 records.append(record)
             }
             for card in cards where !received.unreadableIDs.contains(card.id) {
