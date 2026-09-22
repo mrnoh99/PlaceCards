@@ -96,11 +96,20 @@ enum PhotoMetadata {
 /// 카드에 붙은 사진 중 **그 장소에서 찍힌 것**의 촬영 날짜를 방문 날짜
 /// 후보로 내놓는다.
 ///
-/// 판단 기준은 사진의 EXIF 두 가지가 **둘 다** 있을 때뿐이다 — 찍힌 자리가
-/// 카드의 좌표와 가깝고(`maxOnsiteDistanceMeters`), 찍힌 때가 있을 것.
-/// 하나라도 없으면 그 사진은 아무것도 말해 주지 않는 것으로 친다. 날짜만
-/// 있고 자리가 없으면 남이 보내 준 사진인지 현장 사진인지 구별할 수 없고,
-/// 자리만 있고 날짜가 없으면 언제 갔는지를 모른다.
+/// **꼭 있어야 하는 것은 촬영 날짜 하나다.** 날짜가 없으면 언제 갔는지를
+/// 모르므로 아무것도 할 수 없다.
+///
+/// 위치는 **있으면 견주고, 없으면 넘어간다.** 예전에는 둘 다 있어야만
+/// 받아들였는데, 그 탓에 위치 정보가 꺼진 채로 찍은 사진은 날짜가 뻔히
+/// 있어도 전부 버려졌다 — 사용자에게는 "날짜가 적혀 있는데 못 찾는다"로
+/// 보인다. 위치는 **반증하는 데** 쓰는 것이지 입증에 필요한 것이 아니다:
+/// 다른 동네에서 찍힌 것이 드러나면 떨어뜨리고, 아무 말이 없으면 사용자가
+/// 제 현장 사진으로 붙였다는 사실을 믿는다.
+///
+/// 그 믿음이 성립하는 것은 **`onsitePhotos`만 보기 때문**이다. 지도
+/// 스크린샷은 `mapScreenshots`로, 남이 보내 준 사진은 `receivedPhotos`로,
+/// Google이 준 사진은 `officialPhotos`로 따로 들어간다 — 위치 없이 믿었다가
+/// 엉뚱한 날짜가 들어올 만한 것들은 애초에 이 배열에 없다.
 enum PhotoVisitDates {
     /// 이 안에서 찍혔으면 "그 장소에서"로 친다.
     ///
@@ -119,17 +128,21 @@ enum PhotoVisitDates {
     /// 사진은 애초에 사용자가 찍은 것이 아니다 — 셋 다 "내가 거기 있었다"의
     /// 근거가 못 된다.
     static func candidates(for card: PlaceCard) -> [Date] {
-        guard let place = reference(for: card) else { return [] }
+        // 기준점이 없어도 **멈추지 않는다.** 견줄 것이 없다는 뜻이지,
+        // 날짜를 못 쓴다는 뜻이 아니다.
+        let place = reference(for: card)
         let calendar = Calendar.current
 
         var found: [Date] = []
         for item in card.media.onsitePhotos {
             let capture = capture(of: item)
-            guard let takenAt = capture.takenAt, let taken = capture.coordinates else { continue }
-            let distance = place.distance(
-                from: CLLocation(latitude: taken.latitude, longitude: taken.longitude)
-            )
-            guard distance <= maxOnsiteDistanceMeters else { continue }
+            guard let takenAt = capture.takenAt else { continue }
+            if let place, let taken = capture.coordinates,
+               place.distance(from: CLLocation(latitude: taken.latitude, longitude: taken.longitude))
+                > maxOnsiteDistanceMeters {
+                // 다른 데서 찍힌 것이 **드러난** 사진만 떨어뜨린다.
+                continue
+            }
             let alreadyKnown = card.visitDates.contains { calendar.isDate($0, inSameDayAs: takenAt) }
                 || found.contains { calendar.isDate($0, inSameDayAs: takenAt) }
             guard !alreadyKnown else { continue }
@@ -157,31 +170,27 @@ enum PhotoVisitDates {
         }
 
         let captures = photos.map { capture(of: $0) }
-        guard captures.contains(where: { $0.coordinates != nil }) else {
-            return "사진에 위치 정보가 없어 어디서 찍혔는지 알 수 없습니다. 아이폰 설정에서 카메라의 위치 접근을 켜면 앞으로 찍는 사진부터 기록됩니다.".localized
-        }
-        guard captures.contains(where: { $0.takenAt != nil }) else {
+        let dated = captures.filter { $0.takenAt != nil }
+        guard !dated.isEmpty else {
             return "사진에 촬영 날짜가 없습니다.".localized
         }
-        guard captures.contains(where: { $0.takenAt != nil && $0.coordinates != nil }) else {
-            return "촬영 날짜와 위치가 함께 있는 사진이 없습니다.".localized
-        }
 
-        // 여기까지 왔으면 쓸 만한 사진은 있다. 남은 이유는 둘뿐이고, 견주는
-        // 일은 `candidates`에 맡긴다 — 거리 계산을 여기서 다시 쓰면 두 벌이
-        // 갈라진다.
+        // 날짜는 있는데 아무것도 안 나왔다면 남은 이유는 둘뿐이다.
+        // 거리 계산은 다시 쓰지 않는다 — 두 벌로 갈라지면 한쪽만 고치게 된다.
         let calendar = Calendar.current
-        let anyKnown = captures.contains { capture in
-            guard let takenAt = capture.takenAt else { return false }
+        let allKnown = dated.allSatisfy { capture in
+            guard let takenAt = capture.takenAt else { return true }
             return card.visitDates.contains { calendar.isDate($0, inSameDayAs: takenAt) }
         }
-        if anyKnown {
+        if allKnown {
             return "사진의 촬영 날짜는 이미 모두 기록돼 있습니다.".localized
         }
         return "사진이 이 장소에서 멀리 떨어진 곳에서 찍혔습니다.".localized
     }
 
-    /// 사진이 "그 장소에서" 찍혔는지 견줄 기준점.
+    /// 사진이 "그 장소에서" 찍혔는지 견줄 기준점. **없을 수 있고, 없어도
+    /// 된다** — 견줄 것이 없다는 뜻이지 날짜를 못 쓴다는 뜻이 아니다
+    /// (`candidates` 참고).
     ///
     /// 카드 좌표가 있으면 그것이다. **없으면 현장 사진 중 GPS가 있는 첫 장의
     /// 위치를 쓴다.**
