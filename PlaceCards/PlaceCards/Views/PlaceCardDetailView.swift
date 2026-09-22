@@ -45,6 +45,10 @@ struct PlaceCardDetailView: View {
     @State private var photoPendingDelete: MediaItem?
     /// "사진에서 찾기"의 결과 한 줄. 찾았든 못 찾았든 말해 준다.
     @State private var photoVisitDateMessage: String?
+    /// "사진 앱에 담기"의 결과 한 줄.
+    @State private var photoLibraryMessage: String?
+    @State private var isSavingToPhotoLibrary = false
+    @State private var isConfirmingPhotoLibrarySave = false
 
     init(card: PlaceCard) {
         _card = State(initialValue: card)
@@ -301,6 +305,12 @@ struct PlaceCardDetailView: View {
                 photoPendingDelete = nil
             }
             Button("취소".localized, role: .cancel) { photoPendingDelete = nil }
+        }
+        .alert("사진 앱에 담을까요?".localized, isPresented: $isConfirmingPhotoLibrarySave) {
+            Button("담기".localized) { savePhotosToLibrary() }
+            Button("취소".localized, role: .cancel) {}
+        } message: {
+            Text("사진 앱의 PinSpots 앨범에 이 카드의 사진을 담습니다. 사진 앱에서 고른 사진이었다면 라이브러리에 한 장 더 생깁니다.".localized)
         }
         .sheet(isPresented: $isPresentingPhotoViewer) {
             PhotoViewerSheet(
@@ -597,8 +607,30 @@ struct PlaceCardDetailView: View {
     /// button's tappable area — the same structure the picker strip uses.
     private var photosSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("사진".localized)
-                .font(.headline)
+            HStack {
+                Text("사진".localized)
+                    .font(.headline)
+                Spacer()
+                // 아이콘만 — 아래 사진 줄과 같은 칸에 서므로 글자까지
+                // 내놓으면 좁은 화면에서 제목을 밀어낸다.
+                Button {
+                    isConfirmingPhotoLibrarySave = true
+                } label: {
+                    if isSavingToPhotoLibrary {
+                        ProgressView()
+                    } else {
+                        Label("사진 앱에 담기".localized, systemImage: "square.and.arrow.down")
+                            .labelStyle(.iconOnly)
+                    }
+                }
+                .font(.subheadline)
+                .disabled(isSavingToPhotoLibrary)
+            }
+            if let photoLibraryMessage {
+                Text(photoLibraryMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array(card.media.allItems.enumerated()), id: \.element.id) { index, item in
@@ -888,6 +920,34 @@ struct PlaceCardDetailView: View {
     ///
     /// 찾지 못했을 때도 말해 준다. 아무 일도 안 일어나면 단추가 고장 난
     /// 것인지 찾을 게 없었던 것인지 구별이 안 된다.
+    /// 이 카드의 사진을 사진 앱의 "PinSpots" 앨범에 담는다.
+    ///
+    /// 묻고 나서 한다. 남의 사진 라이브러리에 사진을 **새로 만들어 넣는**
+    /// 일이고, 라이브러리에서 골라 온 사진이었다면 한 장 더 생긴다 —
+    /// 되돌리려면 사진 앱에서 손으로 지워야 하므로 먼저 알린다
+    /// (`PhotoLibraryAlbum`의 주석 참고).
+    private func savePhotosToLibrary() {
+        let fileNames = card.media.allItems.map(\.localPath)
+        guard !fileNames.isEmpty else {
+            photoLibraryMessage = "담을 사진이 없습니다.".localized
+            return
+        }
+        isSavingToPhotoLibrary = true
+        Task {
+            let outcome = await PhotoLibraryAlbum.add(fileNames: fileNames)
+            isSavingToPhotoLibrary = false
+            switch outcome {
+            case .added(let count):
+                photoLibraryMessage = "사진 앱의 PinSpots 앨범에 ".localized
+                    + "\(count)" + "장을 담았습니다.".localized
+            case .denied:
+                photoLibraryMessage = "사진 접근이 꺼져 있어 담지 못했습니다. 설정에서 켜주세요.".localized
+            case .failed(let message):
+                photoLibraryMessage = message
+            }
+        }
+    }
+
     private func addVisitDatesFromPhotos() {
         let found = PhotoVisitDates.candidates(for: card)
         guard !found.isEmpty else {

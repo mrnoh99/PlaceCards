@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import ImageIO
+import Photos
 
 /// Saves and loads the photos attached to PlaceCards inside the app's
 /// documents directory. Only the file name is kept on `MediaItem.localPath`;
@@ -181,5 +182,134 @@ struct MediaStore {
         // correct trade: everything still on screen just gets re-decoded
         // once on its next redraw.
         cache.removeAllObjects()
+    }
+}
+
+
+/// 카드에 붙은 사진을 **사용자의 사진 라이브러리** 안 "PinSpots" 앨범에
+/// 넣는다. 사진 앱을 열어 그 앨범을 보면 거기 있다.
+///
+/// **왜 이런 모양인가.** 원래 바라던 것은 "이 사진을 사진 앱에서 바로
+/// 열기"였는데, iOS에는 **특정 사진을 지정해 사진 앱을 여는 공개 API가
+/// 없다.** 떠도는 `photos:`·`photos-navigation:` 스킴은 리버스
+/// 엔지니어링된 것이고 특정 사진 지정은 동작이 확인되지 않았다 —
+/// 추측한 외부 스킴은 쓰지 않는다는 규칙(CLAUDE.md §4)에도 걸린다.
+/// 그래서 "사진 앱으로 간다" 대신 **사진 앱에서 찾을 수 있게 앨범에
+/// 놓아둔다**로 방향을 바꿨다.
+///
+/// **이 방식만의 장점.** 앱이 이미 제 안에 갖고 있는 사진 파일로
+/// 만들기 때문에, 라이브러리 원본 식별자가 필요 없다. 그래서 **예전에
+/// 추가한 사진에도, 공유로 들어와 라이브러리에 없던 사진에도** 똑같이
+/// 된다. 식별자를 저장하는 방식(`PhotosPickerItem.itemIdentifier`)이었다면
+/// 앞으로 고르는 사진만 됐을 것이다.
+///
+/// **대가.** 라이브러리에서 골라 온 사진은 라이브러리에 **한 장 더**
+/// 생긴다. 앱이 가진 것은 원본이 아니라 제가 저장할 때 줄여 놓은
+/// 사본이므로(`MediaStore.saveImage`), 그 사본이 새 사진으로 들어간다.
+/// 부르는 쪽이 이 사실을 사용자에게 먼저 알린다.
+enum PhotoLibraryAlbum {
+    /// 사진 앱에 보이는 앨범 이름. 번역하지 않는다 — 앱 이름이다.
+    static let title = "PinSpots"
+
+    enum Outcome {
+        /// 실제로 들어간 장수.
+        case added(Int)
+        /// 사용자가 사진 접근을 거부했다.
+        case denied
+        case failed(String)
+    }
+
+    /// `fileNames`는 `MediaItem.localPath`들이다.
+    ///
+    /// 권한은 `.readWrite`를 받는다. "추가 전용"(`.addOnly`)으로는 모자란다
+    /// — 같은 이름의 앨범이 이미 있는지 **찾아보는 것 자체가 읽기**라서,
+    /// 추가 전용으로는 부를 때마다 "PinSpots" 앨범이 하나씩 새로 생긴다.
+    static func add(fileNames: [String]) async -> Outcome {
+        guard !fileNames.isEmpty else { return .added(0) }
+
+        let status = await requestReadWriteAuthorization()
+        guard status == .authorized || status == .limited else { return .denied }
+
+        // 파일을 먼저 전부 읽어 둔다. 아래 변경 블록은 동기적으로 돌고,
+        // 그 안에서 디스크를 읽으면 사진 라이브러리의 트랜잭션을 그만큼
+        // 붙잡고 있게 된다.
+        let datas = fileNames.compactMap { MediaStore.loadData(fileName: $0) }
+        guard !datas.isEmpty else { return .failed("사진 파일을 읽지 못했습니다.".localized) }
+
+        do {
+            let albumID = try await existingOrNewAlbumIdentifier()
+            try await performChanges {
+                guard let album = PHAssetCollection.fetchAssetCollections(
+                    withLocalIdentifiers: [albumID], options: nil
+                ).firstObject else { return }
+                guard let albumChange = PHAssetCollectionChangeRequest(for: album) else { return }
+                for data in datas {
+                    let creation = PHAssetCreationRequest.forAsset()
+                    creation.addResource(with: .photo, data: data, options: nil)
+                    guard let placeholder = creation.placeholderForCreatedAsset else { continue }
+                    albumChange.addAssets([placeholder] as NSArray)
+                }
+            }
+            return .added(datas.count)
+        } catch {
+            return .failed(error.localizedDescription)
+        }
+    }
+
+    /// 같은 이름의 앨범이 있으면 그것을, 없으면 만들어서 그 id를 준다.
+    ///
+    /// 만드는 것과 사진을 넣는 것을 **다른 변경 블록으로 나눈다.** 한
+    /// 블록 안에서 갓 만든 앨범의 자리표시자에 바로 넣는 것도 되지만,
+    /// 그러면 "이미 있으면 재사용" 쪽과 코드가 갈라진다. 나눠 두면 넣는
+    /// 코드가 한 벌뿐이다.
+    private static func existingOrNewAlbumIdentifier() async throws -> String {
+        let options = PHFetchOptions()
+        options.predicate = NSPredicate(format: "title = %@", title)
+        let found = PHAssetCollection.fetchAssetCollections(
+            with: .album, subtype: .albumRegular, options: options
+        )
+        if let existing = found.firstObject { return existing.localIdentifier }
+
+        let box = IdentifierBox()
+        try await performChanges {
+            let request = PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: title)
+            box.value = request.placeholderForCreatedAssetCollection.localIdentifier
+        }
+        guard let created = box.value else {
+            throw PlaceCardsError.saveFailed("사진 앱에 앨범을 만들지 못했습니다.".localized)
+        }
+        return created
+    }
+
+    /// 변경 블록이 바깥으로 값을 하나 돌려주는 통로. 지역 `var`를 탈출
+    /// 클로저에서 고치는 대신 클래스 한 겹을 두는 쪽이, 이 저장소가
+    /// 나중에 엄격한 동시성 검사를 켜더라도 그대로 통한다.
+    private final class IdentifierBox {
+        var value: String?
+    }
+
+    /// 완료 핸들러를 받는 쪽만 쓴다. async 오버로드가 있는 버전도 있지만,
+    /// 여기서는 컴파일 검증이 CI뿐이라(CLAUDE.md §1) 어느 SDK에서나
+    /// 확실히 있는 쪽을 고른다.
+    private static func performChanges(_ changes: @escaping () -> Void) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHPhotoLibrary.shared().performChanges(changes) { success, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: PlaceCardsError.saveFailed("사진 앱에 저장하지 못했습니다.".localized))
+                }
+            }
+        }
+    }
+
+    private static func requestReadWriteAuthorization() async -> PHAuthorizationStatus {
+        await withCheckedContinuation { (continuation: CheckedContinuation<PHAuthorizationStatus, Never>) in
+            PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
+                continuation.resume(returning: status)
+            }
+        }
     }
 }
