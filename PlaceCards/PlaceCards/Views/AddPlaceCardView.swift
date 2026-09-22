@@ -287,23 +287,30 @@ struct AddPlaceCardView: View {
                 // 안전함.
                 Menu {
                     if let coordinate = pickedPhotoCoordinate {
+                        // 무엇을 여는지는 제목이 한 번 말하고, 아래에는 어느
+                        // 지도인지만 둔다. 줄마다 "사진 위치로 보기"를
+                        // 되풀이하면 정작 다른 부분(지도 이름)이 문장 끝에
+                        // 묻힌다.
+                        //
                         // 차례는 지도 화면의 탭(Apple/Google/Naver)과 맞춘다.
-                        // 같은 셋을 고르는 자리가 둘인데 차례가 다르면
+                        // 같은 셋을 고르는 자리가 여럿인데 차례가 다르면
                         // 손이 기억한 자리를 잘못 누른다.
-                        Button("사진 위치로 보기 (Apple)".localized) {
-                            leavingForMapApp()
-                            AppleMapsOpener.open(
-                                coordinates: coordinate, label: "사진 위치".localized
-                            )
-                        }
-                        Button("사진 위치로 보기 (Google)".localized) {
-                            leavingForMapApp()
-                            GoogleMapsOpener.open(coordinates: coordinate, using: openURL)
-                        }
-                        if let url = NaverMapOpener.mapURL(coordinates: coordinate) {
-                            Button("사진 위치로 보기 (Naver)".localized) {
+                        Section("사진 위치로 보기".localized) {
+                            Button("Apple") {
                                 leavingForMapApp()
-                                openURL(url)
+                                AppleMapsOpener.open(
+                                    coordinates: coordinate, label: "사진 위치".localized
+                                )
+                            }
+                            Button("Google") {
+                                leavingForMapApp()
+                                GoogleMapsOpener.open(coordinates: coordinate, using: openURL)
+                            }
+                            if let url = NaverMapOpener.mapURL(coordinates: coordinate) {
+                                Button("Naver") {
+                                    leavingForMapApp()
+                                    openURL(url)
+                                }
                             }
                         }
                     }
@@ -549,16 +556,21 @@ struct AddPlaceCardView: View {
                     // see this app's own design notes on why capturing a
                     // screenshot back into one specific still-unsaved row
                     // isn't attempted automatically.
+                    // 두 묶음이 **무엇으로 찾느냐**가 다르다. 제목 없이
+                    // 늘어놓으면 이름으로 찾는 줄과 사진 위치로 여는 줄이
+                    // 한 덩어리로 보인다 — 둘은 결과가 아주 다르다.
                     Menu {
                         if !row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty {
-                            Button("Google Maps") {
-                                leavingForMapApp()
-                                GoogleMapsOpener.open(name: row.wrappedValue.name, address: row.wrappedValue.address, using: openURL)
-                            }
-                            if let url = NaverMapOpener.searchURL(name: row.wrappedValue.name, address: row.wrappedValue.address) {
-                                Button("Naver Map") {
+                            Section("이름으로 찾기".localized) {
+                                Button("Google") {
                                     leavingForMapApp()
-                                    openURL(url)
+                                    GoogleMapsOpener.open(name: row.wrappedValue.name, address: row.wrappedValue.address, using: openURL)
+                                }
+                                if let url = NaverMapOpener.searchURL(name: row.wrappedValue.name, address: row.wrappedValue.address) {
+                                    Button("Naver") {
+                                        leavingForMapApp()
+                                        openURL(url)
+                                    }
                                 }
                             }
                         }
@@ -569,14 +581,22 @@ struct AddPlaceCardView: View {
                         // a name search above already exists, and the only
                         // option here at all when the row has no name yet.
                         if let photoLocationHint = viewModel.photoLocationHint {
-                            Button("사진 위치로 보기 (Google)".localized) {
-                                leavingForMapApp()
-                                GoogleMapsOpener.open(coordinates: photoLocationHint, using: openURL)
-                            }
-                            if let url = NaverMapOpener.mapURL(coordinates: photoLocationHint) {
-                                Button("사진 위치로 보기 (Naver)".localized) {
+                            Section("사진 위치로 보기".localized) {
+                                Button("Apple") {
                                     leavingForMapApp()
-                                    openURL(url)
+                                    AppleMapsOpener.open(
+                                        coordinates: photoLocationHint, label: "사진 위치".localized
+                                    )
+                                }
+                                Button("Google") {
+                                    leavingForMapApp()
+                                    GoogleMapsOpener.open(coordinates: photoLocationHint, using: openURL)
+                                }
+                                if let url = NaverMapOpener.mapURL(coordinates: photoLocationHint) {
+                                    Button("Naver") {
+                                        leavingForMapApp()
+                                        openURL(url)
+                                    }
                                 }
                             }
                         }
