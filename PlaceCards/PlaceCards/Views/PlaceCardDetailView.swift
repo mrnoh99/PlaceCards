@@ -47,6 +47,13 @@ struct PlaceCardDetailView: View {
     @State private var photoVisitDateMessage: String?
     /// "사진 앱에 담기"의 결과 한 줄.
     @State private var photoLibraryMessage: String?
+    /// 방문 기록이 비어 있을 때, **왜 사진에서 못 가져왔는지** 한 줄.
+    ///
+    /// `body` 안에서 바로 계산하지 않는다 — `PhotoVisitDates`는 값이 저장돼
+    /// 있지 않은 옛 사진에 대해 파일을 열어 EXIF를 읽으므로, 스크롤할 때마다
+    /// 디스크를 두드리게 된다(`MediaStore.loadImage`를 body에서 부르던 때와
+    /// 같은 종류의 실수다). 아래 `.task(id:)`에서 한 번만 구한다.
+    @State private var visitDateHint: String?
     @State private var isSavingToPhotoLibrary = false
     @State private var isConfirmingPhotoLibrarySave = false
 
@@ -338,6 +345,15 @@ struct PlaceCardDetailView: View {
             try? await Task.sleep(nanoseconds: 400_000_000)
             isHeroPhotoTappable = true
         }
+        // 사진이 늘거나 방문 날짜가 생기면 이유도 달라진다. 그 둘이 바뀔
+        // 때만 다시 구한다.
+        .task(id: "\(card.visitDates.count)-\(card.media.onsitePhotos.count)") {
+            guard card.visitDates.isEmpty, !card.media.onsitePhotos.isEmpty else {
+                visitDateHint = nil
+                return
+            }
+            visitDateHint = PhotoVisitDates.reasonNothingFound(for: card)
+        }
     }
 
     /// Call / website / Instagram, in one row — mirrors Peragra's
@@ -512,7 +528,9 @@ struct PlaceCardDetailView: View {
                     .foregroundStyle(.secondary)
             }
             if card.visitDates.isEmpty {
-                Text("아직 방문 기록이 없습니다.".localized)
+                // 비었다는 말만 하면 사진에서 가져오는 기능이 고장 난 것인지
+                // 가져올 게 없었던 것인지 구별되지 않는다.
+                Text(visitDateHint ?? "아직 방문 기록이 없습니다.".localized)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
@@ -950,6 +968,7 @@ struct PlaceCardDetailView: View {
             // 왜 못 찾았는지까지 말한다. 사용자가 할 수 있는 일이 경우마다
             // 다른데 한 문장으로 덮으면 "기능이 안 된다"로만 보인다.
             photoVisitDateMessage = PhotoVisitDates.reasonNothingFound(for: card)
+            visitDateHint = photoVisitDateMessage
             return
         }
         card.visitDates.append(contentsOf: found)
