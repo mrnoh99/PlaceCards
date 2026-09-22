@@ -258,7 +258,16 @@ struct SharedLinkBoardPickerSheet: View {
             previewState = .list(list)
             return
         }
-        if parsed.name == nil, let url = parsed.url, let title = await LinkMetadataFetcher.fetchTitle(for: url) {
+        // 카카오맵은 전용 복구가 성공하면 이름·주소가 한 번에 다 찬다 —
+        // 실패해도 아래 일반 `fetchTitle` 경로로는 안 보낸다. 그 경로가
+        // 주워 오는 건 카카오맵 인터스티셜 페이지의 제목("카카오맵" 그
+        // 자체)이라 아무것도 못 찾은 것보다 나쁘다.
+        if parsed.source == .kakaoMapShare {
+            if let resolved = await SharedLinkParser.resolveKakaoMapShare(parsed) {
+                parsed = resolved
+            }
+        } else if parsed.name == nil, let url = parsed.url,
+                  let title = await LinkMetadataFetcher.fetchTitle(for: url) {
             parsed.name = title.strippingInvisibleFormatCharacters()
         }
         let name = parsed.name?.trimmingCharacters(in: .whitespaces).strippingInvisibleFormatCharacters()

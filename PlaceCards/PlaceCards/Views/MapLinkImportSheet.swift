@@ -168,15 +168,24 @@ struct MapLinkImportSheet: View {
             statusMessage = "공유한 링크에서 장소 정보를 찾지 못했습니다.".localized
             return
         }
-        // A page's own <title>/og:title (for a shortened goo.gl link) can
-        // carry stray formatting the same way a Google Maps URL's own
-        // name segment can — stripped for the same reason
-        // `SharedLinkParser.parseGoogleMapsURLPath` strips its own, and
-        // split the same "이름 · 지역" shape that title carries (see
-        // `SharedLinkParser.splitGoogleTitle`) so the location half
-        // doesn't get merged into `name` and trigger a false "이름이
-        // 다릅니다" against an already-correct name.
-        if parsed.name == nil, let url = parsed.url, let title = await LinkMetadataFetcher.fetchTitle(for: url) {
+        // 카카오맵은 전용 복구가 성공하면 이름·주소·좌표가 한 번에 다
+        // 찬다 — 실패해도 아래 일반 `fetchTitle` 경로로는 안 보낸다. 그
+        // 경로가 주워 오는 건 카카오맵 인터스티셜 페이지의 제목("카카오맵"
+        // 그 자체)이라 아무것도 못 찾은 것보다 나쁘다.
+        if parsed.source == .kakaoMapShare {
+            if let resolved = await SharedLinkParser.resolveKakaoMapShare(parsed) {
+                parsed = resolved
+            }
+        } else if parsed.name == nil, let url = parsed.url,
+                  let title = await LinkMetadataFetcher.fetchTitle(for: url) {
+            // A page's own <title>/og:title (for a shortened goo.gl link) can
+            // carry stray formatting the same way a Google Maps URL's own
+            // name segment can — stripped for the same reason
+            // `SharedLinkParser.parseGoogleMapsURLPath` strips its own, and
+            // split the same "이름 · 지역" shape that title carries (see
+            // `SharedLinkParser.splitGoogleTitle`) so the location half
+            // doesn't get merged into `name` and trigger a false "이름이
+            // 다릅니다" against an already-correct name.
             let (name, address) = SharedLinkParser.splitGoogleTitle(title.strippingInvisibleFormatCharacters())
             parsed.name = name
             if parsed.address == nil { parsed.address = address }

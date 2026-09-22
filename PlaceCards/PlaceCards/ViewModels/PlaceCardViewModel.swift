@@ -783,6 +783,24 @@ final class PlaceCardViewModel: ObservableObject {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let parsed = SharedLinkParser.parse(trimmed) {
+            // 카카오맵은 짧은 링크뿐이라 이름은커녕 아무것도 URL 자체에서
+            // 못 얻는다 — 전용 복구가 필요하고, 성공하면 이름·주소·좌표가
+            // 한 번에 다 찬다. 실패하면 아래 일반 `fetchTitle` 경로로
+            // 떨어뜨리지 않는다 — 그 경로는 카카오맵의 인터스티셜 페이지
+            // 제목("카카오맵" 그 자체)을 이름으로 주워서 더 나쁘다.
+            if parsed.source == .kakaoMapShare {
+                if let resolved = await SharedLinkParser.resolveKakaoMapShare(parsed) {
+                    return ResolvedSharedPlace(
+                        name: resolved.name ?? trimmed, address: resolved.address,
+                        coordinates: resolved.coordinates, note: resolved.note,
+                        website: nil, source: resolved.source, mapURL: resolved.url
+                    )
+                }
+                return ResolvedSharedPlace(
+                    name: trimmed, address: nil, coordinates: nil, note: nil,
+                    website: nil, source: parsed.source, mapURL: parsed.url
+                )
+            }
             if let name = parsed.name {
                 return ResolvedSharedPlace(
                     name: name, address: parsed.address, coordinates: parsed.coordinates, note: parsed.note,
@@ -853,6 +871,7 @@ final class PlaceCardViewModel: ObservableObject {
         case .naverMapShare: return [ExternalLink(platform: "Naver Map", url: mapURL.absoluteString)]
         case .googleMapShare: return [ExternalLink(platform: "Google Maps", url: mapURL.absoluteString)]
         case .appleMapShare: return [ExternalLink(platform: "Apple 지도".localized, url: mapURL.absoluteString)]
+        case .kakaoMapShare: return [ExternalLink(platform: "카카오맵".localized, url: mapURL.absoluteString)]
         default: return []
         }
     }

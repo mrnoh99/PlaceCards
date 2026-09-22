@@ -81,6 +81,7 @@
 		53771NG5D3TA11V4BU11DF11 /* SettingsDetailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53771NG5D3TA11V4F113R3F0 /* SettingsDetailViews.swift */; };
 		9E2C7A4B1D6F88034C51A0D7 /* ScreenshotPlaceScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F8D61C25A9B47E0B2D4188C /* ScreenshotPlaceScanner.swift */; };
 		00A104C99F70F9113A78C328 /* GoogleMapsListParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74B4C3C6D38A815385431E6B /* GoogleMapsListParser.swift */; };
+		9176960306E7A8047E6BB94C /* KakaoPlaceLinkResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1BBDCCE2A823870AB1BCC84 /* KakaoPlaceLinkResolver.swift */; };
 		0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */; };
 		0F81A9485D4E90BB4FB422A7 /* MapLinkImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4C37F44B2C46E3E3ACF758 /* MapLinkImportSheet.swift */; };
 		1D6673576E4E433227B962C8 /* GoogleMapWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1179E13A408F9863A8E33444 /* GoogleMapWebView.swift */; };
@@ -165,6 +166,7 @@
 		53771NG5D3TA11V4F113R3F0 /* SettingsDetailViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsDetailViews.swift; sourceTree = "<group>"; };
 		3F8D61C25A9B47E0B2D4188C /* ScreenshotPlaceScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotPlaceScanner.swift; sourceTree = "<group>"; };
 		74B4C3C6D38A815385431E6B /* GoogleMapsListParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleMapsListParser.swift; sourceTree = "<group>"; };
+		D1BBDCCE2A823870AB1BCC84 /* KakaoPlaceLinkResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KakaoPlaceLinkResolver.swift; sourceTree = "<group>"; };
 		4631450DBF9139E4F91B36F6 /* MapScreenshotImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapScreenshotImportSheet.swift; sourceTree = "<group>"; };
 		BF4C37F44B2C46E3E3ACF758 /* MapLinkImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLinkImportSheet.swift; sourceTree = "<group>"; };
 		1179E13A408F9863A8E33444 /* GoogleMapWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleMapWebView.swift; sourceTree = "<group>"; };
@@ -280,6 +282,7 @@
 				13GA1D0C5000002F113R3F00 /* LegalDocuments.swift */,
 				3F8D61C25A9B47E0B2D4188C /* ScreenshotPlaceScanner.swift */,
 				74B4C3C6D38A815385431E6B /* GoogleMapsListParser.swift */,
+				D1BBDCCE2A823870AB1BCC84 /* KakaoPlaceLinkResolver.swift */,
 				726A7E627D6573ABD7C7C9D7 /* BackupService.swift */,
 				34C85F15C3E10BE93A200392 /* AutoBackupService.swift */,
 				AD6C1AD056BA6BB9E763D9BE /* SharePlaces.swift */,
@@ -523,6 +526,7 @@
 				53771NG5D3TA11V4BU11DF11 /* SettingsDetailViews.swift in Sources */,
 				9E2C7A4B1D6F88034C51A0D7 /* ScreenshotPlaceScanner.swift in Sources */,
 				00A104C99F70F9113A78C328 /* GoogleMapsListParser.swift in Sources */,
+				9176960306E7A8047E6BB94C /* KakaoPlaceLinkResolver.swift in Sources */,
 				0DD138DED77A5C2FAB3E874C /* MapScreenshotImportSheet.swift in Sources */,
 				0F81A9485D4E90BB4FB422A7 /* MapLinkImportSheet.swift in Sources */,
 				1D6673576E4E433227B962C8 /* GoogleMapWebView.swift in Sources */,
@@ -702,7 +706,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 43;
+				CURRENT_PROJECT_VERSION = 44;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -735,7 +739,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 43;
+				CURRENT_PROJECT_VERSION = 44;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -766,7 +770,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 43;
+				CURRENT_PROJECT_VERSION = 44;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -790,7 +794,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 43;
+				CURRENT_PROJECT_VERSION = 44;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
