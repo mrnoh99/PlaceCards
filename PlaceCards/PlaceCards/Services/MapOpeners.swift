@@ -164,27 +164,54 @@ enum AppleMapsOpener {
     /// web-based map tabs, whose marker balloons are HTML and can only
     /// offer a link.
     static func webURL(for card: PlaceCard) -> URL? {
-        let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
-        let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
-
-        var queryItems: [URLQueryItem] = []
         if let coordinates = card.coordinates {
-            queryItems.append(URLQueryItem(name: "ll", value: "\(coordinates.latitude),\(coordinates.longitude)"))
-            // Nothing to label the pin with is fine; the pin itself is the
-            // point. An empty `q`, on the other hand, is a search for
-            // nothing, which lands Maps on a blank result instead.
-            if !trimmedName.isEmpty {
-                queryItems.append(URLQueryItem(name: "q", value: trimmedName))
-            }
-        } else {
-            guard !trimmedName.isEmpty else { return nil }
-            let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName), \(trimmedAddress)"
-            queryItems.append(URLQueryItem(name: "q", value: query))
+            return webURL(coordinates: coordinates, label: card.name)
         }
+        return webURL(name: card.name, address: card.address)
+    }
 
+    /// 이름/주소만으로 애플 지도 검색을 연다 — **카드가 아직 없는 자리**용
+    /// (`AddPlaceCardView`의 후보 줄). `GoogleMapsOpener.url(name:address:)`의
+    /// 애플 짝이다.
+    ///
+    /// 좌표가 없으니 `MKMapItem`은 쓸 수 없다. 애플이 문서로 정한 `?q=`
+    /// 검색 URL을 쓴다 — 좌표 없는 카드에 하던 것과 같은 일이라, 그 몸통을
+    /// 여기로 빼 `webURL(for:)`와 나눠 쓴다. 두 벌로 갈라 두면 한쪽만 고치게
+    /// 된다.
+    static func webURL(name: String, address: String) -> URL? {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return nil }
+        let trimmedAddress = address.trimmingCharacters(in: .whitespaces)
+        let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName), \(trimmedAddress)"
+        return url(queryItems: [URLQueryItem(name: "q", value: query)])
+    }
+
+    private static func webURL(coordinates: Coordinates, label: String) -> URL? {
+        var queryItems = [
+            URLQueryItem(name: "ll", value: "\(coordinates.latitude),\(coordinates.longitude)")
+        ]
+        // Nothing to label the pin with is fine; the pin itself is the
+        // point. An empty `q`, on the other hand, is a search for
+        // nothing, which lands Maps on a blank result instead.
+        let trimmedLabel = label.trimmingCharacters(in: .whitespaces)
+        if !trimmedLabel.isEmpty {
+            queryItems.append(URLQueryItem(name: "q", value: trimmedLabel))
+        }
+        return url(queryItems: queryItems)
+    }
+
+    private static func url(queryItems: [URLQueryItem]) -> URL? {
         var components = URLComponents(string: "https://maps.apple.com/")
         components?.queryItems = queryItems
         return components?.url
+    }
+
+    /// `GoogleMapsOpener.open(name:address:using:)`의 애플 짝. 좌표를 받는
+    /// `open(coordinates:label:)`과 달리 `OpenURLAction`이 필요하다 —
+    /// 이쪽은 URL을 여는 길밖에 없다.
+    static func open(name: String, address: String, using openURL: OpenURLAction) {
+        guard let url = webURL(name: name, address: address) else { return }
+        openURL(url)
     }
 
     /// Pins the exact coordinate when there is one; otherwise hands the

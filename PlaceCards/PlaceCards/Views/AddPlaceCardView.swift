@@ -562,6 +562,14 @@ struct AddPlaceCardView: View {
                     Menu {
                         if !row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty {
                             Section("이름으로 찾기".localized) {
+                                Button("Apple") {
+                                    leavingForMapApp()
+                                    AppleMapsOpener.open(
+                                        name: row.wrappedValue.name,
+                                        address: row.wrappedValue.address,
+                                        using: openURL
+                                    )
+                                }
                                 Button("Google") {
                                     leavingForMapApp()
                                     GoogleMapsOpener.open(name: row.wrappedValue.name, address: row.wrappedValue.address, using: openURL)
