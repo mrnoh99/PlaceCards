@@ -44,6 +44,24 @@ struct SettingsView: View {
         }
     }
 
+    /// 연결 확인(`cloudSyncStatusText`)과 한 줄로 합치지 않는다. 연결됐다는
+    /// 말과 올렸다는 말은 다른 사실이고, 실패했을 때 어느 쪽이 실패한
+    /// 것인지 구별되지 않으면 사용자가 할 일을 못 고른다.
+    private var cloudPushStatusText: String {
+        switch cloudSync.pushState {
+        case .idle:
+            return ""
+        case .preparing:
+            return "준비 중…".localized
+        case .pushing(let done, let total):
+            return "\(done)/\(total)"
+        case .finished(let cards, let boards):
+            return "\(boards)" + "개 보드".localized + " · " + "\(cards)" + "개 장소".localized
+        case .failed(let reason):
+            return reason
+        }
+    }
+
     private var storageUsageText: String {
         guard let mediaUsage else { return "계산 중…".localized }
         let places = "\(storageService.activePlaceCards.count)" + "개 장소".localized
@@ -301,6 +319,21 @@ struct SettingsView: View {
                 }
                 .font(.subheadline)
             }
+            LabeledContent("iCloud에 올리기".localized) {
+                HStack(spacing: 6) {
+                    Text(cloudPushStatusText)
+                        .foregroundStyle(.secondary)
+                    if cloudSync.pushState.isBusy {
+                        ProgressView()
+                    } else {
+                        Button("지금 올리기".localized) {
+                            Task { await cloudSync.pushAll(storageService: storageService) }
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                .font(.subheadline)
+            }
             Button("전체 백업".localized) { Task { await startBackup() } }
             // A different job from the backup above, not a variant of it:
             // that file exists to restore this app, embeds every photo as
@@ -317,7 +350,7 @@ struct SettingsView: View {
             Text("데이터".localized)
         } footer: {
             Text("\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 파일로 저장하며, 복원하면 이 기기에 없는 장소는 추가하고 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.".localized)
-            Text("기기 간 동기화는 아직 연결만 확인합니다. 카드를 주고받지는 않습니다.".localized)
+            Text("지금 올리기는 이 기기의 게시판과 장소를 본인 iCloud로 복사만 합니다. 내려받지 않으므로 이 기기의 자료는 바뀌지 않으며, 사진은 아직 올라가지 않습니다.".localized)
         }
         .fileExporter(
             isPresented: $showingBackupExporter,
