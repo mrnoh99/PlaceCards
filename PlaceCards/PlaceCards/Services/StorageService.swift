@@ -42,10 +42,72 @@ final class StorageService: ObservableObject {
         placeCardsFileURL = directory.appendingPathComponent(placeCardsFileName)
         loadBoards()
         loadPlaceCards()
+        loadPurgedCardIDs()
     }
 
     func acknowledgeLoadFailure() {
         loadFailureMessage = nil
+    }
+
+    // MARK: - 지운 기록(묘비)
+
+    /// 아주 지운 카드의 id와 지운 시각.
+    ///
+    /// `purge`가 배열에서 카드를 통째로 없애므로, 동기화 쪽에서 보면 "지웠다"는
+    /// 사실이 **어디에도 남지 않는다.** 그러면 클라우드에 남아 있는 그 카드가
+    /// 다음에 받을 때 "이 기기에 없는 카드"로 보여 그대로 되살아난다. 실제로
+    /// 지우는 길 넷이 전부 그렇게 되돌려진다 — 휴지통의 영구 삭제, 휴지통
+    /// 비우기, 기한 지난 것 자동 정리(`purgeExpiredTrash`, 앱이 뜰 때마다
+    /// 돈다), 그리고 중복 카드 합치기.
+    ///
+    /// 라이브러리 파일이 아니라 `UserDefaults`에 둔다. 이건 사용자 자료가
+    /// 아니라 동기화 장부이고, 세대 번호로 순서를 지키는 파일 쓰기 경로
+    /// (`LibraryFileWriter`)를 하나 더 늘리지 않는 편이 안전하다. 잃어버려도
+    /// 최악이 "지운 카드가 한 번 돌아온다"이다.
+    ///
+    /// 지우지 않고 쌓아 둔다. 한 건이 수십 바이트라 자랄 걱정보다, 잘못
+    /// 지워서 카드가 되살아나는 쪽이 훨씬 나쁘다.
+    private static let purgedCardIDsKey = "placecards.purgedCardIDs"
+
+    @Published private(set) var purgedCardIDs: [String: Date] = [:]
+
+    private func loadPurgedCardIDs() {
+        let raw = UserDefaults.standard.dictionary(forKey: Self.purgedCardIDsKey) as? [String: Double]
+        purgedCardIDs = (raw ?? [:]).mapValues { Date(timeIntervalSince1970: $0) }
+    }
+
+    private func persistPurgedCardIDs() {
+        UserDefaults.standard.set(
+            purgedCardIDs.mapValues { $0.timeIntervalSince1970 },
+            forKey: Self.purgedCardIDsKey
+        )
+    }
+
+    /// 이미 적힌 것은 시각을 덮지 않는다. 다른 기기에서 받은 "언제 지웠나"가
+    /// 이쪽에서 따라 지운 시각으로 바뀌면 안 된다.
+    private func recordPurge(_ id: String, at date: Date = Date()) {
+        guard purgedCardIDs[id] == nil else { return }
+        purgedCardIDs[id] = date
+        persistPurgedCardIDs()
+    }
+
+    /// 다른 기기에서 아주 지운 것을 이 기기에도 적용한다. 아직 여기 남아
+    /// 있으면 사진 파일까지 같이 지운다(`purge`가 한다).
+    ///
+    /// 돌려주는 수는 **실제로 이 기기에서 없앤 카드 수**다. 이미 없던 것은
+    /// 세지 않는다 — 화면에 "지움 3"이라고 떴는데 사라진 게 없으면 사용자가
+    /// 무슨 일이 난 건지 알 수 없다.
+    @discardableResult
+    func applyPurges(_ incoming: [String: Date]) -> Int {
+        var removed = 0
+        for (id, purgedAt) in incoming {
+            recordPurge(id, at: purgedAt)
+            if let card = placeCards.first(where: { $0.id == id }) {
+                purge(card)
+                removed += 1
+            }
+        }
+        return removed
     }
 
     // MARK: - Boards
@@ -200,6 +262,8 @@ final class StorageService: ObservableObject {
             MediaStore.delete(fileName: item.localPath)
         }
         placeCards.removeAll { $0.id == placeCard.id }
+        // 묘비를 남기지 않으면 다음 동기화가 이걸 그대로 되돌린다.
+        recordPurge(placeCard.id)
         persistPlaceCards()
     }
 
@@ -226,6 +290,10 @@ final class StorageService: ObservableObject {
     /// `MediaItem` entries onto the surviving card, which now owns them.
     func removeMergedDuplicate(_ placeCard: PlaceCard) {
         placeCards.removeAll { $0.id == placeCard.id }
+        // 사진 파일은 살아남은 카드가 가져갔으므로 안 지우지만, 이 카드가
+        // 없어졌다는 사실은 `purge`와 똑같이 남겨야 한다 — 안 그러면 합친
+        // 중복이 다음 동기화에 되살아난다.
+        recordPurge(placeCard.id)
         persistPlaceCards()
     }
 
