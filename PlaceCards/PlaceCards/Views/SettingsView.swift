@@ -25,10 +25,24 @@ struct SettingsView: View {
     /// Mirrors `CloudBackupService.isEnabled`, read once — nothing outside
     /// this screen changes it.
     @State private var isCloudBackupEnabled = CloudBackupService.isEnabled
+    /// 기기 사이 동기화(CloudKit)의 연결 확인. 아직 카드를 주고받지
+    /// 않는다 — `CloudSyncService` 주석 참고.
+    @StateObject private var cloudSync = CloudSyncService()
 
     /// Filled in once by a background task — `MediaStore.usage()` walks the
     /// whole photo directory, which has no business running on every render.
     @State private var mediaUsage: (fileCount: Int, totalBytes: Int64)?
+
+    private var cloudSyncStatusText: String {
+        switch cloudSync.status {
+        case .notChecked: return "확인 안 함".localized
+        case .checking: return "확인 중…".localized
+        case .ready(let accountTag): return "연결됨 (".localized + accountTag + ")"
+        case .noAccount: return "iCloud에 로그인되어 있지 않습니다.".localized
+        case .restricted: return "이 기기에서 iCloud가 제한되어 있습니다.".localized
+        case .unavailable(let reason): return reason
+        }
+    }
 
     private var storageUsageText: String {
         guard let mediaUsage else { return "계산 중…".localized }
@@ -274,6 +288,19 @@ struct SettingsView: View {
                     }
                 )
             )
+            LabeledContent("기기 간 동기화".localized) {
+                HStack(spacing: 6) {
+                    Text(cloudSyncStatusText)
+                        .foregroundStyle(cloudSync.status.isReady ? .green : .secondary)
+                    if case .checking = cloudSync.status {
+                        ProgressView()
+                    } else {
+                        Button("확인".localized) { Task { await cloudSync.check() } }
+                            .buttonStyle(.borderless)
+                    }
+                }
+                .font(.subheadline)
+            }
             Button("전체 백업".localized) { Task { await startBackup() } }
             // A different job from the backup above, not a variant of it:
             // that file exists to restore this app, embeds every photo as
@@ -290,6 +317,7 @@ struct SettingsView: View {
             Text("데이터".localized)
         } footer: {
             Text("\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 파일로 저장하며, 복원하면 이 기기에 없는 장소는 추가하고 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.".localized)
+            Text("기기 간 동기화는 아직 연결만 확인합니다. 카드를 주고받지는 않습니다.".localized)
         }
         .fileExporter(
             isPresented: $showingBackupExporter,
