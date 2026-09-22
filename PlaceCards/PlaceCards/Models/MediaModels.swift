@@ -46,7 +46,16 @@ enum SourceType: String, Codable, CaseIterable {
     /// decoding. Nothing in any version ever assigned this one, so no
     /// stored card can carry it, but the rule holds for the enum as a
     /// whole and a never-rendered case costs nothing. `kakaoMapScreenshot`
-    /// and `kakaoMapShare` above are unassigned for the same reason.
+    /// above is unassigned for the same reason — a screenshot goes through
+    /// the generic AI photo-scan path instead, which doesn't need a
+    /// dedicated source case to work.
+    ///
+    /// `kakaoMapShare` above is **not** in this group any more (2026-09-23):
+    /// it's produced by `KakaoPlaceLinkResolver`, which reads only the
+    /// `og:`/`twitter:` meta tags a Kakao Map place page already serves to
+    /// anyone (the same kind of read `WebsiteBusinessInfoFetcher` does on
+    /// any business site) — no Kakao API call, so the restriction above
+    /// never applies to it.
     case kakaoDirectLookup
 
     /// A place read out of the user's own Google Takeout export

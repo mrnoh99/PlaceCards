@@ -90,6 +90,19 @@ enum SharedLinkParser {
                     source: .googleMapShare
                 )
             }
+            if KakaoPlaceLinkResolver.isKakaoMapShareURL(url) {
+                // 이름·주소·좌표는 여기서 못 얻는다 — 카카오맵 공유는 짧은
+                // 링크뿐이라 실제 내용을 읽으려면 네트워크 왕복이 필요하고
+                // (`KakaoPlaceLinkResolver`의 주석 참고), 이 함수는 동기다.
+                // 호스트를 알아보고 `source`를 표시해 두는 것까지만 하고,
+                // 실제 복구는 `SharedLinkParser.resolveKakaoMapShare`를
+                // 부르는 각 화면이 한다 — `.googleMapShare`의 목록 복구
+                // (`GoogleMapsListParser`)가 이미 같은 모양이다.
+                return ParsedSharedPlace(
+                    name: nil, address: nil, coordinates: nil, note: nil,
+                    url: url, source: .kakaoMapShare
+                )
+            }
         }
 
         if looksLikeNaverShareText(text) {
@@ -109,6 +122,15 @@ enum SharedLinkParser {
     /// this to skip straight to asking the user to screenshot the post
     /// and add it through the existing photo-scan flow instead, rather
     /// than seeding a row with a raw link that's certain to fail search.
+    /// `.kakaoMapShare`로 인식된 것을 실제로 채운다. `parse(_:)`가 동기라
+    /// 여기서 못 한 일을 이어서 한다 — 실패하면 nil이고, 호출자는 그때
+    /// `parsed`를 그대로 두면 된다(이름 없는 카드로 남는 것이 "카카오맵"을
+    /// 이름으로 저장하는 것보다 낫다).
+    static func resolveKakaoMapShare(_ parsed: ParsedSharedPlace) async -> ParsedSharedPlace? {
+        guard parsed.source == .kakaoMapShare, let url = parsed.url else { return nil }
+        return await KakaoPlaceLinkResolver.resolve(url)
+    }
+
     static func isInstagramLink(_ text: String) -> Bool {
         guard let url = extractURL(from: text), let host = url.host else { return false }
         return host.contains("instagram.com")

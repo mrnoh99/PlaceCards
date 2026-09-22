@@ -516,6 +516,7 @@ enum Localization {
         "취소": "Cancel",
         "카드 보기": "View Card",
         "카카오맵 공유": "Kakao Map share",
+        "카카오맵": "Kakao Map",
         "카카오맵 스크린샷": "Kakao Map screenshot",
         "카테고리": "Category",
         "카테고리 변경": "Change Category",
