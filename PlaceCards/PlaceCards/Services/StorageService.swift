@@ -42,7 +42,7 @@ final class StorageService: ObservableObject {
         placeCardsFileURL = directory.appendingPathComponent(placeCardsFileName)
         loadBoards()
         loadPlaceCards()
-        loadPurgedCardIDs()
+        loadPurgedIDs()
     }
 
     func acknowledgeLoadFailure() {
@@ -68,19 +68,30 @@ final class StorageService: ObservableObject {
     /// 지우지 않고 쌓아 둔다. 한 건이 수십 바이트라 자랄 걱정보다, 잘못
     /// 지워서 카드가 되살아나는 쪽이 훨씬 나쁘다.
     private static let purgedCardIDsKey = "placecards.purgedCardIDs"
+    /// 게시판 묘비. 카드와 **따로** 둔다 — 한 통에 섞으면 id만 보고는
+    /// 어느 쪽을 지우라는 것인지 알 수 없다.
+    private static let purgedBoardIDsKey = "placecards.purgedBoardIDs"
 
     @Published private(set) var purgedCardIDs: [String: Date] = [:]
+    @Published private(set) var purgedBoardIDs: [String: Date] = [:]
 
-    private func loadPurgedCardIDs() {
-        let raw = UserDefaults.standard.dictionary(forKey: Self.purgedCardIDsKey) as? [String: Double]
-        purgedCardIDs = (raw ?? [:]).mapValues { Date(timeIntervalSince1970: $0) }
+    /// 날짜를 `Double`로 눕혀 둔다. `UserDefaults`가 확실히 받아 주는
+    /// 모양이고, 읽을 때 형이 안 맞으면 빈 것으로 시작한다.
+    private static func loadTombstones(key: String) -> [String: Date] {
+        let raw = UserDefaults.standard.dictionary(forKey: key) as? [String: Double]
+        return (raw ?? [:]).mapValues { Date(timeIntervalSince1970: $0) }
     }
 
-    private func persistPurgedCardIDs() {
+    private static func persistTombstones(_ tombstones: [String: Date], key: String) {
         UserDefaults.standard.set(
-            purgedCardIDs.mapValues { $0.timeIntervalSince1970 },
-            forKey: Self.purgedCardIDsKey
+            tombstones.mapValues { $0.timeIntervalSince1970 },
+            forKey: key
         )
+    }
+
+    private func loadPurgedIDs() {
+        purgedCardIDs = Self.loadTombstones(key: Self.purgedCardIDsKey)
+        purgedBoardIDs = Self.loadTombstones(key: Self.purgedBoardIDsKey)
     }
 
     /// 이미 적힌 것은 시각을 덮지 않는다. 다른 기기에서 받은 "언제 지웠나"가
@@ -88,7 +99,13 @@ final class StorageService: ObservableObject {
     private func recordPurge(_ id: String, at date: Date = Date()) {
         guard purgedCardIDs[id] == nil else { return }
         purgedCardIDs[id] = date
-        persistPurgedCardIDs()
+        Self.persistTombstones(purgedCardIDs, key: Self.purgedCardIDsKey)
+    }
+
+    private func recordBoardPurge(_ id: String, at date: Date = Date()) {
+        guard purgedBoardIDs[id] == nil else { return }
+        purgedBoardIDs[id] = date
+        Self.persistTombstones(purgedBoardIDs, key: Self.purgedBoardIDsKey)
     }
 
     /// 다른 기기에서 아주 지운 것을 이 기기에도 적용한다. 아직 여기 남아
@@ -110,6 +127,22 @@ final class StorageService: ObservableObject {
         return removed
     }
 
+    /// 게시판 쪽도 같다. 아직 여기 남아 있으면 `deleteBoard`를 그대로
+    /// 태우므로, 그 게시판에 들어 있던 카드에서 이 게시판만 빠지는 처리까지
+    /// 똑같이 일어난다 — 카드는 안 지워진다.
+    @discardableResult
+    func applyBoardPurges(_ incoming: [String: Date]) -> Int {
+        var removed = 0
+        for (id, purgedAt) in incoming {
+            recordBoardPurge(id, at: purgedAt)
+            if let board = boards.first(where: { $0.id == id }) {
+                deleteBoard(board)
+                removed += 1
+            }
+        }
+        return removed
+    }
+
     // MARK: - Boards
 
     /// `save(_ placeCard:)`가 카드에 하는 것과 같이 시각을 찍는다. 이걸
@@ -122,6 +155,7 @@ final class StorageService: ObservableObject {
         } else {
             boards.append(board)
         }
+        sortBoards()
         persistBoards()
     }
 
@@ -142,6 +176,9 @@ final class StorageService: ObservableObject {
             save(updated)
         }
         boards.removeAll { $0.id == board.id }
+        // 묘비를 안 남기면 다음 동기화가 이 게시판을 그대로 되살린다 —
+        // 카드 `purge`와 똑같은 이야기다.
+        recordBoardPurge(board.id)
         persistBoards()
     }
 
@@ -336,6 +373,9 @@ final class StorageService: ObservableObject {
     /// 견줄 시각이 없어서였고, 그 탓에 한 기기에서 바꾼 이름이 다른
     /// 기기로 가지 못했다.
     ///
+    /// 끝에 `sortBoards()`로 다시 세운다. 차례는 이제 배열의 자리가 아니라
+    /// `Board.sortIndex`에 있고, 그 값은 받아 온 게시판에 실려 온다.
+    ///
     /// Nothing is deleted from disk, unlike the old `replaceAll`. A photo
     /// belonging only to a card that just got replaced is left where it
     /// is — wasted space is recoverable and visible in Settings; deleting
@@ -360,6 +400,9 @@ final class StorageService: ObservableObject {
             guard board.changedAt > boards[index].changedAt else { continue }
             boards[index] = board
         }
+        // 받아 온 것에 실린 `sortIndex`가 자리를 정한다. 안 세우면 더해진
+        // 게시판이 배열 끝에 붙은 채로 남아 기기마다 차례가 달라진다.
+        sortBoards()
 
         // A card whose board exists neither here nor in the backup would
         // be unreachable in the UI, so it is left out rather than saved
@@ -423,6 +466,7 @@ final class StorageService: ObservableObject {
         guard let data = try? Data(contentsOf: boardsFileURL) else { return }
         guard let decoded = decodeOrQuarantine([Board].self, from: data, at: boardsFileURL) else { return }
         boards = decoded
+        sortBoards()
     }
 
     /// Decodes a storage file, or — when the file exists but won't decode —
@@ -460,9 +504,27 @@ final class StorageService: ObservableObject {
     /// `persistBoards()`가 배열 순서대로 쓰고 읽을 때 그대로 돌아오므로,
     /// 새 필드를 더해 저장 포맷을 건드릴 이유가 없다(백업도 같은 순서로
     /// 오간다).
+    /// 차례를 **값으로 굳힌다.** 배열의 자리는 이 기기에만 있는 것이라
+    /// 다른 기기로 건너가지 못한다 — 그래서 예전에는 여기서 옮겨 놓아도
+    /// 다른 기기의 차례는 그대로였다.
     func moveBoards(fromOffsets source: IndexSet, toOffset destination: Int) {
         boards.move(fromOffsets: source, toOffset: destination)
+        let now = Date()
+        for index in boards.indices where boards[index].sortIndex != index {
+            boards[index].sortIndex = index
+            // **바뀐 것에만** 시각을 찍는다. 전부 찍으면 자리를 그대로 지킨
+            // 게시판까지 "방금 고친 것"이 되어, 그사이 다른 기기에서 바꾼
+            // 이름을 덮는다.
+            boards[index].updatedAt = now
+        }
         persistBoards()
+    }
+
+    /// `Board.orderedBefore`로 세운다. 배열의 자리가 곧 차례이던 때에는
+    /// 필요 없었지만, 이제 차례가 `sortIndex`에 있으므로 배열을 거기 맞춰
+    /// 둬야 한다 — 화면들은 `boards`를 그냥 위에서부터 그린다.
+    private func sortBoards() {
+        boards.sort(by: Board.orderedBefore)
     }
 
     private func persistBoards() {
