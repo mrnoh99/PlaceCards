@@ -947,7 +947,9 @@ struct PlaceCardDetailView: View {
     private func addVisitDatesFromPhotos() {
         let found = PhotoVisitDates.candidates(for: card)
         guard !found.isEmpty else {
-            photoVisitDateMessage = "현장에서 찍힌 사진의 촬영 날짜를 찾지 못했습니다.".localized
+            // 왜 못 찾았는지까지 말한다. 사용자가 할 수 있는 일이 경우마다
+            // 다른데 한 문장으로 덮으면 "기능이 안 된다"로만 보인다.
+            photoVisitDateMessage = PhotoVisitDates.reasonNothingFound(for: card)
             return
         }
         card.visitDates.append(contentsOf: found)

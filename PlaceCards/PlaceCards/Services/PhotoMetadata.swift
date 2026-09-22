@@ -138,6 +138,49 @@ enum PhotoVisitDates {
         return found.sorted()
     }
 
+    /// `candidates`가 빈 손으로 돌아왔을 때 **왜 그런지** 한 줄로 답한다.
+    ///
+    /// 이게 없던 동안 화면에는 "촬영 날짜를 찾지 못했습니다" 하나뿐이었고,
+    /// 그 한 줄이 서로 아주 다른 상황을 전부 덮었다 — 사진에 위치 정보가
+    /// 없는 것, 날짜가 없는 것, 다른 데서 찍힌 것, 이미 다 적혀 있는 것.
+    /// 사용자가 할 수 있는 일이 각각 다른데 구별이 안 되니 "기능이 안 된다"로
+    /// 보인다. 특히 **위치 정보가 꺼진 채로 찍은 사진**이 제일 흔한데, 그건
+    /// 앱이 고칠 수 있는 것이 아니라 사용자가 카메라 설정에서 켜야 하는
+    /// 것이다.
+    ///
+    /// 검사 순서는 `candidates`가 걸러 내는 순서와 같게 둔다. 그래야 여기서
+    /// 하는 말과 저기서 하는 일이 어긋나지 않는다.
+    static func reasonNothingFound(for card: PlaceCard) -> String {
+        let photos = card.media.onsitePhotos
+        guard !photos.isEmpty else {
+            return "현장에서 찍은 사진이 없습니다. 사진을 먼저 추가해주세요.".localized
+        }
+
+        let captures = photos.map { capture(of: $0) }
+        guard captures.contains(where: { $0.coordinates != nil }) else {
+            return "사진에 위치 정보가 없어 어디서 찍혔는지 알 수 없습니다. 아이폰 설정에서 카메라의 위치 접근을 켜면 앞으로 찍는 사진부터 기록됩니다.".localized
+        }
+        guard captures.contains(where: { $0.takenAt != nil }) else {
+            return "사진에 촬영 날짜가 없습니다.".localized
+        }
+        guard captures.contains(where: { $0.takenAt != nil && $0.coordinates != nil }) else {
+            return "촬영 날짜와 위치가 함께 있는 사진이 없습니다.".localized
+        }
+
+        // 여기까지 왔으면 쓸 만한 사진은 있다. 남은 이유는 둘뿐이고, 견주는
+        // 일은 `candidates`에 맡긴다 — 거리 계산을 여기서 다시 쓰면 두 벌이
+        // 갈라진다.
+        let calendar = Calendar.current
+        let anyKnown = captures.contains { capture in
+            guard let takenAt = capture.takenAt else { return false }
+            return card.visitDates.contains { calendar.isDate($0, inSameDayAs: takenAt) }
+        }
+        if anyKnown {
+            return "사진의 촬영 날짜는 이미 모두 기록돼 있습니다.".localized
+        }
+        return "사진이 이 장소에서 멀리 떨어진 곳에서 찍혔습니다.".localized
+    }
+
     /// 사진이 "그 장소에서" 찍혔는지 견줄 기준점.
     ///
     /// 카드 좌표가 있으면 그것이다. **없으면 현장 사진 중 GPS가 있는 첫 장의
