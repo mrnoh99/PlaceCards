@@ -172,6 +172,20 @@ struct MediaStore {
         try data.write(to: directoryURL.appendingPathComponent(fileName), options: .atomic)
     }
 
+    /// 저장된 파일의 전체 경로. `CKAsset`은 `Data`가 아니라 **파일 URL**을
+    /// 받으므로 동기화가 이 경로를 필요로 한다. `loadData`로 읽어 넘기면
+    /// 사진 한 장을 통째로 메모리에 올렸다가 다시 임시 파일로 내리는 셈이라
+    /// 그러지 않는다.
+    static func fileURL(fileName: String) -> URL {
+        directoryURL.appendingPathComponent(fileName)
+    }
+
+    /// 파일이 실제로 있는지. 동기화가 "이 기기에 없는 사진"을 가리는 데
+    /// 쓴다 — `loadData`로 확인하면 확인만 하려고 파일 전체를 읽는다.
+    static func exists(fileName: String) -> Bool {
+        FileManager.default.fileExists(atPath: fileURL(fileName: fileName).path)
+    }
+
     static func delete(fileName: String) {
         let url = directoryURL.appendingPathComponent(fileName)
         try? FileManager.default.removeItem(at: url)

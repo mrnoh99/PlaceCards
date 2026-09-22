@@ -61,10 +61,18 @@ struct SettingsView: View {
             return "받는 중…".localized
         case .sending(let done, let total):
             return "\(done)/\(total)"
-        case .finished(let added, let updated, let uploaded):
-            return "\(added)" + "개 추가".localized
+        case .photos(let done, let total):
+            return "\(done)/\(total)" + " " + "사진".localized
+        case .finished(let added, let updated, let uploaded, let photosReceived, let photosSent):
+            // 장소 줄과 사진 줄을 나눈다. 한 줄에 다섯 숫자를 늘어놓으면
+            // 그중 하나(갱신)만 눈여겨봐야 한다는 것이 묻힌다.
+            let places = "\(added)" + "개 추가".localized
                 + " · " + "\(updated)" + "개 갱신".localized
                 + " · " + "\(uploaded)" + "개 올림".localized
+            guard photosReceived > 0 || photosSent > 0 else { return places }
+            return places + "\n" + "사진".localized + " "
+                + "\(photosReceived)" + "장 받음".localized
+                + " · " + "\(photosSent)" + "장 올림".localized
         case .failed(let reason):
             return reason
         }
@@ -331,6 +339,7 @@ struct SettingsView: View {
                 HStack(spacing: 6) {
                     Text(cloudSyncProgressText)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
                     if cloudSync.syncState.isBusy {
                         ProgressView()
                     } else {
@@ -358,7 +367,7 @@ struct SettingsView: View {
             Text("데이터".localized)
         } footer: {
             Text("\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 파일로 저장하며, 복원하면 이 기기에 없는 장소는 추가하고 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.".localized)
-            Text("지금 맞추기는 다른 기기에서 올린 게시판과 장소를 먼저 받아 합친 뒤, 합친 결과를 본인 iCloud에 올립니다. 이 기기에 없던 장소는 추가하고, 다른 기기에서 더 나중에 고친 장소는 그 내용으로 바꾸며, iCloud에 없는 장소는 그대로 둡니다. 사진은 아직 오가지 않으므로 다른 기기에서 받은 장소의 사진은 빈 자리로 보입니다.".localized)
+            Text("지금 맞추기는 다른 기기에서 올린 게시판과 장소를 먼저 받아 합친 뒤, 합친 결과를 본인 iCloud에 올립니다. 이 기기에 없던 장소는 추가하고, 다른 기기에서 더 나중에 고친 장소는 그 내용으로 바꾸며, iCloud에 없는 장소는 그대로 둡니다. 사진은 장소가 가리키는 것만, 아직 없는 쪽으로만 오갑니다 — 한 번 오간 사진은 다시 오가지 않습니다.".localized)
         }
         .fileExporter(
             isPresented: $showingBackupExporter,
