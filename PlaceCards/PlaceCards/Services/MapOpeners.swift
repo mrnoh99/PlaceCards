@@ -198,12 +198,37 @@ enum AppleMapsOpener {
         open(for: card)
     }
 
+    /// 카드가 아직 없을 때 쓰는 입구 — "GPS로 촬영위치찾기"가 그렇다.
+    /// 사진만 고른 단계라 이름도 주소도 없고 좌표 하나뿐이다.
+    ///
+    /// `GoogleMapsOpener.open(coordinates:using:)`의 애플 짝이지만
+    /// `OpenURLAction`을 받지 않는다. 저쪽은 URL 스킴을 열어야 해서
+    /// 필요하지만, 이쪽은 `MKMapItem.openInMaps`가 직접 연다 — 문자열로
+    /// 꾸민 URL이 아니라 MapKit이 주는 길이라 애플 지도에서는 이게 가장
+    /// 확실하다.
+    static func open(coordinates: Coordinates, label: String) {
+        open(
+            coordinate: CLLocationCoordinate2D(
+                latitude: coordinates.latitude, longitude: coordinates.longitude
+            ),
+            name: label
+        )
+    }
+
     private static func open(for card: PlaceCard) {
         guard let coordinates = card.coordinates else { return }
-        let coordinate = CLLocationCoordinate2D(latitude: coordinates.latitude, longitude: coordinates.longitude)
+        open(
+            coordinate: CLLocationCoordinate2D(
+                latitude: coordinates.latitude, longitude: coordinates.longitude
+            ),
+            name: card.name
+        )
+    }
+
+    private static func open(coordinate: CLLocationCoordinate2D, name: String) {
         let placemark = MKPlacemark(coordinate: coordinate)
         let mapItem = MKMapItem(placemark: placemark)
-        mapItem.name = card.name
+        mapItem.name = name
         // Calling `openInMaps()` with no launch options leaves the actual
         // centering up to Maps' own undocumented default — reported as
         // "엉뚱한곳이 중심에 있다": an already-running Maps app can keep

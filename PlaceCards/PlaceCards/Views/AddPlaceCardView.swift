@@ -287,6 +287,15 @@ struct AddPlaceCardView: View {
                 // 안전함.
                 Menu {
                     if let coordinate = pickedPhotoCoordinate {
+                        // 차례는 지도 화면의 탭(Apple/Google/Naver)과 맞춘다.
+                        // 같은 셋을 고르는 자리가 둘인데 차례가 다르면
+                        // 손이 기억한 자리를 잘못 누른다.
+                        Button("사진 위치로 보기 (Apple)".localized) {
+                            leavingForMapApp()
+                            AppleMapsOpener.open(
+                                coordinates: coordinate, label: "사진 위치".localized
+                            )
+                        }
                         Button("사진 위치로 보기 (Google)".localized) {
                             leavingForMapApp()
                             GoogleMapsOpener.open(coordinates: coordinate, using: openURL)

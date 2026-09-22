@@ -278,6 +278,8 @@ enum Localization {
         "사진 선택": "Choose Photos",
         "사진 스캔 시 이 순서대로 시도합니다. 키가 등록되지 않은 제공자는 건너뜁니다.": "Tried in this order for photo scanning. A provider with no key registered is skipped.",
         "사진 위치로 보기 (Google)": "View Photo's Location (Google)",
+        "사진 위치로 보기 (Apple)": "View Photo Location (Apple)",
+        "사진 위치": "Photo Location",
         "사진 위치로 보기 (Naver)": "View Photo's Location (Naver)",
         "사진 추가": "Add Photo",
         "사진에서 정보 수집": "Collect Info from Photos",
