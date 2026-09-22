@@ -489,7 +489,11 @@ struct PlaceCardDetailView: View {
                         .labelStyle(.iconOnly)
                 }
                 .font(.subheadline)
-                .disabled(card.media.onsitePhotos.isEmpty || card.coordinates == nil)
+                // 좌표가 없다고 잠그지 않는다. 사진을 공유해 만든 카드에는
+                // 좌표가 아직 없는데, 여기를 잠가 두면 "지도에서 확정해야만
+                // 사진 날짜가 나온다"가 된다 — `PhotoVisitDates.reference`가
+                // 그때는 사진 쪽에서 기준점을 세운다.
+                .disabled(card.media.onsitePhotos.isEmpty)
 
                 if hasVisitToday {
                     Label("오늘 방문함".localized, systemImage: "checkmark.circle.fill")

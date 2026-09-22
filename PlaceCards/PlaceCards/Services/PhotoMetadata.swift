@@ -119,8 +119,7 @@ enum PhotoVisitDates {
     /// 사진은 애초에 사용자가 찍은 것이 아니다 — 셋 다 "내가 거기 있었다"의
     /// 근거가 못 된다.
     static func candidates(for card: PlaceCard) -> [Date] {
-        guard let coordinates = card.coordinates else { return [] }
-        let place = CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude)
+        guard let place = reference(for: card) else { return [] }
         let calendar = Calendar.current
 
         var found: [Date] = []
@@ -137,6 +136,38 @@ enum PhotoVisitDates {
             found.append(takenAt)
         }
         return found.sorted()
+    }
+
+    /// 사진이 "그 장소에서" 찍혔는지 견줄 기준점.
+    ///
+    /// 카드 좌표가 있으면 그것이다. **없으면 현장 사진 중 GPS가 있는 첫 장의
+    /// 위치를 쓴다.**
+    ///
+    /// 왜 그냥 포기하지 않는가. 예전에는 좌표가 없으면 바로 빈 손으로
+    /// 돌아왔는데, 사진을 공유해 만든 카드에는 좌표가 **아직** 없다 —
+    /// 지도에서 장소를 확정해야 비로소 생긴다. 그래서 "사진 날짜가 구글에서
+    /// 확정한 뒤에야 나타난다"가 됐다. 단추(`PlaceCardDetailView`)까지 그때는
+    /// 비활성이라 손으로 부를 수도 없었다.
+    ///
+    /// 왜 이래도 안전한가. 견주는 일 자체를 없앤 것이 아니라 **기준점을 사진
+    /// 쪽에서 세울 뿐**이다. GPS가 없는 사진은 여전히 한 장도 통과하지 못하고
+    /// (지도 스크린샷·웹에서 받은 사진이 대개 그렇다), 200m 검사도 그대로
+    /// 남아 첫 장에서 멀리 떨어진 사진은 떨어진다. 즉 "한 자리에서 찍힌
+    /// 사진 묶음"이라는 조건은 그대로고, 그 자리가 어디인지를 구글에게 묻지
+    /// 않을 뿐이다.
+    ///
+    /// 첫 장을 쓰는 것은 정하기 나름이지만 배열 차례가 곧 붙인 차례라
+    /// 결과가 늘 같다. 좌표가 나중에 생기면 그다음부터는 카드 좌표가 기준이
+    /// 된다 — 이미 적힌 날짜를 되돌리지는 않는다.
+    private static func reference(for card: PlaceCard) -> CLLocation? {
+        if let coordinates = card.coordinates {
+            return CLLocation(latitude: coordinates.latitude, longitude: coordinates.longitude)
+        }
+        for item in card.media.onsitePhotos {
+            guard let taken = capture(of: item).coordinates else { continue }
+            return CLLocation(latitude: taken.latitude, longitude: taken.longitude)
+        }
+        return nil
     }
 
     /// 저장해 둔 값이 있으면 그것을, 없으면 파일에서 읽는다.
