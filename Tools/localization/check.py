@@ -18,7 +18,18 @@
    실제로 한 번 이렇게 CI를 터뜨렸다(198차). 사전 몸통을 토큰화해서
    `"키" : "값" ,` 의 반복인지 확인한다.
 
-2. **번역 누락.** 앱 코드의 `"…".localized` 한국어 리터럴 중 사전에 없는 것.
+2. **문자열 이스케이프.** Swift 문자열에서 `\\`는 정해진 몇 가지 뒤에만 올 수
+   있다. 사전을 스크립트로 고치다 보면 `\\u2014`(파이썬에서 `\\\\u2014`를 쓴
+   실수)나 `\\"`를 겹쳐 쓴 것이 들어가는데, 괄호 수도 사전 구조도 멀쩡해
+   두 검사를 다 지난다. CI는 이렇게 터진다:
+
+       error: expected hexadecimal code in braces after unicode escape
+       error: invalid escape sequence in literal
+
+   실제로 두 번 이렇게 터뜨렸다(`\\"PinSpots\\"`, `\\u2014`). 값 안의 모든
+   `\\`가 Swift가 아는 이스케이프인지 본다.
+
+3. **번역 누락.** 앱 코드의 `"…".localized` 한국어 리터럴 중 사전에 없는 것.
    단, `CSVExport`처럼 `.map { $0.localized }`로 일괄 번역하는 곳이 있으므로
    리터럴만 훑는 이 검사는 *미사용 키*는 판단하지 못한다 — 누락만 본다.
 
@@ -97,6 +108,22 @@ def main():
 
     keys = [t for n, (_, t) in enumerate(tokens) if n % 4 == 0]
     print("사전 구조 정상 — %d개 항목." % len(keys))
+
+    # 토큰 안의 문자열은 따옴표를 벗긴 **원문**이라, 여기 남은 `\`는 전부
+    # Swift가 해석할 이스케이프다. Swift가 아는 것만 통과시킨다.
+    legal = set('"\\nt0r\\\\\'u(')
+    bad_escapes = []
+    for _, text in tokens:
+        for m in re.finditer(r"\\(.)", text):
+            if m.group(1) not in legal:
+                bad_escapes.append((text[:40], m.group(0)))
+            elif m.group(1) == "u" and not re.match(r"\\u\{[0-9A-Fa-f]{1,8}\}", m.group(0) + text[m.end():m.end() + 10]):
+                bad_escapes.append((text[:40], "\\u (중괄호 없음)"))
+    if bad_escapes:
+        print("FAIL: Swift가 모르는 이스케이프 %d건" % len(bad_escapes))
+        for near, esc in bad_escapes[:10]:
+            print("  %r 안의 %s" % (near, esc))
+        return 1
 
     dupes = sorted({k for k in keys if keys.count(k) > 1})
     if dupes:
