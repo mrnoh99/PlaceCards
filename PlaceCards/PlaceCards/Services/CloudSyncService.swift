@@ -104,26 +104,30 @@ final class CloudSyncService: ObservableObject {
         }
     }
 
-    // MARK: - 올리기 (3-b-1)
+    // MARK: - 주고받기 (3-b-1 올리기, 3-b-2 내려받아 병합)
 
-    /// 올리기 진행 상태. `Status`(연결 확인)와 따로 둔다 — 연결이 됐다고
-    /// 올린 적이 있는 건 아니고, 화면에서도 두 줄로 나뉘어 보인다.
-    enum PushState: Equatable {
+    /// 동기화 진행 상태. `Status`(연결 확인)와 따로 둔다 — 연결이 됐다고
+    /// 주고받은 적이 있는 건 아니고, 화면에서도 두 줄로 나뉘어 보인다.
+    enum SyncState: Equatable {
         case idle
         case preparing
-        case pushing(done: Int, total: Int)
-        case finished(cards: Int, boards: Int)
+        case receiving
+        case sending(done: Int, total: Int)
+        /// `added`·`updated`는 내려받아 병합한 결과, `uploaded`는 올린 수다.
+        /// 셋을 따로 보인다 — `updated`는 이 기기의 카드가 다른 기기 것으로
+        /// **바뀌었다**는 뜻이라, 사용자가 예상과 다르면 바로 알아채야 한다.
+        case finished(added: Int, updated: Int, uploaded: Int)
         case failed(String)
 
         var isBusy: Bool {
             switch self {
-            case .preparing, .pushing: return true
+            case .preparing, .receiving, .sending: return true
             case .idle, .finished, .failed: return false
             }
         }
     }
 
-    @Published private(set) var pushState: PushState = .idle
+    @Published private(set) var syncState: SyncState = .idle
 
     /// 기본 존이 아니라 따로 만든 존에 넣는다. 나중에 "지난번 이후 바뀐
     /// 것만" 받아 오려면(`CKFetchRecordZoneChangesOperation`) 사용자 지정
@@ -134,36 +138,47 @@ final class CloudSyncService: ObservableObject {
     /// CloudKit의 한 번 요청 한도는 400건이다. 절반쯤에서 끊어 여유를 둔다.
     private static let batchSize = 200
 
-    /// 이 기기의 카드·보드를 iCloud로 **올리기만** 한다. 내려받지 않는다.
+    /// **먼저 내려받아 병합하고, 그 다음에 올린다.** 순서가 이 함수의 전부다.
     ///
-    /// 내려받기를 같이 넣지 않은 이유가 있다. 병합은 되돌리기 어렵고,
-    /// 여기서는 컴파일조차 확인할 수 없어(CLAUDE.md §1) 한 번에 검증할 수
-    /// 있는 크기를 넘긴다. 올리기만 하는 동안에는 `StorageService`를 읽기만
-    /// 하므로 이 기기의 자료가 상할 길이 없다 — 최악이라도 클라우드 쪽이
-    /// 틀릴 뿐이고, 그건 다음에 다시 올리면 덮인다.
+    /// 올리기는 `savePolicy = .allKeys`, 즉 이 기기 것으로 무조건 덮는다.
+    /// 그래서 올리기 전에 다른 기기 것을 받아 병합해 두지 않으면 다른
+    /// 기기의 더 나중 수정이 그대로 사라진다. 받아서 병합한 뒤에 올리면
+    /// 올라가는 것이 이미 **합쳐진 결과**이므로 덮어도 잃는 것이 없다.
+    ///
+    /// 같은 이유로 **받기가 실패하면 올리지 않고 멈춘다.** 받기에 실패한
+    /// 채로 올리는 것이 이 기능에서 자료를 잃는 유일한 길이다.
+    ///
+    /// 병합 규칙은 새로 만들지 않고 `StorageService.merge`를 그대로 쓴다 —
+    /// 백업 복원이 쓰는 바로 그 규칙이다: 이 기기에 없는 카드는 추가,
+    /// `updatedAt`이 더 나중인 카드는 그 내용으로 교체, 클라우드에 없는
+    /// 카드는 건드리지 않는다. 보드는 없으면 추가하고 바꾸지는 않는다
+    /// (`Board`에는 `updatedAt`이 없어 견줄 것이 없다). 이미 쓰이고 있는
+    /// 규칙을 재사용하는 것이, 여기서 컴파일조차 확인할 수 없는(CLAUDE.md §1)
+    /// 병합 코드를 새로 쓰는 것보다 안전하다.
     ///
     /// 레코드 한 장에 카드 하나를 통째로 JSON으로 넣는다. 필드를 하나씩
     /// 펼치지 않는 이유는 `PlaceCard`에 필드가 계속 붙기 때문이다 — 펼쳐
     /// 두면 필드가 늘 때마다 CloudKit 스키마와 짝을 맞춰야 하고, 그걸
     /// 빠뜨리면 그 필드만 조용히 사라진다. 사진은 파일 이름만 들어 있어
-    /// (`MediaItem.localPath`) 레코드가 작다. 사진 자체는 다음 단계다.
+    /// (`MediaItem.localPath`) 레코드가 작다. 사진 자체는 다음 단계다 —
+    /// 그때까지 다른 기기에서 받은 카드의 사진은 이 기기에 파일이 없어
+    /// 빈 자리로 보인다(`MediaStore.loadImage`가 nil을 돌려준다).
     ///
-    /// 삭제됨으로 옮긴 카드(`deletedAt`이 있는 것)도 같이 올린다. 그게
-    /// 카드의 지금 상태이고, 빼 두면 나중에 내려받기를 붙였을 때 되살아난다.
-    func pushAll(storageService: StorageService) async {
-        guard !pushState.isBusy else { return }
-        pushState = .preparing
+    /// 삭제됨으로 옮긴 카드(`deletedAt`이 있는 것)도 같이 주고받는다. 그게
+    /// 카드의 지금 상태다. 다만 `purge`로 아주 지운 카드는 배열에서 사라져
+    /// 묘비가 남지 않으므로, 다른 기기에 남아 있으면 되살아난다 — 삭제
+    /// 전파(3-b-3)에서 풀 문제다.
+    func syncNow(storageService: StorageService) async {
+        guard !syncState.isBusy else { return }
+        syncState = .preparing
 
         if !status.isReady {
             await check()
         }
         guard status.isReady else {
-            pushState = .failed("iCloud 연결을 먼저 확인해주세요.".localized)
+            syncState = .failed("iCloud 연결을 먼저 확인해주세요.".localized)
             return
         }
-
-        let cards = storageService.placeCards
-        let boards = storageService.boards
 
         let database = CKContainer(identifier: Self.containerIdentifier).privateCloudDatabase
         let zone = CKRecordZone(zoneName: Self.zoneName)
@@ -171,16 +186,32 @@ final class CloudSyncService: ObservableObject {
         do {
             try await createZoneIfNeeded(zone, in: database)
         } catch {
-            pushState = .failed(error.localizedDescription)
+            syncState = .failed(error.localizedDescription)
             return
         }
+
+        // 1) 받아서 병합. 실패하면 여기서 끝이다 — 위 주석 참고.
+        syncState = .receiving
+        let received: ReceiveResult
+        do {
+            received = try await receiveAndMerge(from: database, zoneID: zone.zoneID, into: storageService)
+        } catch {
+            syncState = .failed(error.localizedDescription)
+            return
+        }
+
+        // 2) 병합이 끝난 **뒤에** 읽는다. 병합 전에 읽어 두면 방금 받은
+        //    것이 빠진 채로 올라가고, `.allKeys`가 그걸 서버에 덮는다.
+        let cards = storageService.placeCards
+        let boards = storageService.boards
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
 
         var records: [CKRecord] = []
         do {
-            for board in boards {
+            // 읽지 못한 id는 뺀다. 그 자리는 서버에 있는 그대로 둔다.
+            for board in boards where !received.unreadableIDs.contains(board.id) {
                 let record = CKRecord(
                     recordType: Self.boardRecordType,
                     recordID: CKRecord.ID(recordName: board.id, zoneID: zone.zoneID)
@@ -190,7 +221,7 @@ final class CloudSyncService: ObservableObject {
                 record["updatedAt"] = board.createdAt
                 records.append(record)
             }
-            for card in cards {
+            for card in cards where !received.unreadableIDs.contains(card.id) {
                 let record = CKRecord(
                     recordType: Self.cardRecordType,
                     recordID: CKRecord.ID(recordName: card.id, zoneID: zone.zoneID)
@@ -201,13 +232,13 @@ final class CloudSyncService: ObservableObject {
                 records.append(record)
             }
         } catch {
-            pushState = .failed(error.localizedDescription)
+            syncState = .failed(error.localizedDescription)
             return
         }
 
         let total = records.count
         guard total > 0 else {
-            pushState = .finished(cards: 0, boards: 0)
+            syncState = .finished(added: received.added, updated: received.updated, uploaded: 0)
             return
         }
 
@@ -219,15 +250,181 @@ final class CloudSyncService: ObservableObject {
             do {
                 try await save(slice, in: database)
             } catch {
-                pushState = .failed(error.localizedDescription)
+                syncState = .failed(error.localizedDescription)
                 return
             }
             sent += slice.count
             index = end
-            pushState = .pushing(done: sent, total: total)
+            syncState = .sending(done: sent, total: total)
         }
 
-        pushState = .finished(cards: cards.count, boards: boards.count)
+        syncState = .finished(added: received.added, updated: received.updated, uploaded: total)
+    }
+
+    /// 존의 레코드를 전부 받아 디코딩한 뒤 `StorageService.merge`에 넘긴다.
+    ///
+    /// `CKQueryOperation`이 아니라 `CKFetchRecordZoneChangesOperation`을
+    /// 쓴다. 질의는 CloudKit 대시보드에서 필드에 **queryable 색인**을 걸어야
+    /// 동작하는데, 스키마가 자동 생성될 때는 그 색인이 안 붙는다 — 코드가
+    /// 맞아도 "invalid query" 하나로 끝난다. 존 변경 가져오기는 색인이
+    /// 필요 없고, 나중에 "지난번 이후 바뀐 것만" 받는 데 쓸 것도 이쪽이다.
+    ///
+    /// 지금은 토큰을 저장하지 않고 늘 nil부터 시작한다(= 매번 전부 받는다).
+    /// 토큰을 들고 있다가 잘못 쓰면 받아야 할 것을 조용히 건너뛰므로,
+    /// 두 기기가 실제로 맞는지 확인되기 전에는 느린 쪽을 고른다.
+    /// 받은 결과. `unreadableIDs`는 **레코드는 있는데 이 빌드가 읽지 못한**
+    /// 것들이다. 이게 왜 필요한지가 이 단계에서 제일 미묘하다:
+    ///
+    /// 다른 기기가 먼저 새 버전으로 올라가면, 그 기기가 쓴 레코드에 이
+    /// 빌드가 모르는 형태가 들어 있어 디코딩이 실패할 수 있다. 그걸 그냥
+    /// 건너뛰고 나서 같은 id의 **이 기기 옛 카드**를 `.allKeys`로 올리면,
+    /// 읽지 못했을 뿐 멀쩡하던 최신 내용이 옛 것으로 덮인다. 그래서 읽지
+    /// 못한 id는 올릴 때 빼 둔다 — 못 읽은 것은 서버에 그대로 남는다.
+    private struct ReceiveResult {
+        var added: Int
+        var updated: Int
+        var unreadableIDs: Set<String>
+    }
+
+    private func receiveAndMerge(
+        from database: CKDatabase,
+        zoneID: CKRecordZone.ID,
+        into storageService: StorageService
+    ) async throws -> ReceiveResult {
+        var records: [CKRecord] = []
+        var token: CKServerChangeToken?
+        // 한 번에 다 안 오면 토큰을 물고 다시 부른다. `moreComing`이 영영
+        // true인 서버 쪽 고장에 매달리지 않도록 횟수를 막아 두되, 막혔을
+        // 때 **그냥 진행하지 않고 던진다.** 덜 받은 채로 돌아가면 부른
+        // 쪽이 그걸 다 받은 줄 알고 `.allKeys`로 올려서 서버에 있던 것을
+        // 지운다 — 이 기능에서 자료를 잃는 길이 그것뿐이다.
+        var complete = false
+        var unreadable: Set<String> = []
+        for _ in 0..<50 {
+            let page = try await fetchChanges(from: database, zoneID: zoneID, since: token)
+            records.append(contentsOf: page.records)
+            unreadable.formUnion(page.failedIDs)
+            token = page.token
+            if !page.moreComing {
+                complete = true
+                break
+            }
+        }
+        guard complete else {
+            throw PlaceCardsError.networkError("iCloud에서 자료를 다 받지 못했습니다.".localized)
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        var boards: [Board] = []
+        var cards: [PlaceCard] = []
+        // 한 장이 깨졌다고 나머지를 버리지는 않는다. 대신 그 id를 적어 두고
+        // 올릴 때 뺀다(`ReceiveResult` 주석 참고).
+        var unreadableIDs = unreadable
+        for record in records {
+            let recordName = record.recordID.recordName
+            guard let payload = record["payload"] as? Data else {
+                unreadableIDs.insert(recordName)
+                continue
+            }
+            if record.recordType == Self.boardRecordType {
+                if let board = try? decoder.decode(Board.self, from: payload) {
+                    boards.append(board)
+                } else {
+                    unreadableIDs.insert(recordName)
+                }
+            } else if record.recordType == Self.cardRecordType {
+                if let card = try? decoder.decode(PlaceCard.self, from: payload) {
+                    cards.append(card)
+                } else {
+                    unreadableIDs.insert(recordName)
+                }
+            }
+        }
+
+        // 레코드가 돌아오는 순서는 정해져 있지 않다. `merge`는 없는 보드를
+        // 뒤에 붙이므로, 만든 순서로 세워 두면 기기마다 같은 차례가 된다.
+        boards.sort { $0.createdAt < $1.createdAt }
+        cards.sort { $0.createdAt < $1.createdAt }
+
+        let result = storageService.merge(boards: boards, placeCards: cards)
+        return ReceiveResult(added: result.added, updated: result.updated, unreadableIDs: unreadableIDs)
+    }
+
+    private struct ChangePage {
+        var records: [CKRecord]
+        /// 서버가 있다고는 했는데 가져오지 못한 레코드. 못 받은 것을 이
+        /// 기기 것으로 덮지 않으려면 id가 남아 있어야 한다.
+        var failedIDs: Set<String>
+        var token: CKServerChangeToken?
+        var moreComing: Bool
+    }
+
+    /// 결과 블록들은 CloudKit의 제 큐에서 불린다. 그 안에서 모은 것을
+    /// 밖으로 꺼내려면 참조 타입이 하나 있어야 한다 — `MediaStore`의
+    /// `IdentifierBox`와 같은 이유, 같은 모양이다.
+    private final class ChangeCollector {
+        var records: [CKRecord] = []
+        var token: CKServerChangeToken?
+        var moreComing = false
+        var failedIDs: Set<String> = []
+        /// 존 하나가 실패한 것을 여기 담아 두었다가 밖에서 던진다. 이걸
+        /// 흘려보내면 못 받은 것이 "받을 게 없었다"와 구별되지 않는다.
+        var zoneError: Error?
+    }
+
+    private func fetchChanges(
+        from database: CKDatabase,
+        zoneID: CKRecordZone.ID,
+        since token: CKServerChangeToken?
+    ) async throws -> ChangePage {
+        let collector = ChangeCollector()
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let configuration = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+            configuration.previousServerChangeToken = token
+            let operation = CKFetchRecordZoneChangesOperation(
+                recordZoneIDs: [zoneID],
+                configurationsByRecordZoneID: [zoneID: configuration]
+            )
+            operation.recordWasChangedBlock = { recordID, result in
+                switch result {
+                case .success(let record):
+                    collector.records.append(record)
+                case .failure:
+                    collector.failedIDs.insert(recordID.recordName)
+                }
+            }
+            operation.recordZoneFetchResultBlock = { _, result in
+                switch result {
+                case .success(let value):
+                    collector.token = value.serverChangeToken
+                    collector.moreComing = value.moreComing
+                case .failure(let error):
+                    collector.zoneError = error
+                }
+            }
+            operation.fetchRecordZoneChangesResultBlock = { result in
+                switch result {
+                case .success:
+                    continuation.resume(returning: ())
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+            database.add(operation)
+        }
+        // 전체는 성공했다고 나와도 존 하나가 실패했을 수 있다. 그 경우를
+        // 성공으로 돌려보내면 덜 받은 것을 다 받은 것으로 치게 된다.
+        if let zoneError = collector.zoneError {
+            throw zoneError
+        }
+        return ChangePage(
+            records: collector.records,
+            failedIDs: collector.failedIDs,
+            token: collector.token,
+            moreComing: collector.moreComing
+        )
     }
 
     /// 이미 있으면 그대로 둔다. `CKModifyRecordZonesOperation`은 같은 존을
