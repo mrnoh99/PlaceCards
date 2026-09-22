@@ -213,7 +213,7 @@ enum BackupService {
     /// Decodes a `BackupData` payload without applying it anywhere — used
     /// on its own by `ImportBoardSheet` (to preview a board/place count
     /// before the user commits to importing it) and by
-    /// `CloudBackupService.loadRestorableBackup()`, and internally by
+    /// `CloudBackupService.loadRestorableBackups()`, and internally by
     /// `restore(from:storageService:)`. Version compatibility is checked
     /// the same minimal way Peragra does — only the `app` tag, not
     /// `version` itself, since `Board`/`PlaceCard` already tolerate an
@@ -260,7 +260,7 @@ enum BackupService {
 
     /// The already-decoded form of `restore(from:storageService:)` — for a
     /// caller that had to decode the payload anyway (see
-    /// `CloudBackupService.loadRestorableBackup()`), so the whole document
+    /// `CloudBackupService.loadRestorableBackups()`), so the whole document
     /// isn't decoded a second time just to apply it.
     @MainActor
     @discardableResult
