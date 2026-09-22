@@ -1226,10 +1226,12 @@ final class PlaceCardViewModel: ObservableObject {
 
         // 좌표가 정해진 **뒤에** 본다. 이 함수는 `createPlaceCard(from:)`와
         // 달리 좌표가 처음부터 있지 않다 — 위에서 지오코딩하거나 사진
-        // GPS로 채워야 비로소 생긴다. 사진을 저장하는 자리(위)보다 늦게
-        // 두지 않으면 `PhotoVisitDates.candidates`가 매번 좌표 없이
-        // 돌아 아무것도 못 찾는다 — "지도에서 확정해야만 사진 날짜를
-        // 가져온다"고 보인 것이 실은 이 순서 문제였다.
+        // GPS로 채워야 비로소 생긴다. 여기서 보면 카드 좌표를 기준으로
+        // 견주므로 가장 정확하다.
+        //
+        // 이제는 좌표가 없어도 `PhotoVisitDates.reference`가 사진 쪽에서
+        // 기준점을 세우므로 아무것도 못 찾는 일은 없다. 그래도 순서는
+        // 그대로 둔다 — 있으면 카드 좌표가 더 나은 기준이다.
         let foundVisitDates = PhotoVisitDates.candidates(for: card)
         if !foundVisitDates.isEmpty {
             card.visitDates.append(contentsOf: foundVisitDates)
