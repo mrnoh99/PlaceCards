@@ -58,6 +58,7 @@
 		FC9DFF6409F934D40EC33563 /* DuplicatePlaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */; };
 		75C0903DDB6825E6ADBFEDDB /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D698604B0123BD5E703A0E79 /* AppNavigation.swift */; };
 		D06AA2E29ADD5F58CD65FCA1 /* PhotoMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */; };
+		D06AA2E29ADD5F58CD65FCB2 /* CloudSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 156F9B6DDD050CA16CAEFDF4 /* CloudSyncService.swift */; };
 		3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */; };
 		82A84A011ACD3D4D8F9D475E /* CategoryPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F40099F892AE3434934111B /* CategoryPickerSheet.swift */; };
 		7CAD95219A32FED40BB70DFB /* EditPlaceCardSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */; };
@@ -139,6 +140,7 @@
 		49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatePlaces.swift; sourceTree = "<group>"; };
 		D698604B0123BD5E703A0E79 /* AppNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigation.swift; sourceTree = "<group>"; };
 		156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoMetadata.swift; sourceTree = "<group>"; };
+		156F9B6DDD050CA16CAEFDF4 /* CloudSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncService.swift; sourceTree = "<group>"; };
 		783D720C3FBC241C52B2AD3B /* EditPlaceCardSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditPlaceCardSheet.swift; sourceTree = "<group>"; };
 		5D51593321DFDF74C73AACE9 /* FindDuplicatesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindDuplicatesSheet.swift; sourceTree = "<group>"; };
 		5F40099F892AE3434934111B /* CategoryPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryPickerSheet.swift; sourceTree = "<group>"; };
@@ -267,6 +269,7 @@
 				49F092B1495D64A3DE295049 /* DuplicatePlaces.swift */,
 				D698604B0123BD5E703A0E79 /* AppNavigation.swift */,
 				156F9B6DDD050CA16CAEFDE3 /* PhotoMetadata.swift */,
+				156F9B6DDD050CA16CAEFDF4 /* CloudSyncService.swift */,
 				03511DDB3D413FF170E1DB6D /* SharedImportStore.swift */,
 				74B4C3C6D38A815385431E6A /* MapOpenContext.swift */,
 				FBE7D614BE29856796727812 /* AppCredit.swift */,
@@ -500,6 +503,7 @@
 				FC9DFF6409F934D40EC33563 /* DuplicatePlaces.swift in Sources */,
 				75C0903DDB6825E6ADBFEDDB /* AppNavigation.swift in Sources */,
 				D06AA2E29ADD5F58CD65FCA1 /* PhotoMetadata.swift in Sources */,
+				D06AA2E29ADD5F58CD65FCB2 /* CloudSyncService.swift in Sources */,
 				3B8AABEDEBFFFFEEF809E156 /* FindDuplicatesSheet.swift in Sources */,
 				82A84A011ACD3D4D8F9D475E /* CategoryPickerSheet.swift in Sources */,
 				7CAD95219A32FED40BB70DFB /* EditPlaceCardSheet.swift in Sources */,
@@ -698,7 +702,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -731,7 +735,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -762,7 +766,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -786,7 +790,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
