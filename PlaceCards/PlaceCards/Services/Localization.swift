@@ -332,6 +332,7 @@ enum Localization {
         "iCloud와 맞추기": "Sync with iCloud",
         "지금 맞추기": "Sync Now",
         "받는 중…": "Receiving…",
+        "동기화": "Sync",
         "장 받음": " received",
         "장 올림": " uploaded",
         "사진을 주고받지 못했습니다(장소는 끝났습니다): ": "Could not sync photos (places are done): ",

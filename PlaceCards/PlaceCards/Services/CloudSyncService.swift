@@ -130,6 +130,62 @@ final class CloudSyncService: ObservableObject {
             case .idle, .finished, .failed: return false
             }
         }
+
+        /// 화면에 내보일 말. 설정 화면과 갤러리 툴바의 동기화 단추가 **같은**
+        /// 문장을 쓰도록 여기 둔다 — 두 벌로 갈라 두면 한쪽만 고치게 된다.
+        var progressText: String {
+            switch self {
+            case .idle:
+                return ""
+            case .preparing:
+                return "준비 중…".localized
+            case .receiving:
+                return "받는 중…".localized
+            case .sending(let done, let total):
+                return "\(done)/\(total)"
+            case .photos(let done, let total):
+                return "\(done)/\(total)" + " " + "사진".localized
+            case .finished(let added, let updated, let removed, let uploaded,
+                           let photosReceived, let photosSent):
+                // 장소 줄과 사진 줄을 나눈다. 한 줄에 숫자를 다 늘어놓으면
+                // 그중 눈여겨봐야 하는 둘(갱신·지움)이 묻힌다.
+                var places = "\(added)" + "개 추가".localized
+                    + " · " + "\(updated)" + "개 갱신".localized
+                // 0이면 아예 안 보인다. 지워진 게 없는데 "0개 지움"이 늘 떠
+                // 있으면 실제로 지워진 날에 그걸 알아채지 못한다.
+                if removed > 0 {
+                    places += " · " + "\(removed)" + "개 지움".localized
+                }
+                places += " · " + "\(uploaded)" + "개 올림".localized
+                guard photosReceived > 0 || photosSent > 0 else { return places }
+                return places + "\n" + "사진".localized + " "
+                    + "\(photosReceived)" + "장 받음".localized
+                    + " · " + "\(photosSent)" + "장 올림".localized
+            case .failed(let reason):
+                return reason
+            }
+        }
+
+        /// 끝난 뒤 사용자에게 **알릴 일이 있는가.**
+        ///
+        /// 바뀐 것이 없으면 알리지 않는다. 자주 누르는 단추라 아무 일도
+        /// 없었다고 매번 알리면 그것부터 닫느라 정작 바뀐 날을 놓친다.
+        /// 단추가 돌았다가 멎는 것으로 "했다"는 말은 이미 된다.
+        ///
+        /// 올린 수(`uploaded`)는 세지 않는다. 이 기기 것을 올리는 일은 누를
+        /// 때마다 일어나므로 새 소식이 아니다. 받고·바뀌고·지워진 것만이
+        /// 이 기기에서 **달라진** 것이다.
+        var deservesNotice: Bool {
+            switch self {
+            case .failed:
+                return true
+            case .finished(let added, let updated, let removed, _,
+                           let photosReceived, let photosSent):
+                return added + updated + removed + photosReceived + photosSent > 0
+            case .idle, .preparing, .receiving, .sending, .photos:
+                return false
+            }
+        }
     }
 
     @Published private(set) var syncState: SyncState = .idle

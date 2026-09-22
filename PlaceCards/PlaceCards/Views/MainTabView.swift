@@ -470,4 +470,5 @@ struct MainTabView: View {
 #Preview {
     MainTabView()
         .environmentObject(StorageService())
+        .environmentObject(CloudSyncService())
 }

@@ -23,6 +23,10 @@ private enum HomeSelection: Hashable {
 struct HomeView: View {
     @EnvironmentObject private var storageService: StorageService
     @EnvironmentObject private var navigation: AppNavigation
+    /// 앱이 하나 만들어 내려보낸다(`PlaceCardsApp`). 설정 화면의 "지금
+    /// 맞추기"와 **같은** 것이라, 한쪽이 도는 동안 다른 쪽 단추도 같이
+    /// 돌고 두 번 시작되지 않는다.
+    @EnvironmentObject private var cloudSync: CloudSyncService
     @State private var isPresentingAddBoard = false
     @State private var boardPendingDelete: Board?
     @State private var boardPendingEdit: Board?
@@ -34,6 +38,9 @@ struct HomeView: View {
     @State private var isPresentingImportBoard = false
     @State private var isPresentingCategoryEditor = false
     @State private var isPresentingBoardReorder = false
+    /// 동기화가 끝난 뒤 알릴 말. 알릴 것이 없으면 nil로 남는다 —
+    /// `SyncState.deservesNotice` 주석 참고.
+    @State private var syncNotice: String?
     /// `CategoryPickerSheet`이 고른 것을 받는 자리. 그 화면은 고르기와
     /// 편집을 같이 하므로 바인딩이 필요하고, 여기서는 고른 것을 그대로
     /// 갤러리 필터로 넘긴 뒤 비운다.
@@ -339,6 +346,21 @@ struct HomeView: View {
             }
         }
         .toolbar {
+            // 설정 안쪽까지 들어가야 누를 수 있으면 자주 누르지 않게 되고,
+            // 안 누르면 기기 사이가 벌어진다. 라이브러리 전체에 걸린 일이라
+            // 게시판 목록(이 화면)이 제자리다 — 갤러리 툴바는 고른 카드에
+            // 대한 것들로 이미 차 있다.
+            ToolbarItem(placement: .primaryAction) {
+                if cloudSync.syncState.isBusy {
+                    ProgressView()
+                } else {
+                    Button {
+                        Task { await cloudSync.syncNow(storageService: storageService) }
+                    } label: {
+                        Label("지금 맞추기".localized, systemImage: "arrow.triangle.2.circlepath")
+                    }
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button {
@@ -355,6 +377,22 @@ struct HomeView: View {
                     Label("추가".localized, systemImage: "plus")
                 }
             }
+        }
+        // 끝났다고 늘 띄우지는 않는다 — `deservesNotice` 주석 참고.
+        .onChange(of: cloudSync.syncState) { _, state in
+            guard state.deservesNotice else { return }
+            syncNotice = state.progressText
+        }
+        .alert(
+            "동기화".localized,
+            isPresented: Binding(
+                get: { syncNotice != nil },
+                set: { if !$0 { syncNotice = nil } }
+            )
+        ) {
+            Button("확인".localized, role: .cancel) { syncNotice = nil }
+        } message: {
+            Text(syncNotice ?? "")
         }
         .sheet(isPresented: $isPresentingAddBoard) {
             AddBoardSheet()
@@ -676,6 +714,7 @@ private struct ExportBoardMenu: View {
     return HomeView(galleryViewModel: GalleryViewModel(storageService: storage))
         .environmentObject(storage)
         .environmentObject(AppNavigation())
+        .environmentObject(CloudSyncService())
 }
 
 /// 보드 순서만 바꾸는 화면.
