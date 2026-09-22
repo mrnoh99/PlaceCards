@@ -119,7 +119,7 @@ final class CloudSyncService: ObservableObject {
         /// 것으로 **바뀌었다**는 뜻이라, 사용자가 예상과 다르면 바로 알아채야
         /// 한다. 사진은 오간 장수를 따로 센다.
         case finished(
-            added: Int, updated: Int, uploaded: Int,
+            added: Int, updated: Int, removed: Int, uploaded: Int,
             photosReceived: Int, photosSent: Int
         )
         case failed(String)
@@ -140,6 +140,10 @@ final class CloudSyncService: ObservableObject {
     private static let zoneName = "PlaceCards"
     private static let cardRecordType = "PlaceCardDoc"
     private static let boardRecordType = "BoardDoc"
+    /// 아주 지운 카드의 묘비. **카드 레코드와 같은 존에** 두므로 이름이
+    /// 부딪히지 않게 앞에 표를 붙인다.
+    private static let purgedRecordType = "PurgedDoc"
+    private static let purgedRecordPrefix = "purged-"
     /// 사진은 **다른 존**에 둔다. 카드 존은 동기화할 때마다 통째로 받는데,
     /// 사진이 같은 존에 있으면 그때마다 사진까지 전부 내려받는다. 존이
     /// 나뉘어 있으면 사진 쪽은 `desiredKeys = []`로 **이름만** 받아 무엇이
@@ -225,6 +229,20 @@ final class CloudSyncService: ObservableObject {
 
         var records: [CKRecord] = []
         do {
+            // 묘비를 먼저 싣는다. 다른 기기가 카드보다 이걸 늦게 보면
+            // 그 짧은 사이에 지운 카드를 되살렸다가 다시 지우게 된다.
+            for (id, purgedAt) in storageService.purgedCardIDs {
+                let record = CKRecord(
+                    recordType: Self.purgedRecordType,
+                    recordID: CKRecord.ID(
+                        recordName: Self.purgedRecordPrefix + id, zoneID: zone.zoneID
+                    )
+                )
+                let payload = try encoder.encode(PurgeMarker(id: id, purgedAt: purgedAt))
+                record["payload"] = payload
+                record["updatedAt"] = purgedAt
+                records.append(record)
+            }
             // 읽지 못한 id는 뺀다. 그 자리는 서버에 있는 그대로 둔다.
             for board in boards where !received.unreadableIDs.contains(board.id) {
                 let record = CKRecord(
@@ -274,8 +292,47 @@ final class CloudSyncService: ObservableObject {
             syncState = .sending(done: sent, total: total)
         }
 
+        // 묘비를 올렸으면 그 카드의 레코드 자체는 서버에 있을 이유가 없다.
+        // 남겨 둬도 받는 쪽이 묘비를 보고 거르므로 **틀리지는 않지만**, 아주
+        // 지운 장소의 내용이 클라우드에 계속 남는다.
+        await deleteStaleRecords(received.staleOnServer, in: database, zoneID: zone.zoneID)
+
         await finishWithPhotos(database: database, storageService: storageService,
                                received: received, uploaded: total)
+    }
+
+    /// 실패해도 그냥 넘어간다. 다음 동기화가 다시 시도하고, 그때까지 남아
+    /// 있어도 묘비가 있으니 되살아나지는 않는다 — 여기서 동기화를 실패로
+    /// 돌리면 정작 성공한 카드·사진까지 실패처럼 보인다.
+    private func deleteStaleRecords(
+        _ recordNames: [String],
+        in database: CKDatabase,
+        zoneID: CKRecordZone.ID
+    ) async {
+        let ids = recordNames.map { CKRecord.ID(recordName: $0, zoneID: zoneID) }
+        guard !ids.isEmpty else { return }
+        var index = 0
+        while index < ids.count {
+            let end = min(index + Self.batchSize, ids.count)
+            let slice = Array(ids[index..<end])
+            try? await delete(slice, in: database)
+            index = end
+        }
+    }
+
+    private func delete(_ recordIDs: [CKRecord.ID], in database: CKDatabase) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let operation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: recordIDs)
+            operation.modifyRecordsResultBlock = { result in
+                switch result {
+                case .success:
+                    continuation.resume(returning: ())
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+            database.add(operation)
+        }
     }
 
     /// 카드가 다 오간 뒤 사진을 주고받고 결과를 낸다.
@@ -293,7 +350,8 @@ final class CloudSyncService: ObservableObject {
         do {
             let photos = try await syncPhotos(in: database, storageService: storageService)
             syncState = .finished(
-                added: received.added, updated: received.updated, uploaded: uploaded,
+                added: received.added, updated: received.updated, removed: received.removed,
+                uploaded: uploaded,
                 photosReceived: photos.received, photosSent: photos.sent
             )
         } catch {
@@ -324,7 +382,19 @@ final class CloudSyncService: ObservableObject {
     private struct ReceiveResult {
         var added: Int
         var updated: Int
+        /// 다른 기기가 아주 지워서 이 기기에서도 없앤 카드 수.
+        var removed: Int
+        /// 서버에는 아직 있는데 묘비가 있는 카드 레코드. 이번에 받은 것에서
+        /// 추린 것이라, 다 치우고 나면 저절로 빈다 — 묘비 전부를 매번
+        /// 지우라고 보내면 이미 없는 것에 대고 영원히 같은 요청을 한다.
+        var staleOnServer: [String]
         var unreadableIDs: Set<String>
+    }
+
+    /// 묘비 한 장. 카드 id와 지운 시각만 있으면 된다.
+    private struct PurgeMarker: Codable {
+        var id: String
+        var purgedAt: Date
     }
 
     private func receiveAndMerge(
@@ -360,6 +430,8 @@ final class CloudSyncService: ObservableObject {
 
         var boards: [Board] = []
         var cards: [PlaceCard] = []
+        var remotePurges: [String: Date] = [:]
+        var serverCardIDs: Set<String> = []
         // 한 장이 깨졌다고 나머지를 버리지는 않는다. 대신 그 id를 적어 두고
         // 올릴 때 뺀다(`ReceiveResult` 주석 참고).
         var unreadableIDs = unreadable
@@ -369,13 +441,22 @@ final class CloudSyncService: ObservableObject {
                 unreadableIDs.insert(recordName)
                 continue
             }
-            if record.recordType == Self.boardRecordType {
+            if record.recordType == Self.purgedRecordType {
+                if let marker = try? decoder.decode(PurgeMarker.self, from: payload) {
+                    remotePurges[marker.id] = marker.purgedAt
+                } else {
+                    unreadableIDs.insert(recordName)
+                }
+            } else if record.recordType == Self.boardRecordType {
                 if let board = try? decoder.decode(Board.self, from: payload) {
                     boards.append(board)
                 } else {
                     unreadableIDs.insert(recordName)
                 }
             } else if record.recordType == Self.cardRecordType {
+                // 디코딩 성패와 무관하게 적는다. 묘비가 있는 카드라면
+                // 읽히든 안 읽히든 서버에서 치워야 한다.
+                serverCardIDs.insert(recordName)
                 if let card = try? decoder.decode(PlaceCard.self, from: payload) {
                     cards.append(card)
                 } else {
@@ -389,8 +470,24 @@ final class CloudSyncService: ObservableObject {
         boards.sort { $0.createdAt < $1.createdAt }
         cards.sort { $0.createdAt < $1.createdAt }
 
-        let result = storageService.merge(boards: boards, placeCards: cards)
-        return ReceiveResult(added: result.added, updated: result.updated, unreadableIDs: unreadableIDs)
+        // 묘비를 **병합보다 먼저** 적용한다. 순서가 반대면 방금 지운 것으로
+        // 들어온 카드를 병합이 한 번 되살렸다가 곧바로 다시 지우게 되고,
+        // 그사이 사진까지 받아 버린다.
+        let removed = storageService.applyPurges(remotePurges)
+
+        // 아주 지운 카드는 병합에 넘기지 않는다. `merge`는 "이 기기에 없는
+        // 카드"를 추가하는 것이 일이라, 걸러 주지 않으면 그게 곧 되살리기다.
+        // `merge` 자체는 안 고친다 — 백업 복원도 그걸 쓰는데, 거기서는
+        // 지웠던 카드를 되살리는 것이 오히려 사용자가 바라는 일이다.
+        let tombstoned = storageService.purgedCardIDs
+        let mergeable = cards.filter { tombstoned[$0.id] == nil }
+
+        let result = storageService.merge(boards: boards, placeCards: mergeable)
+        return ReceiveResult(
+            added: result.added, updated: result.updated, removed: removed,
+            staleOnServer: serverCardIDs.filter { tombstoned[$0] != nil }.sorted(),
+            unreadableIDs: unreadableIDs
+        )
     }
 
     // MARK: - 사진 (3-c)
