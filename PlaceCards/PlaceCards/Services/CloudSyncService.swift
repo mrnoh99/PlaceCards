@@ -200,6 +200,11 @@ final class CloudSyncService: ObservableObject {
     /// 부딪히지 않게 앞에 표를 붙인다.
     private static let purgedRecordType = "PurgedDoc"
     private static let purgedRecordPrefix = "purged-"
+    /// 게시판 묘비. 카드 묘비와 **다른 레코드 종류**다 — id만으로는 어느
+    /// 쪽을 지우라는 것인지 알 수 없다. 이름 표도 따로 붙여 같은 존 안에서
+    /// 부딪히지 않게 한다.
+    private static let purgedBoardRecordType = "PurgedBoardDoc"
+    private static let purgedBoardRecordPrefix = "purged-board-"
     /// 사진은 **다른 존**에 둔다. 카드 존은 동기화할 때마다 통째로 받는데,
     /// 사진이 같은 존에 있으면 그때마다 사진까지 전부 내려받는다. 존이
     /// 나뉘어 있으면 사진 쪽은 `desiredKeys = []`로 **이름만** 받아 무엇이
@@ -226,8 +231,8 @@ final class CloudSyncService: ObservableObject {
     /// 병합 규칙은 새로 만들지 않고 `StorageService.merge`를 그대로 쓴다 —
     /// 백업 복원이 쓰는 바로 그 규칙이다: 이 기기에 없는 카드는 추가,
     /// `updatedAt`이 더 나중인 카드는 그 내용으로 교체, 클라우드에 없는
-    /// 카드는 건드리지 않는다. 보드도 같은 규칙으로 이름 바뀐 것이 옮겨
-    /// 간다(`Board.changedAt`). 이미 쓰이고 있는
+    /// 카드는 건드리지 않는다. 보드도 같은 규칙으로 이름·차례 바뀐 것이
+    /// 옮겨 간다(`Board.changedAt`, `Board.sortIndex`). 이미 쓰이고 있는
     /// 규칙을 재사용하는 것이, 여기서 컴파일조차 확인할 수 없는(CLAUDE.md §1)
     /// 병합 코드를 새로 쓰는 것보다 안전하다.
     ///
@@ -299,8 +304,21 @@ final class CloudSyncService: ObservableObject {
                 record["updatedAt"] = purgedAt
                 records.append(record)
             }
+            for (id, purgedAt) in storageService.purgedBoardIDs {
+                let record = CKRecord(
+                    recordType: Self.purgedBoardRecordType,
+                    recordID: CKRecord.ID(
+                        recordName: Self.purgedBoardRecordPrefix + id, zoneID: zone.zoneID
+                    )
+                )
+                let payload = try encoder.encode(PurgeMarker(id: id, purgedAt: purgedAt))
+                record["payload"] = payload
+                record["updatedAt"] = purgedAt
+                records.append(record)
+            }
             // 읽지 못한 id는 뺀다. 그 자리는 서버에 있는 그대로 둔다.
-            for board in boards where !received.unreadableIDs.contains(board.id) {
+            for board in boards where !received.unreadableIDs.contains(board.id)
+                && storageService.purgedBoardIDs[board.id] == nil {
                 let record = CKRecord(
                     recordType: Self.boardRecordType,
                     recordID: CKRecord.ID(recordName: board.id, zoneID: zone.zoneID)
@@ -487,7 +505,9 @@ final class CloudSyncService: ObservableObject {
         var boards: [Board] = []
         var cards: [PlaceCard] = []
         var remotePurges: [String: Date] = [:]
+        var remoteBoardPurges: [String: Date] = [:]
         var serverCardIDs: Set<String> = []
+        var serverBoardIDs: Set<String> = []
         // 한 장이 깨졌다고 나머지를 버리지는 않는다. 대신 그 id를 적어 두고
         // 올릴 때 뺀다(`ReceiveResult` 주석 참고).
         var unreadableIDs = unreadable
@@ -503,7 +523,15 @@ final class CloudSyncService: ObservableObject {
                 } else {
                     unreadableIDs.insert(recordName)
                 }
+            } else if record.recordType == Self.purgedBoardRecordType {
+                if let marker = try? decoder.decode(PurgeMarker.self, from: payload) {
+                    remoteBoardPurges[marker.id] = marker.purgedAt
+                } else {
+                    unreadableIDs.insert(recordName)
+                }
             } else if record.recordType == Self.boardRecordType {
+                // 카드와 같은 이유로, 디코딩 성패와 무관하게 적는다.
+                serverBoardIDs.insert(recordName)
                 if let board = try? decoder.decode(Board.self, from: payload) {
                     boards.append(board)
                 } else {
@@ -530,18 +558,25 @@ final class CloudSyncService: ObservableObject {
         // 들어온 카드를 병합이 한 번 되살렸다가 곧바로 다시 지우게 되고,
         // 그사이 사진까지 받아 버린다.
         let removed = storageService.applyPurges(remotePurges)
+            + storageService.applyBoardPurges(remoteBoardPurges)
 
         // 아주 지운 카드는 병합에 넘기지 않는다. `merge`는 "이 기기에 없는
         // 카드"를 추가하는 것이 일이라, 걸러 주지 않으면 그게 곧 되살리기다.
         // `merge` 자체는 안 고친다 — 백업 복원도 그걸 쓰는데, 거기서는
         // 지웠던 카드를 되살리는 것이 오히려 사용자가 바라는 일이다.
         let tombstoned = storageService.purgedCardIDs
+        let tombstonedBoards = storageService.purgedBoardIDs
         let mergeable = cards.filter { tombstoned[$0.id] == nil }
+        let mergeableBoards = boards.filter { tombstonedBoards[$0.id] == nil }
 
-        let result = storageService.merge(boards: boards, placeCards: mergeable)
+        let result = storageService.merge(boards: mergeableBoards, placeCards: mergeable)
+        // 카드 레코드와 게시판 레코드는 같은 존에 있고 지우는 방법도 같으므로
+        // 한 벌로 모은다.
+        let stale = serverCardIDs.filter { tombstoned[$0] != nil }
+            .union(serverBoardIDs.filter { tombstonedBoards[$0] != nil })
         return ReceiveResult(
             added: result.added, updated: result.updated, removed: removed,
-            staleOnServer: serverCardIDs.filter { tombstoned[$0] != nil }.sorted(),
+            staleOnServer: stale.sorted(),
             unreadableIDs: unreadableIDs
         )
     }
