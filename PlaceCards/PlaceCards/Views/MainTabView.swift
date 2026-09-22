@@ -294,8 +294,14 @@ struct MainTabView: View {
     /// iCloud snapshot happens to exist from some other install.
     private func restoreFromCloudIfNeeded() async {
         guard storageService.boards.isEmpty else { return }
-        guard let backup = await CloudBackupService.loadRestorableBackup() else { return }
-        try? await BackupService.restore(backup, storageService: storageService)
+        // 기기마다 제 파일에 백업하므로 여러 개일 수 있다. 차례로 복원해
+        // 합친다 — `StorageService.merge`가 카드마다 `updatedAt`으로
+        // 최신을 남기므로, 겹치는 카드가 있어도 합집합이 된다.
+        let backups = await CloudBackupService.loadRestorableBackups()
+        guard !backups.isEmpty else { return }
+        for backup in backups {
+            try? await BackupService.restore(backup, storageService: storageService)
+        }
         showingCloudRestoreAlert = true
     }
 
