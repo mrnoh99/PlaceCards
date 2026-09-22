@@ -310,7 +310,7 @@ struct PlaceCardDetailView: View {
             Button("담기".localized) { savePhotosToLibrary() }
             Button("취소".localized, role: .cancel) {}
         } message: {
-            Text("사진 앱의 PinSpots 앨범에 이 카드의 사진을 담습니다. 사진 앱에서 고른 사진이었다면 라이브러리에 한 장 더 생깁니다.".localized)
+            Text("사진 앱의 PinSpots 앨범에 이 카드의 사진을 전부 담습니다. 한 장만 담으려면 사진을 눌러 크게 연 뒤 오른쪽 위 메뉴를 쓰세요. 사진 앱에서 고른 사진이었다면 라이브러리에 한 장 더 생깁니다.".localized)
         }
         .sheet(isPresented: $isPresentingPhotoViewer) {
             PhotoViewerSheet(
@@ -936,15 +936,7 @@ struct PlaceCardDetailView: View {
         Task {
             let outcome = await PhotoLibraryAlbum.add(fileNames: fileNames)
             isSavingToPhotoLibrary = false
-            switch outcome {
-            case .added(let count):
-                photoLibraryMessage = "사진 앱의 PinSpots 앨범에 ".localized
-                    + "\(count)" + "장을 담았습니다.".localized
-            case .denied:
-                photoLibraryMessage = "사진 접근이 꺼져 있어 담지 못했습니다. 설정에서 켜주세요.".localized
-            case .failed(let message):
-                photoLibraryMessage = message
-            }
+            photoLibraryMessage = outcome.message
         }
     }
 
@@ -1017,6 +1009,16 @@ private struct PhotoViewerSheet: View {
     let onDelete: (MediaItem) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var itemPendingDelete: MediaItem?
+    /// 낱장으로 사진 앱에 담기. 카드 전체를 담는 단추는 사진 구역에 따로
+    /// 있고, 여기 것은 **지금 보고 있는 한 장**만 담는다. 남의 사진
+    /// 라이브러리에 새로 만들어 넣는 일이라 묻고 나서 하는 것도 같다.
+    ///
+    /// 이 화면이 제 안에서 끝낸다. 부모에게 넘기면 결과 한 줄이 이 시트
+    /// 뒤에 가려진 사진 구역에 뜨고, 사용자는 시트를 닫기 전까지 담겼는지
+    /// 알 수 없다.
+    @State private var itemPendingLibrarySave: MediaItem?
+    @State private var isSavingToPhotoLibrary = false
+    @State private var photoLibraryMessage: String?
 
     private var currentItem: MediaItem? {
         guard items.indices.contains(selection) else { return nil }
@@ -1054,6 +1056,12 @@ private struct PhotoViewerSheet: View {
                                 )
                             }
                             .disabled(isCover)
+                            Button {
+                                itemPendingLibrarySave = currentItem
+                            } label: {
+                                Label("사진 앱에 담기".localized, systemImage: "square.and.arrow.down")
+                            }
+                            .disabled(isSavingToPhotoLibrary)
                             Button(role: .destructive) {
                                 itemPendingDelete = currentItem
                             } label: {
@@ -1083,6 +1091,44 @@ private struct PhotoViewerSheet: View {
                 }
                 Button("취소".localized, role: .cancel) { itemPendingDelete = nil }
             }
+            .confirmationDialog(
+                "사진 앱에 담을까요?".localized,
+                isPresented: Binding(
+                    get: { itemPendingLibrarySave != nil },
+                    set: { if !$0 { itemPendingLibrarySave = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("담기".localized) {
+                    if let itemPendingLibrarySave {
+                        saveToPhotoLibrary(itemPendingLibrarySave)
+                    }
+                    itemPendingLibrarySave = nil
+                }
+                Button("취소".localized, role: .cancel) { itemPendingLibrarySave = nil }
+            } message: {
+                Text("사진 앱의 PinSpots 앨범에 이 사진 한 장을 담습니다. 사진 앱에서 고른 사진이었다면 라이브러리에 한 장 더 생깁니다.".localized)
+            }
+            .alert(
+                "사진 앱에 담기".localized,
+                isPresented: Binding(
+                    get: { photoLibraryMessage != nil },
+                    set: { if !$0 { photoLibraryMessage = nil } }
+                )
+            ) {
+                Button("확인".localized, role: .cancel) { photoLibraryMessage = nil }
+            } message: {
+                Text(photoLibraryMessage ?? "")
+            }
+        }
+    }
+
+    private func saveToPhotoLibrary(_ item: MediaItem) {
+        isSavingToPhotoLibrary = true
+        Task {
+            let outcome = await PhotoLibraryAlbum.add(fileNames: [item.localPath])
+            isSavingToPhotoLibrary = false
+            photoLibraryMessage = outcome.message
         }
     }
 }

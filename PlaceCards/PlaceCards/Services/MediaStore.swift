@@ -231,6 +231,21 @@ enum PhotoLibraryAlbum {
         /// 사용자가 사진 접근을 거부했다.
         case denied
         case failed(String)
+
+        /// 사용자에게 보일 한 줄. 카드 전체를 담는 쪽과 사진 한 장을 담는
+        /// 쪽이 **같은 문장**을 쓰도록 여기 둔다 — 두 벌로 갈라 두면
+        /// 한쪽만 고치게 된다.
+        var message: String {
+            switch self {
+            case .added(let count):
+                return "사진 앱의 PinSpots 앨범에 ".localized
+                    + "\(count)" + "장을 담았습니다.".localized
+            case .denied:
+                return "사진 접근이 꺼져 있어 담지 못했습니다. 설정에서 켜주세요.".localized
+            case .failed(let message):
+                return message
+            }
+        }
     }
 
     /// `fileNames`는 `MediaItem.localPath`들이다.
