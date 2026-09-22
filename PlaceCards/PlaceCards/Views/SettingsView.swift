@@ -25,9 +25,9 @@ struct SettingsView: View {
     /// Mirrors `CloudBackupService.isEnabled`, read once — nothing outside
     /// this screen changes it.
     @State private var isCloudBackupEnabled = CloudBackupService.isEnabled
-    /// 기기 사이 동기화(CloudKit)의 연결 확인. 아직 카드를 주고받지
-    /// 않는다 — `CloudSyncService` 주석 참고.
-    @StateObject private var cloudSync = CloudSyncService()
+    /// 앱이 하나 만들어 내려보낸다(`PlaceCardsApp`). 갤러리 툴바의 동기화
+    /// 단추와 같은 것을 눌러야 하므로 여기서 새로 만들지 않는다.
+    @EnvironmentObject private var cloudSync: CloudSyncService
 
     /// Filled in once by a background task — `MediaStore.usage()` walks the
     /// whole photo directory, which has no business running on every render.
@@ -48,40 +48,9 @@ struct SettingsView: View {
     /// 말과 주고받았다는 말은 다른 사실이고, 실패했을 때 어느 쪽이 실패한
     /// 것인지 구별되지 않으면 사용자가 할 일을 못 고른다.
     ///
-    /// 끝난 뒤에는 셋을 다 보인다. 그중 "갱신"은 **이 기기의 카드가 다른
-    /// 기기 것으로 바뀌었다**는 뜻이라, 숫자가 예상과 다르면 사용자가 바로
-    /// 알아채야 하는 유일한 값이다.
+    /// 문장 자체는 `SyncState`가 만든다 — 갤러리 툴바의 단추도 같은 것을 쓴다.
     private var cloudSyncProgressText: String {
-        switch cloudSync.syncState {
-        case .idle:
-            return ""
-        case .preparing:
-            return "준비 중…".localized
-        case .receiving:
-            return "받는 중…".localized
-        case .sending(let done, let total):
-            return "\(done)/\(total)"
-        case .photos(let done, let total):
-            return "\(done)/\(total)" + " " + "사진".localized
-        case .finished(let added, let updated, let removed, let uploaded,
-                       let photosReceived, let photosSent):
-            // 장소 줄과 사진 줄을 나눈다. 한 줄에 숫자를 다 늘어놓으면 그중
-            // 눈여겨봐야 하는 둘(갱신·지움)이 묻힌다.
-            var places = "\(added)" + "개 추가".localized
-                + " · " + "\(updated)" + "개 갱신".localized
-            // 0이면 아예 안 보인다. 지워진 게 없는데 "0개 지움"이 늘 떠
-            // 있으면 실제로 지워진 날에 그걸 알아채지 못한다.
-            if removed > 0 {
-                places += " · " + "\(removed)" + "개 지움".localized
-            }
-            places += " · " + "\(uploaded)" + "개 올림".localized
-            guard photosReceived > 0 || photosSent > 0 else { return places }
-            return places + "\n" + "사진".localized + " "
-                + "\(photosReceived)" + "장 받음".localized
-                + " · " + "\(photosSent)" + "장 올림".localized
-        case .failed(let reason):
-            return reason
-        }
+        cloudSync.syncState.progressText
     }
 
     private var storageUsageText: String {
@@ -543,4 +512,5 @@ struct SettingsView: View {
 #Preview {
     SettingsView()
         .environmentObject(StorageService())
+        .environmentObject(CloudSyncService())
 }
