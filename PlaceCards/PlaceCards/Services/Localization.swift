@@ -60,6 +60,8 @@ extension String {
 /// text if a translation here looks incomplete on its own.
 enum Localization {
     static let englishTranslations: [String: String] = [
+        "애플 지도 서버에 연결하지 못했습니다.": "Couldn't reach Apple Maps.",
+        "애플 지도 요청이 너무 잦습니다. 잠시 뒤 다시 시도해주세요.": "Too many Apple Maps requests. Please try again shortly.",
         "이 백업을 가져올까요?": "Import this backup?",
         "이 기기에 없는 장소는 추가하고, 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.":
             "Places this device is missing are added, and places the backup edited more recently replace the copies here. Places the backup doesn't contain are left alone.",

@@ -15,7 +15,39 @@ enum AppleLocalSearchService {
     /// 없으면(아직 아무 단서가 없는 카드) 힌트 없이 그냥 이름으로 찾는다.
     private static let regionRadiusMeters: CLLocationDistance = 5_000
 
-    static func search(query: String, coordinateHint: Coordinates?) async throws -> [PlaceSearchResult] {
+    /// `query`로 먼저 찾고, 빈 손이면 `fallbackQuery`로 한 번 더 찾는다.
+    ///
+    /// 둘로 나뉘는 이유: 호출부는 "이름 + 주소"를 한 줄로 이어 넘기는데
+    /// (`EditPlaceCardSheet.confirmPlace`), `MKLocalSearch`는 그걸 구글처럼
+    /// 너그럽게 받아 주지 않는다. `naturalLanguageQuery`는 글자 그대로
+    /// 맞춰 보는 쪽에 가까워서 "애드라인 터프팅 스튜디오 경기 수원시
+    /// 팔달구 세지로234번길 5 1층"처럼 층수까지 붙은 줄은 통째로 어긋난다 —
+    /// 실제로 사용자가 이 조합에서 결과 0을 신고했다. 이름만으로 다시
+    /// 물으면 대개 찾힌다. `coordinateHint`가 그때 엉뚱한 동네를 걸러 준다.
+    static func search(
+        query: String, fallbackQuery: String? = nil, coordinateHint: Coordinates?
+    ) async throws -> [PlaceSearchResult] {
+        let first = try await run(query: query, coordinateHint: coordinateHint)
+        guard first.isEmpty, let fallbackQuery, fallbackQuery != query else { return first }
+        return try await run(query: fallbackQuery, coordinateHint: coordinateHint)
+    }
+
+    /// 못 찾은 것은 **빈 결과로 돌려준다.** `MKLocalSearch`는 결과가 없을
+    /// 때도 오류를 던지는데(`MKError.placemarkNotFound`), 그걸 그대로
+    /// 올려 보내면 두 가지가 한꺼번에 어긋난다: 위의 두 번째 시도까지
+    /// 가지 못하고, 화면에는 애플이 만든 영어 문장이 그대로 뜬다 —
+    /// 사용자가 본 것이 정확히 그것이다("The operation couldn't be
+    /// completed. (MKErrorDomain error 4.)"). 서버 실패 같은 진짜 오류는
+    /// 그대로 던진다.
+    private static func run(query: String, coordinateHint: Coordinates?) async throws -> [PlaceSearchResult] {
+        do {
+            return try await performSearch(query: query, coordinateHint: coordinateHint)
+        } catch let error as MKError where error.code == .placemarkNotFound {
+            return []
+        }
+    }
+
+    private static func performSearch(query: String, coordinateHint: Coordinates?) async throws -> [PlaceSearchResult] {
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = query
         if let coordinateHint {
@@ -41,11 +73,28 @@ enum AppleLocalSearchService {
                 if let response {
                     continuation.resume(returning: response)
                 } else {
-                    continuation.resume(
-                        throwing: error ?? PlaceCardsError.noResults
-                    )
+                    continuation.resume(throwing: error ?? PlaceCardsError.noResults)
                 }
             }
+        }
+    }
+
+    /// 여기까지 올라온 오류를 사람이 읽을 수 있는 한 줄로 바꾼다. 애플이
+    /// 만든 `localizedDescription`은 한국어 화면에 영어로 뜨는 데다
+    /// ("The operation couldn't be completed. (MKErrorDomain error 4.)")
+    /// 무엇을 하라는 말인지도 없다. 모르는 오류면 `nil`을 돌려 호출부가
+    /// 제 일반 문구를 쓰게 한다.
+    ///
+    /// `placemarkNotFound`는 여기 오지 않는다 — `run`이 빈 결과로 삼킨다.
+    static func message(for error: Error) -> String? {
+        guard let code = (error as? MKError)?.code else { return nil }
+        switch code {
+        case .serverFailure:
+            return "애플 지도 서버에 연결하지 못했습니다.".localized
+        case .loadingThrottled:
+            return "애플 지도 요청이 너무 잦습니다. 잠시 뒤 다시 시도해주세요.".localized
+        default:
+            return nil
         }
     }
 }
