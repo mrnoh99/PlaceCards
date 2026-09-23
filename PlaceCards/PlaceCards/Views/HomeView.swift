@@ -266,10 +266,16 @@ struct HomeView: View {
                                     // 그 밀기가 줄 선택으로 떨어진다 — 아이폰에서
                                     // "왼쪽으로 밀면 갤러리로 넘어간다"가 그것이다.
                                     //
-                                    // 빈 보드만 지우게 하던 조건도 이제 근거가
-                                    // 없다. `deleteBoard`는 214차부터 **카드를
-                                    // 데려가지 않는다** — 그 보드에서 빼기만 하고
-                                    // 카드는 "모든 카드"에 남는다.
+                                    // **빈 보드만 지운다는 규칙은 그대로다.** 259차가
+                                    // 그 규칙을 조건과 함께 없앴는데 틀렸다.
+                                    // `deleteBoard`가 카드를 안 데려가는 것은 맞지만,
+                                    // 그게 근거가 아니다 — **카드는 여러 보드에 들어갈
+                                    // 수 있고**, 그래서 보드만 지우면 카드가 어디에도
+                                    // 속하지 않은 채 남는다. 먼저 비우게 해야 한다.
+                                    //
+                                    // 규칙은 단추를 숨겨서가 아니라 **왜 못 지우는지
+                                    // 말해서** 지킨다. 숨기면 위의 빈 묶음 문제가
+                                    // 돌아오고, 사용자는 왜 안 나오는지도 모른다.
                                     .swipeActions(edge: .trailing) {
                                         Button(role: .destructive) {
                                             boardPendingDelete = board
@@ -444,24 +450,38 @@ struct HomeView: View {
             ExportBoardSheet(board: board, storageService: storageService)
         }
         .confirmationDialog(
-            "게시판 \"".localized + (boardPendingDelete?.name ?? "") + "\"을 삭제할까요?".localized,
+            deletePendingBoardIsEmpty
+                ? "게시판 \"".localized + (boardPendingDelete?.name ?? "") + "\"을 삭제할까요?".localized
+                : "게시판 \"".localized + (boardPendingDelete?.name ?? "") + "\"을 지울 수 없습니다".localized,
             isPresented: Binding(
                 get: { boardPendingDelete != nil },
                 set: { if !$0 { boardPendingDelete = nil } }
             ),
             titleVisibility: .visible
         ) {
-            Button("삭제".localized, role: .destructive) {
-                if let board = boardPendingDelete {
-                    storageService.deleteBoard(board)
+            if deletePendingBoardIsEmpty {
+                Button("삭제".localized, role: .destructive) {
+                    if let board = boardPendingDelete {
+                        storageService.deleteBoard(board)
+                    }
+                    boardPendingDelete = nil
                 }
-                boardPendingDelete = nil
+                Button("취소".localized, role: .cancel) { boardPendingDelete = nil }
+            } else {
+                Button("확인".localized) { boardPendingDelete = nil }
             }
-            Button("취소".localized, role: .cancel) { boardPendingDelete = nil }
         } message: {
-            // 카드가 같이 사라지는지가 이 자리에서 가장 궁금한 것이다.
-            Text("이 게시판만 없어집니다. 장소는 \"모든 카드\"에 그대로 남습니다.".localized)
+            Text(deletePendingBoardIsEmpty
+                 ? "되돌릴 수 없습니다.".localized
+                 : "장소가 들어 있는 게시판은 지울 수 없습니다. 장소는 여러 게시판에 들어갈 수 있어서, 게시판만 지우면 그 장소가 어디에도 속하지 않은 채 남습니다. 먼저 장소를 옮기거나 빼주세요.".localized)
         }
+    }
+
+    /// 지우려는 게시판이 비어 있나. `boardPendingDelete`가 없으면 대화상자도
+    /// 안 뜨므로 그때 값은 쓰이지 않는다.
+    private var deletePendingBoardIsEmpty: Bool {
+        guard let board = boardPendingDelete else { return true }
+        return storageService.placeCards(inBoard: board.id).isEmpty
     }
 
     /// Lightroom의 섹션 제목 — 굵고 크게, 그리고 `.textCase(nil)`.
