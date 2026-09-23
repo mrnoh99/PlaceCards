@@ -2,6 +2,39 @@
 
 ## [Unreleased]
 
+### 2026-09-23 (252차) — Team ID 커밋을 다시 되돌림 (251차 취소)
+사용자 보고: 로그인 뒤에도 **`Unknown Name`이 그대로 나온다.**
+
+#### Reverted
+- `project.pbxproj`의 `DEVELOPMENT_TEAM` 네 줄 제거. **251차 직전(`5d634e4`)과
+  바이트 단위로 동일함을 `cmp`로 확인했다.** 212차와 같은 처리다.
+
+#### 이번에 좁혀진 것
+`DEVELOPMENT_TEAM`은 **10자리 Team ID만 받는다.** 화면의 "Jaisung Noh"는 Xcode가
+그 ID로 조회해서 보여 주는 이름이지 파일에 적는 값이 아니다. 그러므로
+`Unknown Name (492X57LLB4)`는 **"ID는 읽었는데 로그인된 계정의 팀 목록에 그
+ID가 없다"**는 뜻이다.
+
+로그인을 했는데도 같은 증상이면 남는 설명은 하나다 — **그 Apple ID가 속한 팀의
+ID가 `492X57LLB4`가 아니다.** 가장 흔한 경우가 Personal Team(무료 계정에 딸려
+오는 팀)이고, 그 ID는 유료 멤버십 팀과 다르다.
+
+`security find-identity`가 보여 준 `Apple Development: Jaisung Noh (492X57LLB4)`는
+**인증서**다. 인증서는 예전에 받아 둔 것이 로컬 키체인에 남아 있을 수 있어,
+그것만으로 "지금 로그인된 계정이 그 팀에 속한다"가 증명되지 않는다. 211차부터
+이 값을 근거로 삼은 것이 여기서 어긋났다.
+
+#### 다음에 할 일 — 순환을 피하는 순서
+값을 **Xcode가 직접 쓰게 한 다음** 읽는다. 지금까지는 커밋된 값을 되읽어서
+순환이었다(`00_다른_계정에서_이어받기.md` §3의 경고).
+
+1. 이 커밋을 pull — `DEVELOPMENT_TEAM`이 없는 상태가 된다.
+2. Xcode → 타깃 → Signing & Capabilities → **Team 드롭다운에서 고른다.**
+   여기에 "Jaisung Noh"가 보이면 그것을 고른다. 안 보이면 로그인된 Apple ID가
+   그 팀에 속해 있지 않은 것이다.
+3. 고른 뒤 `grep -n "DEVELOPMENT_TEAM" PlaceCards/PlaceCards.xcodeproj/project.pbxproj`.
+   **이제 Xcode가 쓴 값이므로 순환이 아니다.** 이 값을 커밋하면 된다.
+
 ### 2026-09-23 (251차) — Team ID를 다시 커밋한다 (212차 되돌림을 되돌림)
 사용자 확인: "team 로그인 했다". 211차가 넣었다가 212차에 되돌린 것을 원인이
 해소됐으므로 다시 넣는다.
