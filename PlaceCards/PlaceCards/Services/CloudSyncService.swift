@@ -601,11 +601,17 @@ final class CloudSyncService: ObservableObject {
         let zone = CKRecordZone(zoneName: Self.photoZoneName)
         try await createZoneIfNeeded(zone, in: database)
 
-        // 병합이 끝난 뒤의 카드에서 뽑는다.
+        // 병합이 끝난 뒤의 카드에서 뽑는다. **게시판 표지 사진도 센다** —
+        // 같은 폴더에 살고, 안 세면 다른 기기에서 표지가 빈 칸이 된다.
         var referenced: Set<String> = []
         for card in storageService.placeCards {
             for item in card.media.allItems {
                 referenced.insert(item.localPath)
+            }
+        }
+        for board in storageService.boards {
+            if let path = board.coverPhotoPath {
+                referenced.insert(path)
             }
         }
         guard !referenced.isEmpty else { return (0, 0) }

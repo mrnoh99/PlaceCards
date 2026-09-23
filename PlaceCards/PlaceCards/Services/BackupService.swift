@@ -221,7 +221,8 @@ enum BackupService {
         guard let decoded = try? decodeBundle(at: url) else { return }
         let photosURL = url.appendingPathComponent(bundlePhotosDirectoryName)
         await downloadIfNeeded(
-            referencedPhotoNames(in: decoded.placeCards).map { photosURL.appendingPathComponent($0) },
+            referencedPhotoNames(in: decoded.placeCards, boards: decoded.boards)
+                .map { photosURL.appendingPathComponent($0) },
             waitingUpTo: photoDownloadWaitSeconds
         )
     }
@@ -304,7 +305,7 @@ enum BackupService {
                 to: stagingURL.appendingPathComponent(bundleMetadataName), options: .atomic
             )
 
-            for fileName in referencedPhotoNames(in: placeCards) {
+            for fileName in referencedPhotoNames(in: placeCards, boards: boards) {
                 let source = MediaStore.fileURL(fileName: fileName)
                 guard fileManager.fileExists(atPath: source.path) else { continue }
                 try? fileManager.copyItem(at: source, to: photosURL.appendingPathComponent(fileName))
@@ -321,12 +322,19 @@ enum BackupService {
     /// `CloudBackupService`도 쓴다 — 아직 안 내려온 사진의 내려받기를
     /// 걸려면 이름이 필요한데, 디렉터리 목록에는 플레이스홀더 이름으로
     /// 나오기 때문에 메타데이터 쪽에서 얻어야 한다.
-    static func referencedPhotoNames(in placeCards: [PlaceCard]) -> [String] {
+    static func referencedPhotoNames(in placeCards: [PlaceCard], boards: [Board] = []) -> [String] {
         var seen: Set<String> = []
         var names: [String] = []
         for card in placeCards {
             for item in card.media.allItems where seen.insert(item.localPath).inserted {
                 names.append(item.localPath)
+            }
+        }
+        // 게시판 표지 사진도 같은 폴더에 산다. 안 세면 백업에 안 실리고,
+        // 다른 기기에서 복원했을 때 표지가 빈 칸이 된다.
+        for board in boards {
+            if let path = board.coverPhotoPath, seen.insert(path).inserted {
+                names.append(path)
             }
         }
         return names

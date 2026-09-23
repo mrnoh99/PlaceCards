@@ -9,6 +9,7 @@ struct AddBoardSheet: View {
     @State private var name = ""
     @State private var subtitle = ""
     @State private var coverIcon = Board.coverIconChoices[0]
+    @State private var coverPhotoPath: String?
 
     private var canSubmit: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty
@@ -22,31 +23,8 @@ struct AddBoardSheet: View {
                     TextField("부제목 (예: 2026년 4월 · 도쿄)".localized, text: $subtitle)
                 }
 
-                Section("아이콘".localized) {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
-                        ForEach(Board.coverIconChoices, id: \.self) { icon in
-                            Button {
-                                coverIcon = icon
-                            } label: {
-                                Image(systemName: icon)
-                                    .accessibilityLabel("표지 아이콘".localized)
-                                    .accessibilityAddTraits(coverIcon == icon ? [.isSelected] : [])
-                                    .font(.system(size: 22))
-                                    .foregroundStyle(coverIcon == icon ? Color.accentColor : .secondary)
-                                    .frame(maxWidth: .infinity, minHeight: 48)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(coverIcon == icon ? Color.accentColor.opacity(0.15) : Color(.secondarySystemBackground))
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .strokeBorder(coverIcon == icon ? Color.accentColor : .clear, lineWidth: 1.5)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 4)
+                Section("표지".localized) {
+                    BoardCoverPicker(coverIcon: $coverIcon, coverPhotoPath: $coverPhotoPath)
                 }
             }
             .scrollDismissesKeyboard(.interactively)
@@ -66,11 +44,12 @@ struct AddBoardSheet: View {
     }
 
     private func createBoard() {
-        let board = Board(
+        var board = Board(
             name: name.trimmingCharacters(in: .whitespaces),
             subtitle: subtitle.trimmingCharacters(in: .whitespaces),
             coverIcon: coverIcon
         )
+        board.coverPhotoPath = coverPhotoPath
         storageService.saveBoard(board)
         dismiss()
     }

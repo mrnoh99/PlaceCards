@@ -671,12 +671,27 @@ private struct BoardRow: View {
         // 칸 크기·모서리·글자 크기는 `SystemCollectionRow`와 같아야 한다.
         // 한 목록에 위아래로 놓이므로 하나라도 어긋나면 눈에 띈다.
         HStack(spacing: 14) {
-            Image(systemName: board.coverIcon)
-                .font(.system(size: 20))
-                .foregroundStyle(Theme.primaryText)
-                .frame(width: 48, height: 48)
-                .background(Theme.tile)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.tileCorner))
+            // 표지 사진이 있으면 그것, 없으면 기호. 크기·모서리는 둘이
+            // 같아야 한다 — 한 목록에 섞여 놓인다.
+            //
+            // 썸네일로 줄여 읽는다(`loadThumbnail`). 48pt 칸에 원본을
+            // 통째로 디코딩하면 목록을 넘길 때마다 그만큼을 버린다 —
+            // `00_UI개편_기초.md` §2.9가 적어 둔 그 종류다.
+            Group {
+                if let path = board.coverPhotoPath,
+                   let image = MediaStore.loadThumbnail(fileName: path, maxPixelSize: 144) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: board.coverIcon)
+                        .font(.system(size: 20))
+                        .foregroundStyle(Theme.primaryText)
+                }
+            }
+            .frame(width: 48, height: 48)
+            .background(Theme.tile)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.tileCorner))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(board.name)

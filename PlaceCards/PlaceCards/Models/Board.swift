@@ -26,6 +26,20 @@ struct Board: Identifiable, Codable, Equatable {
     /// 바뀐 것은 못 옮겼다.** 어느 쪽이 나중인지 견줄 것이 없었기 때문이다.
     var updatedAt: Date?
 
+    /// 표지로 쓸 사진의 파일 이름(`MediaStore`). 없으면 `coverIcon`을 그린다.
+    ///
+    /// `updatedAt`과 같은 이유로 **옵셔널이다** — 이 필드가 생기기 전에
+    /// 저장된 게시판에는 아예 없어서 nil로 디코딩된다(CLAUDE.md §4).
+    ///
+    /// `coverIcon`은 사진이 있어도 **지우지 않는다.** 메뉴 줄·칩·배지는
+    /// `Label(_:systemImage:)`이라 기호가 있어야 하고, 사진을 지우면 그때
+    /// 돌아갈 자리도 그것이다.
+    ///
+    /// 카드 사진과 같은 `MediaStore` 폴더에 산다. 그래서 백업·동기화·삭제가
+    /// 전부 이것도 세어야 한다 — `BackupService.referencedPhotoNames`,
+    /// `CloudSyncService.syncPhotos`, `StorageService.deleteMediaIfUnreferenced`.
+    var coverPhotoPath: String?
+
     /// 목록에서의 차례. `updatedAt`과 같은 이유로 **옵셔널이다** — 이 필드가
     /// 생기기 전에 저장된 게시판에는 없다.
     ///

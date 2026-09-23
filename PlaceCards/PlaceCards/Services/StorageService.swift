@@ -150,13 +150,22 @@ final class StorageService: ObservableObject {
     func saveBoard(_ board: Board) {
         var board = board
         board.updatedAt = Date()
+        var replacedCover: String?
         if let index = boards.firstIndex(where: { $0.id == board.id }) {
+            if boards[index].coverPhotoPath != board.coverPhotoPath {
+                replacedCover = boards[index].coverPhotoPath
+            }
             boards[index] = board
         } else {
             boards.append(board)
         }
         sortBoards()
         persistBoards()
+        // 갈아치운 표지 사진은 **아무도 안 가리킬 때만** 지운다. 배열을 고친
+        // 뒤에 부르는 것이 중요하다 — 그래야 새 표지가 참조로 잡힌다.
+        if let replacedCover {
+            deleteMediaIfUnreferenced([replacedCover], excluding: "")
+        }
     }
 
     /// 보드를 없애고, 그 보드에 들어 있던 카드에서는 이 보드만 뺀다.
@@ -176,6 +185,14 @@ final class StorageService: ObservableObject {
             save(updated)
         }
         boards.removeAll { $0.id == board.id }
+        // 표지 사진은 **아무도 안 가리킬 때만** 지운다. 카드가 쓰는 사진을
+        // 표지로 골랐을 수도 있고, 다른 게시판이 같은 것을 쓸 수도 있다.
+        //
+        // 위에서 이 게시판을 먼저 뺀 뒤에 부르는 것이 중요하다 — 안 그러면
+        // 제 표지가 제 참조로 잡혀 영영 안 지워진다.
+        if let path = board.coverPhotoPath {
+            deleteMediaIfUnreferenced([path], excluding: "")
+        }
         // 묘비를 안 남기면 다음 동기화가 이 게시판을 그대로 되살린다 —
         // 카드 `purge`와 똑같은 이야기다.
         recordBoardPurge(board.id)
@@ -312,6 +329,13 @@ final class StorageService: ObservableObject {
         for card in placeCards where card.id != cardID {
             for item in card.media.allItems {
                 stillUsed.insert(item.localPath)
+            }
+        }
+        // 게시판 표지 사진도 같은 폴더에 산다. 안 세면 카드를 지우다가
+        // 표지로 쓰이는 사진을 같이 지울 수 있다.
+        for board in boards {
+            if let path = board.coverPhotoPath {
+                stillUsed.insert(path)
             }
         }
         for fileName in fileNames where !stillUsed.contains(fileName) {
