@@ -423,6 +423,12 @@ final class CloudSyncService: ObservableObject {
         syncState = .photos(done: 0, total: 0)
         do {
             let photos = try await syncPhotos(in: database, storageService: storageService)
+            // 사진은 모델이 아니라 파일로 온다. 카드·게시판 병합은 이미
+            // 끝나 화면이 한 번 그려진 뒤라, 알려 주지 않으면 방금 받은
+            // 사진이 다음 실행 때까지 안 보인다.
+            if photos.received > 0 {
+                storageService.mediaDidChange()
+            }
             syncState = .finished(
                 added: received.added, updated: received.updated, removed: received.removed,
                 uploaded: uploaded,

@@ -111,6 +111,8 @@ struct TrashView: View {
 /// 삭제됨의 한 줄. 갤러리의 목록 행과 달리 전화·지도 같은 버튼이 없다 —
 /// 여기서 할 수 있는 일은 되돌리기와 지우기뿐이다.
 private struct TrashRow: View {
+    @Environment(\.mediaGeneration) private var mediaGeneration
+
     let card: PlaceCard
 
     private var deletedText: String {
@@ -144,6 +146,8 @@ private struct TrashRow: View {
 
     @ViewBuilder
     private var thumbnail: some View {
+        // 사진 파일이 모델보다 늦게 도착하면 다시 그린다(`mediaGeneration`).
+        let _ = mediaGeneration
         if let item = card.coverPhoto,
            let image = MediaStore.loadThumbnail(fileName: item.localPath, maxPixelSize: 200) {
             Image(uiImage: image)

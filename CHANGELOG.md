@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### 2026-09-23 (265차) — 동기화로 온 사진이 **앱을 다시 열어야** 보이던 것
+사용자 신고: "보드의 사진이 sync로 안나타나고 앱을 닫았다가 열어야 나타난다".
+
+#### 사진은 모델이 아니라 파일로 온다
+동기화는 카드·게시판을 **먼저** 병합하고 사진을 **그 뒤에** 받는다
+(`finishWithPhotos`). 병합 시점에 `@Published`가 울려 화면이 한 번 그려지는데,
+사진 파일은 **그다음에** 도착한다. 그때는 다시 그릴 이유가 없다 — 모델은 아무것도
+안 바뀌었다. 그래서 다음 실행 때까지 빈 칸이었다.
+
+백업 복원도 같다(`restore(bundleAt:)` — 병합한 뒤에 사진을 쓴다).
+
+#### `@Published` 하나로는 모자랐다
+`StorageService`에 `mediaGeneration`을 두고 사진이 도착하면 올린다. **그런데 그것만으로는
+안 된다** — SwiftUI는 **값이 같은 하위 뷰의 body를 건너뛴다.** `Board`와 `PlaceCard`가
+`Equatable`이라, 모델이 안 바뀐 행은 부모가 다시 그려져도 그대로 남는다.
+
+그래서 값을 환경으로 내려보내고(`EnvironmentValues.mediaGeneration`), **사진을 그리는
+뷰가 직접 읽게** 했다. 선언만 하고 안 읽으면 SwiftUI가 의존으로 안 잡으므로
+`let _ = mediaGeneration` 한 줄을 body가 도는 자리에 둔다.
+
+읽는 곳 다섯: `BoardRow`(신고된 자리) · `PlaceCardGridCell` · `PlaceCardListRow` ·
+`TrashRow` · `PlaceCardDetailView`.
+
+#### 검증
+괄호 균형 10파일 0, 선언과 읽기가 다섯 뷰 모두 짝을 이룸,
+`Tools/localization/check.py` 통과(609항목), `Tools/ocr-regression/check.py`
+통과(50건). 빌드 57 → 58.
+
 ### 2026-09-23 (264차) — 게시판 표지를 사진으로도 고를 수 있게
 사용자 요청: "게시판의 아이콘을 사진에서도 고를수 있게 만들어라" → "아이콘으로
 고를수도 있고 사진으로도 고를수도 있게".

@@ -657,6 +657,8 @@ private struct SystemCollectionRow: View {
 }
 
 private struct BoardRow: View {
+    @Environment(\.mediaGeneration) private var mediaGeneration
+
     let board: Board
     let cardCount: Int
 
@@ -678,6 +680,8 @@ private struct BoardRow: View {
             // 통째로 디코딩하면 목록을 넘길 때마다 그만큼을 버린다 —
             // `00_UI개편_기초.md` §2.9가 적어 둔 그 종류다.
             Group {
+                // 사진 파일이 모델보다 늦게 도착하면 다시 그린다.
+                let _ = mediaGeneration
                 if let path = board.coverPhotoPath,
                    let image = MediaStore.loadThumbnail(fileName: path, maxPixelSize: 144) {
                     Image(uiImage: image)
