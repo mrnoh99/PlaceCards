@@ -519,8 +519,15 @@ struct SettingsView: View {
             if BackupService.isBundle(at: url) {
                 result = try await BackupService.restore(bundleAt: url, storageService: storageService)
             } else {
-                let data = try Data(contentsOf: url)
-                result = try await BackupService.restore(from: data, storageService: storageService)
+                // 옛 단일 파일도 **임시 폴더로 옮겨 놓고** 폴더 쪽 길을 탄다.
+                // 그쪽에서 읽기와 디코딩이 전부 메인 액터 밖에서 일어나고,
+                // 사진을 든 사전이 곧바로 풀린다 — 여기서 `Data(contentsOf:)`로
+                // 통째로 읽으면 그 수백 MB가 메인 액터에 얹힌다.
+                let staged = try await BackupService.stageLegacyBackup(at: url)
+                defer { BackupService.discardStagedBundle(at: staged.bundleURL) }
+                result = try await BackupService.restore(
+                    bundleAt: staged.bundleURL, storageService: storageService
+                )
             }
             // Says what actually happened, and counts replacements
             // separately — overwriting a card the user already had is the

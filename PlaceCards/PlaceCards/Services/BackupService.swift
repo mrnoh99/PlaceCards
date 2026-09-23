@@ -273,6 +273,50 @@ enum BackupService {
         return names
     }
 
+    /// 옛 단일 파일을 **임시 폴더 형식으로 옮겨 놓고** 메타데이터만 돌려준다.
+    ///
+    /// 옛 형식은 사진이 base64로 JSON 안에 박혀 있어, 읽는 것만으로도
+    /// 파일 바이트(base64라 원본의 4/3)와 디코딩된 사진 사전이 **동시에**
+    /// 메모리에 있다. 그 자체는 피할 수 없다 — `JSONDecoder`는 통째로
+    /// 준다. 피할 수 있는 것은 그 다음이다:
+    ///
+    /// - **메인 액터에서 하지 않는다.** 가져오기 화면이 이걸 그대로
+    ///   `handleFilePicked` 안에서 했고, 사진이 쌓인 백업에서 앱이 죽었다.
+    /// - **사진을 계속 들고 있지 않는다.** 디코딩하자마자 임시 폴더로
+    ///   내려놓고 메타데이터만 남긴다. 예전에는 미리보기가 사진 전체를
+    ///   쥔 채로 사용자가 "가져오기"를 누를 때까지 화면에 떠 있었다.
+    ///
+    /// 돌려준 폴더는 폴더 형식 백업과 똑같은 모양이라, 호출부는 그 뒤로
+    /// 둘을 구별할 필요가 없다. 다 쓴 뒤 `discardStagedBundle(at:)`로
+    /// 치운다.
+    static func stageLegacyBackup(at url: URL) async throws -> (backup: BackupData, bundleURL: URL) {
+        try await Task.detached(priority: .utility) { () -> (backup: BackupData, bundleURL: URL) in
+            let decoded = try decode(Data(contentsOf: url))
+
+            let stagingURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("PinSpotsImport-\(UUID().uuidString)")
+            let photosURL = stagingURL.appendingPathComponent(bundlePhotosDirectoryName)
+            try FileManager.default.createDirectory(at: photosURL, withIntermediateDirectories: true)
+            for (fileName, data) in decoded.mediaFiles ?? [:] {
+                try? data.write(to: photosURL.appendingPathComponent(fileName), options: .atomic)
+            }
+
+            // 사진을 떼어 낸 사본만 남긴다. 이게 화면이 들고 있을 값이다.
+            var metadata = decoded
+            metadata.mediaFiles = nil
+            try makeEncoder().encode(metadata).write(
+                to: stagingURL.appendingPathComponent(bundleMetadataName), options: .atomic
+            )
+            return (metadata, stagingURL)
+        }.value
+    }
+
+    /// `stageLegacyBackup`이 만든 임시 폴더를 치운다. 안 치워도 iOS가
+    /// 언젠가 임시 디렉터리를 비우지만, 사진 수백 장이 그때까지 남는다.
+    static func discardStagedBundle(at bundleURL: URL) {
+        try? FileManager.default.removeItem(at: bundleURL)
+    }
+
     /// 폴더 백업의 **메타데이터만** 읽는다. 사진은 건드리지 않는다 —
     /// 복원할 후보를 훑을 때 기기 수만큼의 사진을 한꺼번에 들고 있던 것이
     /// `loadRestorableBackups`가 크래시하던 이유다.
@@ -352,52 +396,11 @@ enum BackupService {
         return backup
     }
 
-    /// Brings in every board and place card in `data` that this device
-    /// doesn't already have, and replaces the ones whose copy here is
-    /// older than the backup's — see `StorageService.merge`.
-    ///
-    /// It used to replace the library wholesale (Peragra's own
-    /// `restore(from:context:)` still does). Ids are kept exactly as the
-    /// backup has them either way, which is what makes restoring the same
-    /// file twice a no-op the second time — and, now, what identifies
-    /// which cards are already here.
-    ///
-    /// Decoding and writing the photos back out both happen off the main
-    /// actor, same reasoning as `encodeOffMainActor` — a backup carries
-    /// every photo's bytes inline, so neither step is cheap.
-    ///
-    /// Returns how much was actually added and replaced, so the caller can
-    /// say so rather than claiming a restore that changed nothing — and so
-    /// a replacement is never silent.
-    @MainActor
-    @discardableResult
-    static func restore(
-        from data: Data, storageService: StorageService
-    ) async throws -> (boards: Int, added: Int, updated: Int) {
-        let backup = try await Task.detached(priority: .utility) { try decode(data) }.value
-        return try await restore(backup, storageService: storageService)
-    }
-
-    /// The already-decoded form of `restore(from:storageService:)` — for a
-    /// caller that had to decode the payload anyway (see
-    /// `CloudBackupService.loadRestorableBackups()`), so the whole document
-    /// isn't decoded a second time just to apply it.
-    @MainActor
-    @discardableResult
-    static func restore(
-        _ backup: BackupData, storageService: StorageService
-    ) async throws -> (boards: Int, added: Int, updated: Int) {
-        let added = storageService.merge(boards: backup.boards, placeCards: backup.placeCards)
-        // Every photo in the backup, not just the added cards': a card
-        // already on this device can still be missing its image file
-        // (that is what a restore is *for*), so writing them all repairs
-        // those too. It overwrites rather than skipping, which is safe
-        // here — `MediaStore.saveImage` names files by UUID, so the same
-        // name is the same photo.
-        let mediaFiles = backup.mediaFiles
-        await Task.detached(priority: .utility) { writeMediaFiles(mediaFiles) }.value
-        return added
-    }
+    // 사진이 박힌 payload를 **통째로 받아** 복원하던 두 함수
+    // (`restore(from:)`·`restore(_:)`)는 지웠다. 둘 다 디코딩된 사진 사전을
+    // 손에 쥔 채 돌았고, 읽는 쪽에 남아 있던 마지막 메모리 구멍이었다.
+    // 옛 단일 파일은 이제 `stageLegacyBackup`이 임시 폴더로 옮긴 뒤
+    // `restore(bundleAt:)`이 한 장씩 처리한다.
 
     /// Adds a board (and its place cards) from a shared/exported file
     /// into the current data, without touching anything already there —

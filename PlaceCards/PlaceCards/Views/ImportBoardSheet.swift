@@ -19,6 +19,9 @@ struct ImportBoardSheet: View {
     /// 폴더 형식으로 고른 경우 그 폴더. 사진이 **거기** 있으므로 가져올 때까지
     /// 들고 있어야 한다. 옛 단일 파일은 사진이 payload에 박혀 있어 nil이다.
     @State private var previewBundleURL: URL?
+    /// 그중 **이 화면이 직접 만든** 임시 폴더(옛 단일 파일을 풀어 놓은 것).
+    /// 사용자가 고른 폴더와 달리 다 쓰면 치워야 한다.
+    @State private var stagedBundleURL: URL?
     @State private var errorMessage: String?
     @State private var didImport = false
 
@@ -75,7 +78,10 @@ struct ImportBoardSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기".localized) { dismiss() }
+                    Button("닫기".localized) {
+                        discardStagedBundleIfNeeded()
+                        dismiss()
+                    }
                 }
                 if preview != nil {
                     ToolbarItem(placement: .confirmationAction) {
@@ -114,35 +120,66 @@ struct ImportBoardSheet: View {
     @State private var isTakeout = false
 
     private func handleFilePicked(_ result: Result<URL, Error>) {
-        switch result {
-        case .success(let url):
-            let accessed = url.startAccessingSecurityScopedResource()
-            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        guard case .success(let url) = result else {
+            errorMessage = "파일을 읽지 못했습니다.".localized
+            return
+        }
+        discardStagedBundleIfNeeded()
+        Task { await load(from: url) }
+    }
 
-            // 폴더 형식이면 메타데이터만 읽는다. 사진은 가져오기를 누를 때
-            // 그 폴더에서 한 장씩 옮긴다.
-            if BackupService.isBundle(at: url) {
-                guard let backup = try? BackupService.decodeBundle(at: url) else {
-                    errorMessage = "파일을 읽지 못했습니다.".localized
-                    return
-                }
-                preview = backup
-                previewBundleURL = url
-                isTakeout = false
-                errorMessage = nil
-                return
-            }
+    /// 파일을 읽는 일은 전부 메인 액터 **밖에서** 한다.
+    ///
+    /// 옛 단일 파일은 사진이 base64로 박혀 있어 읽는 것만으로 수백 MB가
+    /// 오간다. 예전에는 그걸 이 함수 자리에서 그대로 했고, 사진이 쌓인
+    /// 백업을 고르면 **앱이 죽었다**(사용자 신고). 이제
+    /// `BackupService.stageLegacyBackup`이 백그라운드에서 읽어 사진을 임시
+    /// 폴더로 내려놓고, 화면은 메타데이터만 들고 있는다.
+    private func load(from url: URL) async {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
 
-            guard let data = try? Data(contentsOf: url) else {
+        // 폴더 형식이면 메타데이터만 읽는다. 사진은 가져오기를 누를 때
+        // 그 폴더에서 한 장씩 옮긴다 — 임시 폴더로 옮길 것도 없다.
+        if BackupService.isBundle(at: url) {
+            guard let backup = try? BackupService.decodeBundle(at: url) else {
                 errorMessage = "파일을 읽지 못했습니다.".localized
                 return
             }
-            // A Takeout CSV is named after the list it came from, which is
-            // the board name the user is expecting.
-            applyDecoded(data, listName: url.deletingPathExtension().lastPathComponent)
-        case .failure:
-            errorMessage = "파일을 읽지 못했습니다.".localized
+            preview = backup
+            previewBundleURL = url
+            stagedBundleURL = nil
+            isTakeout = false
+            errorMessage = nil
+            return
         }
+
+        // 이 앱의 옛 백업이면 임시 폴더로 옮겨 놓는다.
+        if let staged = try? await BackupService.stageLegacyBackup(at: url) {
+            preview = staged.backup
+            previewBundleURL = staged.bundleURL
+            stagedBundleURL = staged.bundleURL
+            isTakeout = false
+            errorMessage = nil
+            return
+        }
+
+        // 남은 것은 Google Takeout이다. 사진이 없으므로 가볍다.
+        // A Takeout CSV is named after the list it came from, which is
+        // the board name the user is expecting.
+        let listName = url.deletingPathExtension().lastPathComponent
+        guard let data = try? Data(contentsOf: url) else {
+            errorMessage = "파일을 읽지 못했습니다.".localized
+            return
+        }
+        applyDecoded(data, listName: listName)
+    }
+
+    /// 임시로 풀어 둔 폴더가 있으면 치운다. 사진 수백 장이 남을 수 있다.
+    private func discardStagedBundleIfNeeded() {
+        guard let stagedBundleURL else { return }
+        BackupService.discardStagedBundle(at: stagedBundleURL)
+        self.stagedBundleURL = nil
     }
 
     /// This app's own backup first, then a Google Takeout export. Takeout
@@ -150,7 +187,7 @@ struct ImportBoardSheet: View {
     /// the preview and the import below work on it unchanged — the only
     /// difference is where the rows came from.
     private func applyDecoded(_ data: Data, listName: String? = nil) {
-        // 붙여넣기나 옛 단일 파일로 들어온 것이므로 폴더가 아니다.
+        // 붙여넣은 텍스트이거나 Takeout이므로 폴더가 없다.
         previewBundleURL = nil
         if let backup = try? BackupService.decode(data) {
             preview = backup
@@ -180,6 +217,7 @@ struct ImportBoardSheet: View {
         } else {
             BackupService.importBoard(preview, storageService: storageService)
         }
+        discardStagedBundleIfNeeded()
         didImport = true
     }
 }

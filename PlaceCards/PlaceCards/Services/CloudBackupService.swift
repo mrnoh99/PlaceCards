@@ -267,15 +267,15 @@ enum CloudBackupService {
     @MainActor
     private static func restoreLegacyFile(at url: URL, into storageService: StorageService) async -> Bool {
         await downloadIfNeeded([url], waitingUpTo: downloadWaitSeconds)
-        let decoded = await Task.detached(priority: .utility) { () -> BackupService.BackupData? in
-            guard let data = try? Data(contentsOf: url),
-                  let decoded = try? BackupService.decode(data),
-                  !decoded.boards.isEmpty else { return nil }
-            return decoded
-        }.value
-        guard let decoded else { return false }
-        guard (try? await BackupService.restore(decoded, storageService: storageService)) != nil
-        else { return false }
+        // 임시 폴더로 옮겨 놓고 폴더 쪽 길을 탄다. 디코딩한 사진 사전을
+        // 들고 있는 시간이 그만큼 짧아진다 — 여기까지 오는 것은 콜드
+        // 런치이고, 그때 수백 MB를 쥐고 있을 이유가 없다.
+        guard let staged = try? await BackupService.stageLegacyBackup(at: url),
+              !staged.backup.boards.isEmpty else { return false }
+        defer { BackupService.discardStagedBundle(at: staged.bundleURL) }
+        guard (try? await BackupService.restore(
+            bundleAt: staged.bundleURL, storageService: storageService
+        )) != nil else { return false }
         return true
     }
 
