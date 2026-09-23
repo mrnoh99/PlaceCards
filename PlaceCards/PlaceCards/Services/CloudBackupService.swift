@@ -244,7 +244,7 @@ enum CloudBackupService {
         let photoNames = await Task.detached(priority: .utility) { () -> [String]? in
             guard let decoded = try? BackupService.decodeBundle(at: bundleURL),
                   !decoded.boards.isEmpty else { return nil }
-            return BackupService.referencedPhotoNames(in: decoded.placeCards)
+            return BackupService.referencedPhotoNames(in: decoded.placeCards, boards: decoded.boards)
         }.value
         guard let photoNames else { return false }
 
