@@ -206,40 +206,54 @@ enum BackupService {
     ///
     /// iCloud에 있지 않은 파일에는 아무 일도 안 일어난다 —
     /// `startDownloadingUbiquitousItem`이 던지고 그대로 넘어간다.
-    static func ensureDownloaded(at url: URL) async {
+    ///
+    /// **다 왔는지를 돌려준다.** 예전에는 아무것도 안 돌려줬고, 시간이 다해도
+    /// 부르는 쪽이 그 사실을 모른 채 그대로 밀고 나갔다 — 사진이 반쯤 빠진
+    /// 게시판이 들어오거나, 아직 플레이스홀더인 폴더를 복사하려다 그 자리에
+    /// 서 있었다(사용자 신고: "다운로드 못하고 마냥있는다"). 안 왔으면 안
+    /// 왔다고 말하는 편이 낫다.
+    static func ensureDownloaded(at url: URL) async -> Bool {
         var isDirectory: ObjCBool = false
         FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
 
         guard isDirectory.boolValue else {
-            await downloadIfNeeded([url], waitingUpTo: fileDownloadWaitSeconds)
-            return
+            return await downloadIfNeeded([url], waitingUpTo: fileDownloadWaitSeconds) == 0
         }
 
-        await downloadIfNeeded(
+        let metadataMissing = await downloadIfNeeded(
             [url.appendingPathComponent(bundleMetadataName)], waitingUpTo: fileDownloadWaitSeconds
         )
-        guard let decoded = try? decodeBundle(at: url) else { return }
+        guard metadataMissing == 0 else { return false }
+        guard let decoded = try? decodeBundle(at: url) else { return false }
         let photosURL = url.appendingPathComponent(bundlePhotosDirectoryName)
-        await downloadIfNeeded(
+        let photosMissing = await downloadIfNeeded(
             referencedPhotoNames(in: decoded.placeCards, boards: decoded.boards)
                 .map { photosURL.appendingPathComponent($0) },
             waitingUpTo: photoDownloadWaitSeconds
         )
+        return photosMissing == 0
     }
 
     /// 아직 안 내려온 것들의 내려받기를 **전부 먼저 걸고, 기다리는 것은 한
     /// 번만** 한다. 파일마다 따로 기다리면 개수만큼 화면이 붙잡힌다.
-    static func downloadIfNeeded(_ urls: [URL], waitingUpTo seconds: TimeInterval) async {
-        await Task.detached(priority: .utility) {
-            let missing = urls.filter { !FileManager.default.fileExists(atPath: $0.path) }
-            guard !missing.isEmpty else { return }
+    ///
+    /// **끝내 안 온 개수를 돌려준다.** 0이면 다 왔다는 뜻이다. 예전에는
+    /// 아무것도 안 돌려줘서, 시간이 다한 것과 다 받은 것을 부르는 쪽이
+    /// 구별할 수 없었다.
+    @discardableResult
+    static func downloadIfNeeded(_ urls: [URL], waitingUpTo seconds: TimeInterval) async -> Int {
+        await Task.detached(priority: .utility) { () -> Int in
+            var missing = urls.filter { !FileManager.default.fileExists(atPath: $0.path) }
+            guard !missing.isEmpty else { return 0 }
             for url in missing {
                 try? FileManager.default.startDownloadingUbiquitousItem(at: url)
             }
             for _ in 0..<Int(seconds * 10) {
-                if missing.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) { break }
+                missing = missing.filter { !FileManager.default.fileExists(atPath: $0.path) }
+                if missing.isEmpty { break }
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
+            return missing.count
         }.value
     }
 
@@ -248,7 +262,12 @@ enum BackupService {
 
     /// 사진을 기다리는 시간. 위보다 훨씬 길다 — 수백 장이 올 수 있고,
     /// 부르는 쪽은 진행 표시를 띄워 둔다.
-    static let photoDownloadWaitSeconds: TimeInterval = 60
+    ///
+    /// 60초였다. 사진 300장짜리 게시판이 그 안에 다 오지 못하고, 그러면
+    /// 예전에는 **안 왔다는 말도 없이** 반쯤 빠진 채로 들어갔다. 이제
+    /// 시간이 다하면 안 왔다고 말하므로(`ensureDownloaded`), 말하기 전에
+    /// 충분히 기다려 주는 편이 낫다.
+    static let photoDownloadWaitSeconds: TimeInterval = 180
 
     /// 폴더 하나로 백업한다 — `metadata.json` 하나와 `photos/` 아래 사진들.
     @MainActor
@@ -356,10 +375,34 @@ enum BackupService {
     /// 필요가 없고, 다 쓰면 똑같이 `discardStagedBundle(at:)`로 치운다.
     static func stageBundle(at bundleURL: URL) async throws -> (backup: BackupData, bundleURL: URL) {
         try await Task.detached(priority: .utility) { () -> (backup: BackupData, bundleURL: URL) in
-            let stagingURL = FileManager.default.temporaryDirectory
+            let fileManager = FileManager.default
+            let stagingURL = fileManager.temporaryDirectory
                 .appendingPathComponent("PinSpotsImport-\(UUID().uuidString)")
-            // 디렉터리째 복사한다 — `metadata.json`과 `photos/`가 함께 온다.
-            try FileManager.default.copyItem(at: bundleURL, to: stagingURL)
+            let stagedPhotosURL = stagingURL.appendingPathComponent(bundlePhotosDirectoryName)
+            try fileManager.createDirectory(at: stagedPhotosURL, withIntermediateDirectories: true)
+
+            // **디렉터리째 복사하지 않는다.** `copyItem`을 폴더에 걸면 그
+            // 안에 아직 안 내려온 항목이 하나라도 있을 때 파일 제공자가
+            // 줄 때까지 **시간 제한 없이** 붙잡는다. 여기까지 왔다는 것은
+            // `ensureDownloaded`가 다 왔다고 한 뒤지만, 한 장씩 옮기면
+            // 설령 뭐가 남아 있어도 그 한 장이 빠질 뿐 서지는 않는다.
+            try fileManager.copyItem(
+                at: bundleURL.appendingPathComponent(bundleMetadataName),
+                to: stagingURL.appendingPathComponent(bundleMetadataName)
+            )
+
+            // 점으로 시작하는 이름은 건너뛴다 — `writePhotos`와 같은 규칙이다.
+            // 안 내려온 파일이 `.<이름>.icloud` 플레이스홀더로 목록에 나오는데,
+            // 그 껍데기를 옮겨 놓으면 사진인 양 `MediaStore`까지 간다.
+            let photosURL = bundleURL.appendingPathComponent(bundlePhotosDirectoryName)
+            let names = (try? fileManager.contentsOfDirectory(atPath: photosURL.path)) ?? []
+            for name in names where !name.hasPrefix(".") {
+                try? fileManager.copyItem(
+                    at: photosURL.appendingPathComponent(name),
+                    to: stagedPhotosURL.appendingPathComponent(name)
+                )
+            }
+
             return (try decodeBundle(at: stagingURL), stagingURL)
         }.value
     }

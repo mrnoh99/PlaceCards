@@ -563,6 +563,7 @@ enum Localization {
         "현장 촬영": "Taken on-site",
         "현재 위치": "Current Location",
         "아직 iCloud에서 내려받지 못했습니다. 파일 앱에서 받아 둔 뒤 다시 골라주세요.": "It hasn't come down from iCloud yet. Download it in the Files app, then pick it again.",
+        "iCloud에서 다 내려받지 못했습니다. 파일 앱에서 이 폴더를 받아 둔 뒤 다시 골라주세요.": "It hasn't all come down from iCloud yet. Download this folder in the Files app, then pick it again.",
         "iCloud에 있고 아직 이 기기로 내려오지 않은 파일이면 먼저 받아 옵니다.": "A file that lives in iCloud and hasn't come down to this device yet is fetched first.",
         "현재 위치를 가져오지 못했습니다": "Couldn't get your current location",
         "현재 위치에서의 거리를 표시하려면 설정 앱에서 PinSpots의 위치 권한을 허용해주세요.": "To show distance from your current location, allow location access for PinSpots in the Settings app.",

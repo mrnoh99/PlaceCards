@@ -517,8 +517,10 @@ struct SettingsView: View {
         // 읽기 전에 내려받는다 — 아직 안 내려온 iCloud 파일을 그대로 읽으면
         // Foundation이 블록해서 화면이 선 채로 멎는다(`ensureDownloaded`).
         backupMessage = "파일을 읽는 중…".localized
-        await BackupService.ensureDownloaded(at: url)
-        guard FileManager.default.fileExists(atPath: url.path) else {
+        // 다 왔는지 **묻고 답을 본다.** 예전에는 부르고 지나갔고, 시간이
+        // 다해도 그 사실을 모른 채 반쯤 온 백업으로 복원했다.
+        let arrived = await BackupService.ensureDownloaded(at: url)
+        guard arrived, FileManager.default.fileExists(atPath: url.path) else {
             backupMessage = "아직 iCloud에서 내려받지 못했습니다. 파일 앱에서 받아 둔 뒤 다시 골라주세요.".localized
             return
         }

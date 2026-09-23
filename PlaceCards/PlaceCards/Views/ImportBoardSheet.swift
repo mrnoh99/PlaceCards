@@ -160,9 +160,19 @@ struct ImportBoardSheet: View {
         // **읽기 전에 내려받는다.** 파일 선택기는 아직 안 내려온 iCloud
         // 파일도 고르게 해 주는데, 그걸 `Data(contentsOf:)`로 바로 읽으면
         // Foundation이 받아오려고 블록해서 화면이 선 채로 멎는다.
-        await BackupService.ensureDownloaded(at: url)
+        //
+        // **다 왔는지 묻고 그 답을 본다.** 예전에는 부르고 지나갔다. 그래서
+        // 시간이 다해도 그대로 밀고 나갔고, 아직 플레이스홀더인 폴더를
+        // 복사하려다 파일 제공자가 줄 때까지 **시간 제한 없이** 붙잡혔다 —
+        // 사용자 신고: "다운로드 못하고 마냥있는다. 폴더에 가서 다운로드하고
+        // 가져오면 쉽게 정확히 가져온다".
+        let arrived = await BackupService.ensureDownloaded(at: url)
         guard FileManager.default.fileExists(atPath: url.path) else {
             errorMessage = "아직 iCloud에서 내려받지 못했습니다. 파일 앱에서 받아 둔 뒤 다시 골라주세요.".localized
+            return
+        }
+        guard arrived else {
+            errorMessage = "iCloud에서 다 내려받지 못했습니다. 파일 앱에서 이 폴더를 받아 둔 뒤 다시 골라주세요.".localized
             return
         }
 
