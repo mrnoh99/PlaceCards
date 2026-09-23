@@ -20,8 +20,15 @@ enum KoreaRegion {
 /// Peragra's `GoogleMapsOpener` (simplified: PlaceCards has no geocoding
 /// status to distinguish a confidently-located address from a guessed one).
 enum GoogleMapsOpener {
+    /// Adds `query_place_id` alongside the name/address text search when the
+    /// card has a verified `googlePlaceId` — Google's own documented Maps
+    /// URLs API parameter for pinning the search to one exact place instead
+    /// of whichever nearby result best matches the text. Without it, a
+    /// Google-confirmed card can still land on the wrong branch of a chain
+    /// (same risk `NaverMapOpener`/`KakaoMapOpener` have without their own
+    /// verified flags — see their doc comments).
     static func url(for card: PlaceCard) -> URL? {
-        url(query: query(for: card))
+        url(query: query(for: card), placeID: card.googlePlaceId)
     }
 
     /// The saved-card-independent counterpart to `url(for:)` — for a
@@ -46,13 +53,17 @@ enum GoogleMapsOpener {
         url(query: "\(coordinates.latitude),\(coordinates.longitude)")
     }
 
-    private static func url(query: String?) -> URL? {
+    private static func url(query: String?, placeID: String? = nil) -> URL? {
         guard let query else { return nil }
         var components = URLComponents(string: "https://www.google.com/maps/search/")
-        components?.queryItems = [
+        var queryItems = [
             URLQueryItem(name: "api", value: "1"),
             URLQueryItem(name: "query", value: query),
         ]
+        if let placeID {
+            queryItems.append(URLQueryItem(name: "query_place_id", value: placeID))
+        }
+        components?.queryItems = queryItems
         return components?.url
     }
 
@@ -279,8 +290,19 @@ enum AppleMapsOpener {
 enum NaverMapOpener {
     private static let appName = "com.placecards.app"
 
+    /// Pins the exact coordinate under this exact name — Naver treats
+    /// `/place`'s `name` as a claim to match against its own POI database,
+    /// not just a label. Only trustworthy when `card.naverVerified` is
+    /// actually `true` (matched against a real Naver local-search result):
+    /// a coordinate from GPS EXIF or another provider's confirmation, paired
+    /// with whatever name the card happens to have, can silently resolve to
+    /// the wrong nearby business — reported as "특정할 수 없는 곳을 열면
+    /// 엉뚱한 곳으로 간다". Unverified cards fall through to `searchURL`
+    /// below instead, which shows a result list the user picks from rather
+    /// than asserting a match.
     static func url(for card: PlaceCard) -> URL? {
-        guard let coordinates = card.coordinates, !card.name.isEmpty,
+        guard card.naverVerified == true,
+              let coordinates = card.coordinates, !card.name.isEmpty,
               KoreaRegion.contains(latitude: coordinates.latitude, longitude: coordinates.longitude) else {
             return nil
         }
@@ -317,15 +339,11 @@ enum NaverMapOpener {
     }
 
     /// The card-shaped counterpart to `searchURL(name:address:)`, for the
-    /// saved-card "지도에서 열기" menu: `url(for:)` above needs a coordinate
-    /// (its `nmap://place` scheme pins one specific point), so a card that
-    /// doesn't have one yet used to get no Naver entry at all even though
-    /// Google's was right there — reported alongside the same complaint
-    /// about Apple Maps. Only offered while the card is unlocated; once it
-    /// has a coordinate, `url(for:)`'s exact pin (and its `KoreaRegion`
-    /// check) is the better answer.
+    /// saved-card "지도에서 열기" menu: offered whenever `url(for:)` above has
+    /// nothing trustworthy to show — no coordinate yet, or a coordinate/name
+    /// pair `card.naverVerified` doesn't actually back.
     static func searchURL(for card: PlaceCard) -> URL? {
-        guard card.coordinates == nil else { return nil }
+        guard url(for: card) == nil else { return nil }
         return searchURL(name: card.name, address: card.address)
     }
 
@@ -355,8 +373,19 @@ enum NaverMapOpener {
 /// native app on devices where it's installed, or map.kakao.com otherwise.
 /// Ported from Peragra's `KakaoMapOpener`.
 enum KakaoMapOpener {
+    /// Pins the exact coordinate under this exact name — like Naver's own
+    /// `/place`, Kakao's `/link/to/<name>,<lat>,<lng>` treats `name` as a
+    /// claim to match against its own POI database, not just a label. Only
+    /// trustworthy when `card.kakaoVerified` is actually `true` (the
+    /// name/address/coordinates came straight off this place's own Kakao Map
+    /// page via `KakaoPlaceLinkResolver`): otherwise a coordinate from GPS
+    /// EXIF or another provider's confirmation, paired with whatever name
+    /// the card happens to have, can silently resolve to the wrong nearby
+    /// business — reported as "특정할 수 없는 곳을 열면 엉뚱한 곳으로
+    /// 간다". Unverified cards fall through to `searchURL` below instead.
     static func url(for card: PlaceCard) -> URL? {
-        guard let coordinates = card.coordinates, !card.name.isEmpty,
+        guard card.kakaoVerified == true,
+              let coordinates = card.coordinates, !card.name.isEmpty,
               KoreaRegion.contains(latitude: coordinates.latitude, longitude: coordinates.longitude) else {
             return nil
         }
@@ -366,16 +395,16 @@ enum KakaoMapOpener {
     }
 
     /// Kakao's own documented keyword-search link (`/link/search/<검색어>`),
-    /// the counterpart to `NaverMapOpener.searchURL(name:address:)` — for a
-    /// card with no coordinate yet, where `url(for:)` above has nothing to
-    /// build a `/link/to/` path from. Unlike that one this can't check
-    /// `KoreaRegion` (there's no coordinate to check), so it's offered
-    /// whenever the card is unlocated rather than pretending to know the
-    /// place is in Korea: the same call the user is already making by
-    /// picking Kakao Map from the menu themselves.
+    /// the counterpart to `NaverMapOpener.searchURL(name:address:)` —
+    /// offered whenever `url(for:)` above has nothing trustworthy to show:
+    /// no coordinate yet, or a coordinate/name pair `card.kakaoVerified`
+    /// doesn't actually back. Unlike that one this can't check
+    /// `KoreaRegion` when there's no coordinate to check, so a coordinate-
+    /// less card gets it regardless — the same call the user is already
+    /// making by picking Kakao Map from the menu themselves.
     static func searchURL(for card: PlaceCard) -> URL? {
         let trimmedName = card.name.trimmingCharacters(in: .whitespaces)
-        guard card.coordinates == nil, !trimmedName.isEmpty else { return nil }
+        guard url(for: card) == nil, !trimmedName.isEmpty else { return nil }
         let trimmedAddress = card.address.trimmingCharacters(in: .whitespaces)
         let query = trimmedAddress.isEmpty ? trimmedName : "\(trimmedName) \(trimmedAddress)"
         var components = URLComponents(string: "https://map.kakao.com")
@@ -416,6 +445,12 @@ enum TmapOpener {
 /// now still gets Google, Apple, Naver and Kakao via their text-search
 /// URLs — only Tmap, whose scheme genuinely needs a destination point,
 /// stays coordinate-only.
+///
+/// Naver and Kakao specifically drop back to that same text-search URL
+/// even when the card *does* have a coordinate, unless `naverVerified`/
+/// `kakaoVerified` backs it — otherwise their `nmap://place`/`/link/to/`
+/// pin-drop schemes can silently match the wrong nearby business (see
+/// `NaverMapOpener.url(for:)`'s doc comment).
 ///
 /// Every caller gets the same five entries, the app's own Apple map tab
 /// included. That tab used to suppress Apple's, on the reasoning that

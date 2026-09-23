@@ -401,8 +401,8 @@ struct PlacesMapView: View {
             latitude: coordinate.latitude,
             longitude: coordinate.longitude,
             appleMapUrlString: AppleMapsOpener.webURL(for: card)?.absoluteString,
-            kakaoMapUrlString: KakaoMapOpener.url(for: card)?.absoluteString,
-            naverMapUrlString: NaverMapOpener.url(for: card)?.absoluteString,
+            kakaoMapUrlString: (KakaoMapOpener.url(for: card) ?? KakaoMapOpener.searchURL(for: card))?.absoluteString,
+            naverMapUrlString: (NaverMapOpener.url(for: card) ?? NaverMapOpener.searchURL(for: card))?.absoluteString,
             tmapUrlString: TmapOpener.url(for: card)?.absoluteString
         )
     }
@@ -418,8 +418,8 @@ struct PlacesMapView: View {
             latitude: coordinate.latitude,
             longitude: coordinate.longitude,
             appleMapUrlString: AppleMapsOpener.webURL(for: card)?.absoluteString,
-            kakaoMapUrlString: KakaoMapOpener.url(for: card)?.absoluteString,
-            naverMapUrlString: NaverMapOpener.url(for: card)?.absoluteString,
+            kakaoMapUrlString: (KakaoMapOpener.url(for: card) ?? KakaoMapOpener.searchURL(for: card))?.absoluteString,
+            naverMapUrlString: (NaverMapOpener.url(for: card) ?? NaverMapOpener.searchURL(for: card))?.absoluteString,
             tmapUrlString: TmapOpener.url(for: card)?.absoluteString
         )
     }
