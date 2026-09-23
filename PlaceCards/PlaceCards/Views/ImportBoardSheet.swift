@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Receives a board exported by "내보내기" (`ExportBoardMenu`/
+/// Receives a board exported by "내보내기" (`ExportBoardSheet`/
 /// `BackupService.writeBundle`) and adds it to this device's data —
 /// ported from Peragra's `ImportBoardSheet`: paste the JSON text, or
 /// pick the **folder** (or an older single file), preview how many

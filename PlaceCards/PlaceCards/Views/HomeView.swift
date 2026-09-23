@@ -29,6 +29,7 @@ struct HomeView: View {
     @EnvironmentObject private var cloudSync: CloudSyncService
     @State private var isPresentingAddBoard = false
     @State private var boardPendingDelete: Board?
+    @State private var boardPendingExport: Board?
     @State private var boardPendingEdit: Board?
     @State private var selectedSearchResult: PlaceCard?
     @State private var searchQuery = ""
@@ -259,17 +260,21 @@ struct HomeView: View {
                             ForEach(storageService.boards) { board in
                                 BoardRow(board: board, cardCount: storageService.placeCards(inBoard: board.id).count)
                                     .tag(HomeSelection.scope(.board(board.id)))
+                                    // **조건 없이 하나는 준다.** 예전에는 카드가
+                                    // 있는 보드에서 이 묶음이 비었는데, 내용이 빈
+                                    // `swipeActions`는 아무것도 안 내놓는 대신
+                                    // 그 밀기가 줄 선택으로 떨어진다 — 아이폰에서
+                                    // "왼쪽으로 밀면 갤러리로 넘어간다"가 그것이다.
+                                    //
+                                    // 빈 보드만 지우게 하던 조건도 이제 근거가
+                                    // 없다. `deleteBoard`는 214차부터 **카드를
+                                    // 데려가지 않는다** — 그 보드에서 빼기만 하고
+                                    // 카드는 "모든 카드"에 남는다.
                                     .swipeActions(edge: .trailing) {
-                                        // Mirrors Peragra: deleting is only offered
-                                        // once the board has no saved place cards,
-                                        // so a swipe can never silently take place
-                                        // cards (and their photos) with it.
-                                        if storageService.placeCards(inBoard: board.id).isEmpty {
-                                            Button(role: .destructive) {
-                                                boardPendingDelete = board
-                                            } label: {
-                                                Label("삭제".localized, systemImage: "trash")
-                                            }
+                                        Button(role: .destructive) {
+                                            boardPendingDelete = board
+                                        } label: {
+                                            Label("삭제".localized, systemImage: "trash")
                                         }
                                     }
                                     .swipeActions(edge: .leading) {
@@ -279,7 +284,28 @@ struct HomeView: View {
                                             Label("수정".localized, systemImage: "pencil")
                                         }
                                         .tint(.blue)
-                                        ExportBoardMenu(board: board, storageService: storageService)
+                                    }
+                                    // 내보내기는 **길게 눌러** 연다. 예전에는
+                                    // `Menu`를 `swipeActions` 안에 넣었는데, 그
+                                    // 자리는 `Button`을 기대하는 곳이라 아이폰에서
+                                    // 아예 안 나왔다(사용자 신고: 오른쪽으로 밀면
+                                    // 수정만 보인다).
+                                    .contextMenu {
+                                        Button {
+                                            boardPendingEdit = board
+                                        } label: {
+                                            Label("수정".localized, systemImage: "pencil")
+                                        }
+                                        Button {
+                                            boardPendingExport = board
+                                        } label: {
+                                            Label("내보내기".localized, systemImage: "square.and.arrow.up")
+                                        }
+                                        Button(role: .destructive) {
+                                            boardPendingDelete = board
+                                        } label: {
+                                            Label("삭제".localized, systemImage: "trash")
+                                        }
                                     }
                             }
                         } header: {
@@ -414,8 +440,11 @@ struct HomeView: View {
         .sheet(item: $boardPendingEdit) { board in
             EditBoardSheet(board: board)
         }
+        .sheet(item: $boardPendingExport) { board in
+            ExportBoardSheet(board: board, storageService: storageService)
+        }
         .confirmationDialog(
-            "비어있는 게시판 \"".localized + (boardPendingDelete?.name ?? "") + "\"을 삭제할까요?".localized,
+            "게시판 \"".localized + (boardPendingDelete?.name ?? "") + "\"을 삭제할까요?".localized,
             isPresented: Binding(
                 get: { boardPendingDelete != nil },
                 set: { if !$0 { boardPendingDelete = nil } }
@@ -429,6 +458,9 @@ struct HomeView: View {
                 boardPendingDelete = nil
             }
             Button("취소".localized, role: .cancel) { boardPendingDelete = nil }
+        } message: {
+            // 카드가 같이 사라지는지가 이 자리에서 가장 궁금한 것이다.
+            Text("이 게시판만 없어집니다. 장소는 \"모든 카드\"에 그대로 남습니다.".localized)
         }
     }
 
@@ -645,70 +677,86 @@ private struct BoardRow: View {
     }
 }
 
-/// "내보내기" swipe action — ported from Peragra's own `ExportBoardMenu`
-/// (`TripsListView.swift`): a board plus its own place cards, shared via
-/// the system share sheet or copied as text. The file is prepared once
-/// the menu itself appears (`.task`), which for a `Menu` inside
-/// `.swipeActions` only actually happens once the row is swiped open —
-/// not eagerly for every board in the list.
+/// 게시판 하나를 내보내는 시트 — 길게 눌러 나오는 "내보내기"가 연다.
 ///
-/// **폴더 한 벌로 내보낸다**(`BackupService.writeBundle`), 파일 하나가
-/// 아니라. 예전에는 사진을 base64로 박은 JSON 하나였는데, 그 인코딩이
-/// 사진 전체를 두 벌로 메모리에 올려 게시판이 크면 **행을 스와이프해 여는
-/// 것만으로** 앱이 죽을 수 있었다 — 이 준비가 `.task`에서 저절로 돌기
-/// 때문이다. 지금은 사진을 한 장씩 파일로 복사한다.
-private struct ExportBoardMenu: View {
+/// 예전에는 `.swipeActions` 안의 `Menu`(`ExportBoardMenu`)였다. 그 자리는
+/// `Button`을 기대하는 곳이라 **아이폰에서는 아예 렌더되지 않았고**, 내보내기에
+/// 닿을 길이 없었다(사용자 신고: "오른쪽으로 밀면 edit"만 나온다).
+///
+/// 시트로 옮기면서 준비 시점도 제자리를 찾았다. 예전에는 메뉴가 뜨기만 하면
+/// `.task`가 돌아서 **행을 스와이프해 여는 것만으로** 그 게시판의 사진이 전부
+/// 복사됐다. 이제는 사용자가 내보내기를 고른 뒤에만 돈다.
+private struct ExportBoardSheet: View {
     let board: Board
     let storageService: StorageService
-    @State private var exportFileURL: URL?
-    @State private var csvFileURL: URL?
+    @Environment(\.dismiss) private var dismiss
+    @State private var bundleURL: URL?
+    @State private var csvURL: URL?
+    @State private var copied = false
 
     var body: some View {
-        Menu {
-            Button {
-                Task { await copyAsText() }
-            } label: {
-                Label("텍스트로 복사".localized, systemImage: "doc.on.doc")
-            }
-            if let exportFileURL {
-                ShareLink(item: exportFileURL) {
-                    Label("파일로 공유".localized, systemImage: "square.and.arrow.up")
+        NavigationStack {
+            List {
+                Section {
+                    if let bundleURL {
+                        ShareLink(item: bundleURL) {
+                            Label("파일로 공유".localized, systemImage: "square.and.arrow.up")
+                        }
+                    } else {
+                        HStack {
+                            ProgressView()
+                            Text("준비 중…".localized)
+                                .foregroundStyle(Theme.secondaryText)
+                        }
+                    }
+                    if let csvURL {
+                        ShareLink(item: csvURL) {
+                            Label("CSV로 공유".localized, systemImage: "tablecells")
+                        }
+                    }
+                    Button {
+                        Task {
+                            await copyAsText()
+                            copied = true
+                        }
+                    } label: {
+                        Label("텍스트로 복사".localized, systemImage: "doc.on.doc")
+                    }
+                } footer: {
+                    Text(copied
+                         ? "클립보드에 복사했습니다.".localized
+                         : "\"파일로 공유\"는 사진까지 담은 폴더를 내보냅니다. \"텍스트로 복사\"는 사진 없이 목록만 복사합니다.".localized)
                 }
             }
-            // The JSON above restores this app and nothing else. One board
-            // is usually one trip, which is exactly the unit someone wants
-            // in a spreadsheet, so the CSV sits right next to it.
-            if let csvFileURL {
-                ShareLink(item: csvFileURL) {
-                    Label("CSV로 공유".localized, systemImage: "tablecells")
+            .navigationTitle(board.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("닫기".localized) { dismiss() }
                 }
             }
-        } label: {
-            Label("내보내기".localized, systemImage: "square.and.arrow.up")
         }
-        .tint(.blue)
-        .task { await prepareFile() }
+        .task { await prepare() }
     }
 
-    private func prepareFile() async {
-        let bundleURL = FileManager.default.temporaryDirectory
+    private func prepare() async {
+        let bundle = FileManager.default.temporaryDirectory
             .appendingPathComponent(BackupService.boardFilename(for: board))
         if (try? await BackupService.writeBundle(
-            to: bundleURL, board: board, storageService: storageService
+            to: bundle, board: board, storageService: storageService
         )) != nil {
-            exportFileURL = bundleURL
+            bundleURL = bundle
         }
 
         let csv = CSVExport.csv(boards: [board], placeCards: storageService.placeCards(inBoard: board.id))
-        let csvURL = FileManager.default.temporaryDirectory
+        let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(CSVExport.filename(board: board))
-        try? csv.write(to: csvURL, options: .atomic)
-        csvFileURL = csvURL
+        try? csv.write(to: url, options: .atomic)
+        csvURL = url
     }
 
-    /// 사진은 안 싣는다. 예전에는 `exportBoard`의 결과를 그대로 넘겨
-    /// **사진 전체를 base64로 클립보드에 올렸다** — 붙여 넣을 곳에서 쓸모가
-    /// 없을뿐더러 사진이 쌓인 게시판에서는 그것만으로도 메모리가 터진다.
+    /// 사진은 안 싣는다. 예전에는 사진 전체를 base64로 클립보드에 올렸는데,
+    /// 붙여 넣을 곳에서 쓸모가 없을뿐더러 그것만으로도 메모리가 터진다.
     private func copyAsText() async {
         guard let text = await BackupService.metadataText(
             board: board, storageService: storageService
