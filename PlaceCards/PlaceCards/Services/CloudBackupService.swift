@@ -152,9 +152,9 @@ enum CloudBackupService {
     }
 
     /// A cheap "did anything actually change" fingerprint, checked before
-    /// paying for a full re-export — `BackupService.exportData` now embeds
-    /// every photo's actual bytes (see its own doc comment), so where this
-    /// used to be a small, harmless JSON re-write on every single
+    /// paying for a full re-export — `BackupService.writeBundle` copies
+    /// every photo the cards reference into the backup folder, so where
+    /// this used to be a small, harmless JSON re-write on every single
     /// foreground/background transition `MainTabView` triggers it from,
     /// skipping it here when nothing's new avoids repeatedly re-reading
     /// and re-writing however many megabytes of photos this device has.

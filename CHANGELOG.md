@@ -2,6 +2,54 @@
 
 ## [Unreleased]
 
+### 2026-09-23 (257차) — 게시판 내보내기/가져오기도 폴더 형식으로, 그리고 옛 쓰기 경로를 지움 (3단계)
+255·256차가 못 옮긴 마지막 한 쌍이다. 옮기고 나니 **인라인 base64로 쓰던 경로를
+아무도 안 부르게 됐고, 그래서 지웠다.**
+
+#### 내보내기가 스와이프만으로 돌고 있었다
+`ExportBoardMenu.prepareFile()`은 `.task`에서 저절로 돈다 — 즉 **게시판 행을
+스와이프해 여는 것만으로** 전체 인코딩이 시작됐다. 버튼을 누르기 전이다. 게시판이
+크면 그것만으로 죽을 수 있었다.
+
+이제 `BackupService.writeBundle(to:board:)`로 폴더 한 벌을 짓는다. 사진을 한 장씩
+파일로 복사하므로 메모리가 자라지 않는다. `ShareLink`는 그 폴더를 그대로 넘긴다.
+
+#### "텍스트로 복사"가 사진을 클립보드에 올리고 있었다
+`exportBoard`의 결과를 그대로 넘겨서 **사진 전체가 base64로 클립보드에 들어갔다.**
+붙여 넣을 곳에서 쓸모가 없을뿐더러 그것만으로도 메모리가 터진다.
+`metadataText(board:)`가 사진을 뺀 메타데이터만 낸다.
+
+#### 가져오기
+`.fileImporter`에 `.folder`를 더했다. 폴더 형식이면 `decodeBundle`로 메타데이터만
+미리 보고, **가져오기를 누를 때** 그 폴더에서 사진을 한 장씩 옮긴다
+(`importBoard(_:photosFrom:storageService:)`). 옛 단일 파일과 Google Takeout CSV는
+그대로 받는다.
+
+보안 스코프를 **두 번** 잡는다. `handleFilePicked`에서 잡은 것은 그 함수가 끝나며
+풀리므로, 사진을 옮기는 `performImport`에서 다시 잡아야 한다.
+
+`boardFilename(for:)`에서 `.json`을 뗐다 — 폴더 이름이 파일인 척하면 안 된다.
+
+#### Removed — 크래시를 구조적으로 불가능하게
+`exportData` · `exportBoard` · `encodeOffMainActor` · `collectMediaFiles`.
+이 넷이 사진을 세 벌로 메모리에 올리던 그 경로이고, 쓰는 쪽을 전부 폴더 형식으로
+옮기고 나니 **아무도 부르지 않게 됐다.** 남겨 두면 누군가 부르는 순간 같은 크래시가
+돌아오므로 지운다.
+
+**읽는 쪽은 그대로 둔다**(`BackupData.mediaFiles` · `writeMediaFiles`). 이 변경
+전에 만든 백업이 사용자 폴더와 iCloud에 남아 있고, 그것도 계속 복원할 수 있어야
+한다.
+
+#### 낡은 주석 둘
+`MainTabView`와 `CloudBackupService`가 `exportData`가 base64로 인코딩한다고
+**지금 일인 것처럼** 적고 있었다. 그 함수가 없어졌으므로 고쳤다 — 파일 복사라
+메모리는 안 자라지만 시간은 그대로 걸린다는 것이 지금의 사정이다.
+
+#### 검증
+괄호 균형 3파일 0, `Tools/localization/check.py` 통과(600항목),
+`Tools/ocr-regression/check.py` 통과(50건), `exportData`/`exportBoard` 호출 0.
+빌드 49 → 50.
+
 ### 2026-09-23 (256차) — 수동 백업·복원도 폴더 형식으로 (2단계)
 255차가 자동 백업 둘을 폴더 형식으로 옮기면서 **구멍을 하나 냈다.** 자동 백업이
 폴더로 쓰는데 설정의 "백업에서 복원"은 `.json`만 고를 수 있어서, **제 폴더

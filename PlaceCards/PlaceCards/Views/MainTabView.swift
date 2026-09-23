@@ -391,9 +391,10 @@ struct MainTabView: View {
     /// The background-task assertion is what makes either of these worth
     /// starting here at all. A plain `.background` transition leaves only
     /// a couple of seconds before iOS suspends the process, and
-    /// `BackupService.exportData` reads and base64-encodes every photo in
-    /// the library — on a library of any size that doesn't finish in
-    /// time, and a suspended task simply never resumes. (The iCloud
+    /// `BackupService.writeBundle` copies every photo in the library into
+    /// the backup folder — on a library of any size that doesn't finish
+    /// in time, and a suspended task simply never resumes. (파일 복사라
+    /// 메모리는 안 자라지만 시간은 그대로 걸린다.) (The iCloud
     /// snapshot has been started from here all along, with no assertion,
     /// so this fixes that silently-truncated case too.) The assertion is
     /// ended the moment the work is done rather than left to expire, so
