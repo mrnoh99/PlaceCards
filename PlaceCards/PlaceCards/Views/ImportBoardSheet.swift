@@ -2,9 +2,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Receives a board exported by "내보내기" (`ExportBoardMenu`/
-/// `BackupService.exportBoard`) and adds it to this device's data —
+/// `BackupService.writeBundle`) and adds it to this device's data —
 /// ported from Peragra's `ImportBoardSheet`: paste the JSON text, or
-/// pick the file, preview how many places it holds, then confirm.
+/// pick the **folder** (or an older single file), preview how many
+/// places it holds, then confirm.
 /// Purely additive (`BackupService.importBoard`) — never touches
 /// anything already saved, unlike "백업에서 복원" (Settings), which
 /// replaces everything.
@@ -15,6 +16,9 @@ struct ImportBoardSheet: View {
     @State private var pastedText = ""
     @State private var showingFileImporter = false
     @State private var preview: BackupService.BackupData?
+    /// 폴더 형식으로 고른 경우 그 폴더. 사진이 **거기** 있으므로 가져올 때까지
+    /// 들고 있어야 한다. 옛 단일 파일은 사진이 payload에 박혀 있어 nil이다.
+    @State private var previewBundleURL: URL?
     @State private var errorMessage: String?
     @State private var didImport = false
 
@@ -83,7 +87,10 @@ struct ImportBoardSheet: View {
                 isPresented: $showingFileImporter,
                 // Takeout hands out `Saved Places.json` and one CSV per
                 // saved list, so both types are pickable here.
-                allowedContentTypes: [.json, .commaSeparatedText],
+                // `.folder`도 받는다. 게시판 내보내기가 이제 폴더 한 벌을
+                // 내놓기 때문이다(`BackupService.writeBundle`). 옛 단일 파일과
+                // Google Takeout CSV는 그대로 받는다.
+                allowedContentTypes: [.json, .commaSeparatedText, .folder],
                 onCompletion: handleFilePicked
             )
             .onChange(of: didImport) { _, imported in
@@ -111,6 +118,21 @@ struct ImportBoardSheet: View {
         case .success(let url):
             let accessed = url.startAccessingSecurityScopedResource()
             defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+
+            // 폴더 형식이면 메타데이터만 읽는다. 사진은 가져오기를 누를 때
+            // 그 폴더에서 한 장씩 옮긴다.
+            if BackupService.isBundle(at: url) {
+                guard let backup = try? BackupService.decodeBundle(at: url) else {
+                    errorMessage = "파일을 읽지 못했습니다.".localized
+                    return
+                }
+                preview = backup
+                previewBundleURL = url
+                isTakeout = false
+                errorMessage = nil
+                return
+            }
+
             guard let data = try? Data(contentsOf: url) else {
                 errorMessage = "파일을 읽지 못했습니다.".localized
                 return
@@ -128,6 +150,8 @@ struct ImportBoardSheet: View {
     /// the preview and the import below work on it unchanged — the only
     /// difference is where the rows came from.
     private func applyDecoded(_ data: Data, listName: String? = nil) {
+        // 붙여넣기나 옛 단일 파일로 들어온 것이므로 폴더가 아니다.
+        previewBundleURL = nil
         if let backup = try? BackupService.decode(data) {
             preview = backup
             isTakeout = false
@@ -143,9 +167,19 @@ struct ImportBoardSheet: View {
         errorMessage = "PinSpots 백업 파일도, Google Takeout 파일도 아닙니다.".localized
     }
 
+    /// 폴더에서 고른 경우 사진을 옮기는 내내 보안 스코프가 열려 있어야 한다 —
+    /// `handleFilePicked`에서 잡은 것은 그 함수가 끝나며 풀렸다.
     private func performImport() {
         guard let preview else { return }
-        BackupService.importBoard(preview, storageService: storageService)
+        if let previewBundleURL {
+            let accessed = previewBundleURL.startAccessingSecurityScopedResource()
+            defer { if accessed { previewBundleURL.stopAccessingSecurityScopedResource() } }
+            BackupService.importBoard(
+                preview, photosFrom: previewBundleURL, storageService: storageService
+            )
+        } else {
+            BackupService.importBoard(preview, storageService: storageService)
+        }
         didImport = true
     }
 }

@@ -646,12 +646,17 @@ private struct BoardRow: View {
 }
 
 /// "내보내기" swipe action — ported from Peragra's own `ExportBoardMenu`
-/// (`TripsListView.swift`): a board plus its own place cards, as one
-/// self-contained JSON file (`BackupService.exportBoard`), either shared
-/// via the system share sheet or copied as raw text. The file is
-/// prepared once the menu itself appears (`.task`), which for a `Menu`
-/// inside `.swipeActions` only actually happens once the row is swiped
-/// open — not eagerly for every board in the list.
+/// (`TripsListView.swift`): a board plus its own place cards, shared via
+/// the system share sheet or copied as text. The file is prepared once
+/// the menu itself appears (`.task`), which for a `Menu` inside
+/// `.swipeActions` only actually happens once the row is swiped open —
+/// not eagerly for every board in the list.
+///
+/// **폴더 한 벌로 내보낸다**(`BackupService.writeBundle`), 파일 하나가
+/// 아니라. 예전에는 사진을 base64로 박은 JSON 하나였는데, 그 인코딩이
+/// 사진 전체를 두 벌로 메모리에 올려 게시판이 크면 **행을 스와이프해 여는
+/// 것만으로** 앱이 죽을 수 있었다 — 이 준비가 `.task`에서 저절로 돌기
+/// 때문이다. 지금은 사진을 한 장씩 파일로 복사한다.
 private struct ExportBoardMenu: View {
     let board: Board
     let storageService: StorageService
@@ -686,11 +691,12 @@ private struct ExportBoardMenu: View {
     }
 
     private func prepareFile() async {
-        if let data = try? await BackupService.exportBoard(board, storageService: storageService) {
-            let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent(BackupService.boardFilename(for: board))
-            try? data.write(to: url, options: .atomic)
-            exportFileURL = url
+        let bundleURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(BackupService.boardFilename(for: board))
+        if (try? await BackupService.writeBundle(
+            to: bundleURL, board: board, storageService: storageService
+        )) != nil {
+            exportFileURL = bundleURL
         }
 
         let csv = CSVExport.csv(boards: [board], placeCards: storageService.placeCards(inBoard: board.id))
@@ -700,9 +706,13 @@ private struct ExportBoardMenu: View {
         csvFileURL = csvURL
     }
 
+    /// 사진은 안 싣는다. 예전에는 `exportBoard`의 결과를 그대로 넘겨
+    /// **사진 전체를 base64로 클립보드에 올렸다** — 붙여 넣을 곳에서 쓸모가
+    /// 없을뿐더러 사진이 쌓인 게시판에서는 그것만으로도 메모리가 터진다.
     private func copyAsText() async {
-        guard let data = try? await BackupService.exportBoard(board, storageService: storageService),
-              let text = String(data: data, encoding: .utf8) else { return }
+        guard let text = await BackupService.metadataText(
+            board: board, storageService: storageService
+        ) else { return }
         UIPasteboard.general.string = text
     }
 }

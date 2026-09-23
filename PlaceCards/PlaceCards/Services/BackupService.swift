@@ -13,16 +13,23 @@ import UniformTypeIdentifiers
 /// parallel `Backup*` struct.
 ///
 /// Peragra has no photo/media model at all, so its backups are pure
-/// metadata. PlaceCards does have photos (`PlaceCard.media`), and unlike
-/// the first version of this file (ported from Peragra's own scope
-/// exactly), this now bundles the actual image bytes too — `mediaFiles`
-/// below, base64-encoded inline by `Data`'s own `Codable` conformance
-/// (simplest option within Foundation alone; no zip/archive library this
-/// project depends on) — so a restore/import on a *different* device or
-/// after a reinstall actually brings photos back, not just metadata
-/// pointing at files that were never there. `SettingsView`'s footer text
-/// next to the buttons that use this was written for the old,
-/// metadata-only behavior and needs to stay in sync with this comment.
+/// metadata. PlaceCards does have photos (`PlaceCard.media`), and a
+/// backup carries them too — otherwise a restore on a *different* device
+/// or after a reinstall brings back metadata pointing at files that were
+/// never there.
+///
+/// **백업 한 벌은 폴더 하나다** — `metadata.json`과 `photos/`
+/// (`bundleMetadataName` 아래). 처음에는 사진을 base64로 그 JSON 안에
+/// 박았는데(Foundation만으로 되는 가장 간단한 길이었고, 이 프로젝트는
+/// zip 라이브러리를 안 쓴다), 그 방식은 **인코딩할 때 사진을 세 벌로
+/// 메모리에 올려** 328장/400MB에서 앱을 `EXC_RESOURCE`로 죽였다. 지금은
+/// `FileManager.copyItem`으로 한 장씩 옮기므로 바이트가 메모리를 거치지
+/// 않는다.
+///
+/// 옛 형식은 **읽기만** 남아 있다(`mediaFiles`·`writeMediaFiles`). 이
+/// 변경 전에 만든 백업이 사용자 폴더와 iCloud에 남아 있기 때문이다.
+///
+/// `SettingsView`의 버튼 옆 설명 문구는 이 주석과 발을 맞춰야 한다.
 enum BackupService {
     struct BackupData: Codable {
         var app = "placecards"
@@ -129,7 +136,11 @@ enum BackupService {
 
     /// Mirrors Peragra's `BackupService.boardFilename(for:)` — a
     /// filesystem-safe slug of the board's own name, so a shared board
-    /// file is identifiable at a glance instead of just a timestamp.
+    /// is identifiable at a glance instead of just a timestamp.
+    ///
+    /// **확장자를 붙이지 않는다.** 게시판 내보내기도 이제 파일 하나가 아니라
+    /// 폴더 한 벌이다(`writeBundle`). `.json`이 붙어 있으면 폴더 이름이
+    /// 파일인 척하게 된다.
     static func boardFilename(for board: Board, at date: Date = .now) -> String {
         let slug = board.name
             .lowercased()
@@ -138,64 +149,19 @@ enum BackupService {
             .joined(separator: "_")
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd_HHmmss"
-        return "placecards_board_\(slug.isEmpty ? "board" : slug)_\(formatter.string(from: date)).json"
+        return "placecards_board_\(slug.isEmpty ? "board" : slug)_\(formatter.string(from: date))"
     }
 
-    /// Every board and place card in one file — used by the Settings
-    /// screen's full Backup ("전체 백업") and by the automatic
-    /// folder backup (`AutoBackupService`).
-    @MainActor
-    static func exportData(storageService: StorageService) async throws -> Data {
-        try await encodeOffMainActor(boards: storageService.boards, placeCards: storageService.placeCards)
-    }
-
-    /// One board and only its own place cards — used by "게시판
-    /// 내보내기" (Export Board), shared via `ShareLink`.
-    @MainActor
-    static func exportBoard(_ board: Board, storageService: StorageService) async throws -> Data {
-        try await encodeOffMainActor(boards: [board], placeCards: storageService.placeCards(inBoard: board.id))
-    }
-
-    /// Reads every photo's bytes and base64-encodes the whole document off
-    /// the main actor. Only the snapshot of what to export is taken on the
-    /// main actor (by the two callers above, since `StorageService` is
-    /// `@MainActor`); the expensive part is not. This matters because
-    /// `collectMediaFiles` pulls in every photo's actual bytes and
-    /// `JSONEncoder` then base64-encodes all of them inline (see this
-    /// type's own doc comment) — for a real library that's tens to
-    /// hundreds of megabytes, and `CloudBackupService.backup` runs it on
-    /// every foreground/background transition where anything changed. Done
-    /// on the main actor, that froze the UI for the whole encode on the
-    /// very transitions a user notices most (backgrounding right after
-    /// editing a card), with iOS's own background-transition watchdog as
-    /// the worst case.
-    private static func encodeOffMainActor(boards: [Board], placeCards: [PlaceCard]) async throws -> Data {
-        try await Task.detached(priority: .utility) {
-            let backup = BackupData(
-                boards: boards, placeCards: placeCards, mediaFiles: collectMediaFiles(for: placeCards)
-            )
-            return try makeEncoder().encode(backup)
-        }.value
-    }
-
-    /// Every referenced photo's actual bytes for `placeCards`, keyed by
-    /// filename — read straight from disk (`MediaStore.loadData`, no
-    /// `UIImage` decode/re-encode round trip), so a backup carries
-    /// pixel-identical copies of whatever's already stored rather than a
-    /// lossy recompression. Deduplicated by filename, though two different
-    /// cards sharing one file name shouldn't happen in the first place
-    /// (`StorageService.delete` treats each card's media as its own).
-    private static func collectMediaFiles(for placeCards: [PlaceCard]) -> [String: Data] {
-        var files: [String: Data] = [:]
-        for card in placeCards {
-            for item in card.media.allItems where files[item.localPath] == nil {
-                if let data = MediaStore.loadData(fileName: item.localPath) {
-                    files[item.localPath] = data
-                }
-            }
-        }
-        return files
-    }
+    // 사진을 base64로 JSON 안에 인라인해 **통째로 인코딩하던** 쓰기 경로는
+    // 지웠다(`exportData`·`exportBoard`·`encodeOffMainActor`·
+    // `collectMediaFiles`). 그것이 사진을 세 벌로 메모리에 올려
+    // `EXC_RESOURCE`로 앱을 죽였고, 쓰는 쪽은 전부 아래 폴더 형식으로
+    // 옮겼다. **다시 만들지 말 것** — 남겨 두면 누군가 부르는 순간 같은
+    // 크래시가 돌아온다.
+    //
+    // 읽는 쪽(`BackupData.mediaFiles`·`writeMediaFiles`)은 그대로 있다.
+    // 이 변경 전에 만든 백업이 사용자 폴더와 iCloud에 남아 있고, 그것도
+    // 계속 복원할 수 있어야 한다.
 
     // MARK: - 폴더 형식 (사진을 파일로 따로 둔다)
 
@@ -230,6 +196,31 @@ enum BackupService {
         try await writeBundle(
             to: bundleURL, boards: storageService.boards, placeCards: storageService.placeCards
         )
+    }
+
+    /// 게시판 하나와 그 게시판의 카드만 폴더 한 벌로 — "게시판 내보내기"가
+    /// 쓴다. 전체 백업과 같은 구조라 받는 쪽이 둘을 구별할 필요가 없다.
+    @MainActor
+    static func writeBundle(to bundleURL: URL, board: Board, storageService: StorageService) async throws {
+        try await writeBundle(
+            to: bundleURL, boards: [board], placeCards: storageService.placeCards(inBoard: board.id)
+        )
+    }
+
+    /// 사진을 뺀 메타데이터만 JSON으로.
+    ///
+    /// "텍스트로 복사"가 쓴다. 예전에는 `exportBoard`의 결과를 그대로 넘겨
+    /// **사진 전체를 base64로 클립보드에 올렸다** — 붙여 넣을 곳에서 쓸모가
+    /// 없을뿐더러 사진이 쌓인 게시판에서는 그것만으로도 메모리가 터진다.
+    @MainActor
+    static func metadataText(board: Board, storageService: StorageService) async -> String? {
+        let boards = [board]
+        let placeCards = storageService.placeCards(inBoard: board.id)
+        return await Task.detached(priority: .utility) { () -> String? in
+            let metadata = BackupData(boards: boards, placeCards: placeCards, mediaFiles: nil)
+            guard let data = try? makeEncoder().encode(metadata) else { return nil }
+            return String(data: data, encoding: .utf8)
+        }.value
     }
 
     /// 짓는 동안에는 **옆에 임시 폴더로** 짓고 마지막에 자리를 바꾼다.
@@ -416,10 +407,19 @@ enum BackupService {
     /// twice. Takes an already-`decode`d `BackupData` rather than raw
     /// `Data`, so the caller (`ImportBoardSheet`) can show a preview of
     /// what's about to be imported before committing to it.
+    ///
+    /// `photosFrom`이 주어지면 사진을 **그 폴더에서** 가져온다(폴더 형식).
+    /// 옛 단일 파일은 사진이 `backup.mediaFiles`에 박혀 있으므로 nil이다.
     @MainActor
     @discardableResult
-    static func importBoard(_ backup: BackupData, storageService: StorageService) -> [Board] {
-        writeMediaFiles(backup.mediaFiles)
+    static func importBoard(
+        _ backup: BackupData, photosFrom bundleURL: URL? = nil, storageService: StorageService
+    ) -> [Board] {
+        if let bundleURL {
+            writePhotos(fromBundleAt: bundleURL)
+        } else {
+            writeMediaFiles(backup.mediaFiles)
+        }
 
         // 보드 id를 먼저 전부 새로 매긴 뒤, 카드는 그 다음에 한 번만
         // 돈다. 예전에는 보드마다 그 안의 카드를 돌며 새 id를 붙였는데,

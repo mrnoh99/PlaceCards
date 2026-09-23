@@ -6,9 +6,9 @@ import Foundation
 /// favorite status, tags, and media: none of those are meaningful (or,
 /// for visited/favorite, private) outside the sender's own board — this
 /// is for handing a place or two to someone else, not moving/restoring a
-/// board (that's what "게시판 내보내기"/`BackupService.exportBoard`, and
-/// its counterpart `importBoard`, are for). Used by `BoardDetailView`'s
-/// "내보내기" toolbar menu (Copy as Text / Share as File).
+/// board (that's what "게시판 내보내기"/`BackupService.writeBundle`, and
+/// its counterpart `importBoard`, are for). Used by `GalleryView`'s
+/// "내보내기" menu (Copy as Text / Share as File).
 enum SharePlaces {
     struct SharedPlace: Codable {
         let name: String
