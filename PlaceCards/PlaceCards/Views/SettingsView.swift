@@ -13,8 +13,7 @@ struct SettingsView: View {
     @EnvironmentObject private var storageService: StorageService
     @ObservedObject private var usage = APIUsageCounter.shared
 
-    @State private var showingBackupExporter = false
-    @State private var backupDocument: BackupDocument?
+    @State private var showingBackupFolderPicker = false
     @State private var showingRestoreImporter = false
     @State private var showingCSVExporter = false
     @State private var csvDocument: CSVDocument?
@@ -326,7 +325,7 @@ struct SettingsView: View {
                 }
                 .font(.subheadline)
             }
-            Button("전체 백업".localized) { Task { await startBackup() } }
+            Button("전체 백업".localized) { showingBackupFolderPicker = true }
             // A different job from the backup above, not a variant of it:
             // that file exists to restore this app, embeds every photo as
             // base64, and no spreadsheet will open it.
@@ -341,17 +340,20 @@ struct SettingsView: View {
         } header: {
             Text("데이터".localized)
         } footer: {
-            Text("\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 파일로 저장하며, 복원하면 이 기기에 없는 장소는 추가하고 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.".localized)
+            Text("\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 폴더 안에 백업 폴더 하나로 저장합니다. 복원할 때는 그 폴더를 고르면 되고, 이 기기에 없는 장소는 추가하고 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.".localized)
             Text("지금 맞추기는 다른 기기에서 올린 게시판과 장소를 먼저 받아 합친 뒤, 합친 결과를 본인 iCloud에 올립니다. 이 기기에 없던 장소는 추가하고, 다른 기기에서 더 나중에 고친 장소는 그 내용으로 바꾸며, iCloud에 없는 장소는 그대로 둡니다. 한 기기에서 아주 지운 장소는 다른 기기에서도 지워지고 다시 살아나지 않습니다. 사진은 장소가 가리키는 것만, 아직 없는 쪽으로만 오갑니다.".localized)
         }
-        .fileExporter(
-            isPresented: $showingBackupExporter,
-            document: backupDocument,
-            contentType: .json,
-            defaultFilename: BackupService.filename()
-        ) { result in
+        // 파일을 내보내는 대신 **저장할 폴더를 고르게 한다.** 백업 한 벌이
+        // 이제 폴더 하나이기 때문이다(`BackupService`의 폴더 형식).
+        //
+        // `.fileExporter`로 폴더를 내보내려면 패키지 UTType을 따로 선언해야
+        // 하는데, 이 앱은 Info.plist를 빌드 설정에서 만들어 내므로
+        // (`GENERATE_INFOPLIST_FILE = YES`) 그 선언을 넣으려면 프로젝트
+        // 구조부터 바꿔야 한다. 폴더를 고르게 하면 그게 통째로 필요 없고,
+        // **폴더 자동 백업이 이미 쓰고 있는 길**과 같은 길이 된다.
+        .fileImporter(isPresented: $showingBackupFolderPicker, allowedContentTypes: [.folder]) { result in
             switch result {
-            case .success: backupMessage = "백업을 저장했습니다.".localized
+            case .success(let url): Task { await writeBackup(into: url) }
             case .failure: backupMessage = "백업을 저장하지 못했습니다.".localized
             }
         }
@@ -366,7 +368,10 @@ struct SettingsView: View {
             case .failure: backupMessage = "CSV를 저장하지 못했습니다.".localized
             }
         }
-        .fileImporter(isPresented: $showingRestoreImporter, allowedContentTypes: [.json]) { result in
+        // `.folder`도 고를 수 있어야 한다. 자동 백업은 이제 **폴더**로
+        // 쓰므로(`BackupService`의 폴더 형식), `.json`만 받으면 제 백업을
+        // 손으로 되돌릴 길이 없다. 옛 단일 파일 백업도 그대로 받는다.
+        .fileImporter(isPresented: $showingRestoreImporter, allowedContentTypes: [.json, .folder]) { result in
             switch result {
             case .success(let url):
                 restorePendingURL = url
@@ -445,8 +450,8 @@ struct SettingsView: View {
         }
     }
 
-    /// Synchronous, unlike `startBackup()`: a CSV is text with no photo
-    /// bytes in it, so there is nothing here worth an async hop.
+    /// Synchronous, unlike `writeBackup(into:)`: a CSV is text with no
+    /// photo bytes in it, so there is nothing here worth an async hop.
     private func startCSVExport() {
         csvDocument = CSVDocument(
             data: CSVExport.csv(boards: storageService.boards, placeCards: storageService.activePlaceCards)
@@ -454,12 +459,27 @@ struct SettingsView: View {
         showingCSVExporter = true
     }
 
-    private func startBackup() async {
+    /// 고른 폴더 안에 백업 폴더 한 벌을 쓴다.
+    ///
+    /// 예전에는 `BackupService.exportData`로 통째로 인코딩한 `Data`를
+    /// `.fileExporter`에 넘겼다. 그 인코딩이 사진 전체를 두 벌로 메모리에
+    /// 올려, 사진이 쌓인 기기에서 이 단추가 앱을 죽였다 — `writeBundle`은
+    /// 사진을 한 장씩 파일로 옮기므로 그런 일이 없다.
+    ///
+    /// 보안 스코프는 쓰는 내내 열려 있어야 한다. 사진을 한 장씩 그 폴더
+    /// 안으로 복사하는 것이 오래 걸리는 부분이다(`AutoBackupService`와
+    /// 같은 이유).
+    private func writeBackup(into folderURL: URL) async {
+        let accessed = folderURL.startAccessingSecurityScopedResource()
+        defer { if accessed { folderURL.stopAccessingSecurityScopedResource() } }
         do {
-            backupDocument = BackupDocument(data: try await BackupService.exportData(storageService: storageService))
-            showingBackupExporter = true
+            try await BackupService.writeBundle(
+                to: folderURL.appendingPathComponent(BackupService.filename()),
+                storageService: storageService
+            )
+            backupMessage = "백업을 저장했습니다.".localized
         } catch {
-            backupMessage = "백업을 준비하지 못했습니다.".localized
+            backupMessage = "백업을 저장하지 못했습니다.".localized
         }
     }
 
@@ -481,24 +501,27 @@ struct SettingsView: View {
         return parts.joined(separator: ", ")
     }
 
-    /// The file's own bytes are read while the security-scoped access is
-    /// still held; applying it (`BackupService.restore`, which decodes and
-    /// writes every embedded photo off the main actor) happens after,
-    /// since it only ever touches this app's own container.
+    /// 고른 것이 **폴더 형식 백업이면** 그쪽으로, 아니면 옛 단일 파일로
+    /// 다룬다.
+    ///
+    /// 보안 스코프를 붙잡고 있는 범위가 둘에서 다르다. 파일 쪽은 바이트를
+    /// 다 읽고 나면 더 볼 일이 없어 읽는 동안만 잡으면 되지만, 폴더 쪽은
+    /// **사진을 한 장씩 그 폴더에서 복사해 오는 내내** 열려 있어야 한다.
     private func performRestore() async {
         guard let url = restorePendingURL else { return }
         restorePendingURL = nil
-        let data: Data
+
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+
         do {
-            let accessed = url.startAccessingSecurityScopedResource()
-            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-            data = try Data(contentsOf: url)
-        } catch {
-            backupMessage = "그 파일에서 복원하지 못했습니다.".localized
-            return
-        }
-        do {
-            let result = try await BackupService.restore(from: data, storageService: storageService)
+            let result: (boards: Int, added: Int, updated: Int)
+            if BackupService.isBundle(at: url) {
+                result = try await BackupService.restore(bundleAt: url, storageService: storageService)
+            } else {
+                let data = try Data(contentsOf: url)
+                result = try await BackupService.restore(from: data, storageService: storageService)
+            }
             // Says what actually happened, and counts replacements
             // separately — overwriting a card the user already had is the
             // one part of this worth never glossing over.
