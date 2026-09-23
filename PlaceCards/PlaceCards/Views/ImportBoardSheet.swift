@@ -24,6 +24,9 @@ struct ImportBoardSheet: View {
     @State private var stagedBundleURL: URL?
     @State private var errorMessage: String?
     @State private var didImport = false
+    /// 파일을 읽는 동안. iCloud에서 내려받는 데 한참 걸릴 수 있고, 그동안
+    /// 화면에 아무 표시가 없으면 **선 것처럼 보인다**(사용자 신고).
+    @State private var isLoading = false
 
     var body: some View {
         NavigationStack {
@@ -40,6 +43,16 @@ struct ImportBoardSheet: View {
                         Text(isTakeout
                              ? "Google Takeout에서 읽었습니다. 이름·주소(있으면 좌표)만 담기며, 평점·사진·영업시간은 조회하지 않습니다 — 나중에 카드를 열어 채울 수 있습니다. 기존 게시판·장소는 그대로 둡니다.".localized
                              : "기존 게시판·장소는 그대로 두고, 새 게시판으로 추가됩니다.".localized)
+                    }
+                } else if isLoading {
+                    Section {
+                        HStack {
+                            ProgressView()
+                            Text("파일을 읽는 중…".localized)
+                                .foregroundStyle(.secondary)
+                        }
+                    } footer: {
+                        Text("iCloud에 있고 아직 이 기기로 내려오지 않은 파일이면 먼저 받아 옵니다.".localized)
                     }
                 } else {
                     Section {
@@ -125,7 +138,12 @@ struct ImportBoardSheet: View {
             return
         }
         discardStagedBundleIfNeeded()
-        Task { await load(from: url) }
+        errorMessage = nil
+        isLoading = true
+        Task {
+            await load(from: url)
+            isLoading = false
+        }
     }
 
     /// 파일을 읽는 일은 전부 메인 액터 **밖에서** 한다.
@@ -138,6 +156,15 @@ struct ImportBoardSheet: View {
     private func load(from url: URL) async {
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+
+        // **읽기 전에 내려받는다.** 파일 선택기는 아직 안 내려온 iCloud
+        // 파일도 고르게 해 주는데, 그걸 `Data(contentsOf:)`로 바로 읽으면
+        // Foundation이 받아오려고 블록해서 화면이 선 채로 멎는다.
+        await BackupService.ensureDownloaded(at: url)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            errorMessage = "아직 iCloud에서 내려받지 못했습니다. 파일 앱에서 받아 둔 뒤 다시 골라주세요.".localized
+            return
+        }
 
         // 폴더 형식이면 메타데이터만 읽는다. 사진은 가져오기를 누를 때
         // 그 폴더에서 한 장씩 옮긴다 — 임시 폴더로 옮길 것도 없다.
