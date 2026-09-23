@@ -7,6 +7,8 @@ import UIKit
 /// `PlaceRowView` offers (favorite/visited toggle, call, a map-provider
 /// menu, Instagram, website, edit), which this screen didn't have before.
 struct PlaceCardDetailView: View {
+    @Environment(\.mediaGeneration) private var mediaGeneration
+
     @State private var card: PlaceCard
 
     @EnvironmentObject private var storageService: StorageService
@@ -590,6 +592,7 @@ struct PlaceCardDetailView: View {
     /// the grid/list cells already do.
     @ViewBuilder
     private var heroPhotoSection: some View {
+        let _ = mediaGeneration
         if let heroPhotoItem, let image = MediaStore.loadThumbnail(fileName: heroPhotoItem.localPath, maxPixelSize: 1000) {
             Button {
                 guard isHeroPhotoTappable else { return }

@@ -7,6 +7,8 @@ import SwiftUI
 /// cell, just laid out for a single-column list instead. Favorite/visited
 /// stay toggleable right from here, same as the grid cell.
 struct PlaceCardListRow: View {
+    @Environment(\.mediaGeneration) private var mediaGeneration
+
     let card: PlaceCard
     /// 지금 보고 있는 보드 — 그 보드는 배지에서 빠진다. `BoardBadges` 참고.
     var excludingBoardID: String? = nil
@@ -98,6 +100,8 @@ struct PlaceCardListRow: View {
 
     private var thumbnail: some View {
         ZStack {
+            // 사진 파일이 모델보다 늦게 도착하면 다시 그린다(`mediaGeneration`).
+            let _ = mediaGeneration
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color.secondary.opacity(0.15))
             if let firstItem = card.coverPhoto,

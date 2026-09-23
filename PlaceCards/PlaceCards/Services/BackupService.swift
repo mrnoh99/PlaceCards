@@ -425,6 +425,9 @@ enum BackupService {
         }.value
         let added = storageService.merge(boards: backup.boards, placeCards: backup.placeCards)
         await Task.detached(priority: .utility) { writePhotos(fromBundleAt: bundleURL) }.value
+        // 사진은 병합 **뒤에** 디스크로 온다. 알려 주지 않으면 화면이 이미
+        // 그려진 뒤라 다음 실행 때까지 안 보인다.
+        storageService.mediaDidChange()
         return added
     }
 

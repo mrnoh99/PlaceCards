@@ -21,6 +21,24 @@ final class StorageService: ObservableObject {
     /// `decodeOrQuarantine`. Surfaced by `MainTabView` as an alert: silently
     /// starting empty is the one outcome this must never have, since the
     /// very next `save()` would persist that empty state over everything.
+    /// 디스크의 사진 파일이 바뀐 횟수.
+    ///
+    /// **화면을 다시 그리게 하려고만 있다.** 사진은 `boards`·`placeCards`가
+    /// 아니라 파일로 사는데, 그 파일이 나중에 도착하는 경우가 있다 —
+    /// 동기화는 카드·게시판을 **먼저** 병합하고 사진을 **그 뒤에** 받아
+    /// 오고(`CloudSyncService.finishWithPhotos`), 백업 복원도 병합이 끝난
+    /// 뒤에 사진을 쓴다(`BackupService.restore(bundleAt:)`).
+    ///
+    /// 그 사이 모델은 이미 바뀌어 화면이 한 번 그려졌으므로, 사진이 도착해도
+    /// 다시 그릴 이유가 없다. 그래서 표지 사진이 **앱을 닫았다 열어야**
+    /// 나타났다(사용자 신고).
+    @Published private(set) var mediaGeneration: Int = 0
+
+    /// 사진 파일이 디스크에서 바뀌었다고 알린다. 모델은 안 건드린다.
+    func mediaDidChange() {
+        mediaGeneration &+= 1
+    }
+
     @Published private(set) var loadFailureMessage: String?
 
     private let boardsFileURL: URL

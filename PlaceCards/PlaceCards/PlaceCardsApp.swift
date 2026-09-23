@@ -15,6 +15,10 @@ struct PlaceCardsApp: App {
             ContentView()
                 .environmentObject(storageService)
                 .environmentObject(cloudSync)
+                // 사진 파일이 모델보다 늦게 도착하는 경우가 있다. 사진을
+                // 그리는 뷰가 이걸 읽어 다시 그린다 — `mediaGeneration`의
+                // 주석에 전말이 있다.
+                .environment(\.mediaGeneration, storageService.mediaGeneration)
                 // Lightroom을 본뜨는 개편이라 화면은 항상 어둡다. 기기
                 // 설정을 따라가면 밝은 모드에서 `Theme`의 검정 배경 위에
                 // 시스템 기본 검정 글씨가 얹혀 글자가 사라진다.

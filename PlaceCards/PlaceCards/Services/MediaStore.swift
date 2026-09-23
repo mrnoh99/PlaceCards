@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import UIKit
 import ImageIO
 import Photos
@@ -353,5 +354,30 @@ enum PhotoLibraryAlbum {
                 continuation.resume(returning: status)
             }
         }
+    }
+}
+
+/// 디스크의 사진 파일이 바뀐 횟수를 화면까지 내려보내는 자리.
+///
+/// **이게 왜 필요한가.** 사진은 `boards`·`placeCards`가 아니라 파일로
+/// 산다. 그런데 파일이 모델보다 **늦게** 도착하는 경우가 있다 — 동기화는
+/// 카드·게시판을 먼저 병합하고 사진을 그 뒤에 받아 오고, 백업 복원도
+/// 병합이 끝난 뒤에 사진을 쓴다. 그때는 화면이 이미 한 번 그려진 뒤다.
+///
+/// `StorageService`의 `@Published`를 올리는 것만으로는 모자라다. SwiftUI는
+/// **값이 같은 하위 뷰의 body를 건너뛴다** — `Board`·`PlaceCard`가
+/// `Equatable`이라, 모델이 안 바뀐 행은 부모가 다시 그려져도 그대로 남는다.
+/// 그래서 사진을 그리는 뷰가 이 값을 **직접 읽어야** 한다.
+///
+/// 읽는 쪽은 `_ = mediaGeneration` 한 줄이면 된다. 선언만 하고 안 읽으면
+/// SwiftUI가 의존으로 잡지 않는다.
+private struct MediaGenerationKey: EnvironmentKey {
+    static let defaultValue = 0
+}
+
+extension EnvironmentValues {
+    var mediaGeneration: Int {
+        get { self[MediaGenerationKey.self] }
+        set { self[MediaGenerationKey.self] = newValue }
     }
 }
