@@ -505,14 +505,16 @@ enum BackupService {
             var newCard = card
             newCard.id = UUID().uuidString
             newCard.boardIDs = mapped
-            // 바깥에서 받아 들여온 카드는 "가져오기"에도 들어간다. 파일로
-            // 받은 게시판도, Google Takeout도(TakeoutImport가 만든
-            // BackupData가 결국 여기로 온다) 같은 길이다.
+            // **"가져오기"에 넣지 않는다.** 예전에는 넣었는데(226차), 그
+            // 쪽은 "바깥에서 들어온 것은 전부 가져오기에 모인다"를 지키려던
+            // 것이었다. 그런데 이 길로 들어온 카드는 **이미 게시판이
+            // 정해져 있다** — 방금 그 게시판째 가져왔기 때문이다. 가져오기의
+            // 존재 이유가 "아직 갈 곳을 안 정한 카드를 모아 둔다"이므로
+            // 여기서는 할 일이 없다(사용자 신고: 가져온 게시판을 지워도
+            // 카드가 가져오기에 그대로 남는다).
             //
-            // `restore`는 이 길을 타지 않는다. 그쪽은 남의 정보를 들여오는
-            // 것이 아니라 제 백업을 되돌리는 것이라, 표시하면 쓰던 카드가
-            // 전부 가져오기로 쏟아진다.
-            newCard.isImported = true
+            // 게시판이 없는 카드는 위에서 이미 걸러진다 — `mapped`가 비면
+            // `continue`다. 그러니 여기까지 온 카드는 반드시 게시판이 있다.
             storageService.save(newCard)
         }
         return importedBoards

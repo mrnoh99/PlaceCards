@@ -296,13 +296,36 @@ final class StorageService: ObservableObject {
         save(card)
     }
 
-    /// 되돌릴 수 없다. 사진 파일까지 디스크에서 지운다 — 예전
-    /// `delete(_:)`가 하던 일 그대로다.
-    func purge(_ placeCard: PlaceCard) {
-        for item in placeCard.media.allItems {
-            MediaStore.delete(fileName: item.localPath)
+    /// **다른 카드가 아직 가리키고 있으면 사진 파일을 지우지 않는다.**
+    ///
+    /// 게시판 가져오기(`BackupService.importBoard`)는 카드 id만 새로 매기고
+    /// **사진 이름(`MediaItem.localPath`)은 그대로 둔다** — 사진이 그 이름으로
+    /// 저장돼 있어야 카드가 찾기 때문이다. 그래서 가져온 카드와 원본이 **같은
+    /// 파일**을 가리킨다. 그 상태에서 한쪽을 지우며 파일까지 지우면 **남은
+    /// 쪽의 사진이 사라진다** — 사용자 신고로 드러난 실제 데이터 손실이다.
+    ///
+    /// 삭제됨(휴지통)에 있는 카드도 센다. 되돌릴 수 있는 카드가 가리키는
+    /// 사진을 지우면 되돌렸을 때 빈 카드가 된다.
+    func deleteMediaIfUnreferenced(_ fileNames: [String], excluding cardID: String) {
+        guard !fileNames.isEmpty else { return }
+        var stillUsed: Set<String> = []
+        for card in placeCards where card.id != cardID {
+            for item in card.media.allItems {
+                stillUsed.insert(item.localPath)
+            }
         }
+        for fileName in fileNames where !stillUsed.contains(fileName) {
+            MediaStore.delete(fileName: fileName)
+        }
+    }
+
+    /// 되돌릴 수 없다. 사진 파일까지 디스크에서 지운다 — 단, **다른 카드가
+    /// 안 가리키는 것만**(`deleteMediaIfUnreferenced`).
+    func purge(_ placeCard: PlaceCard) {
         placeCards.removeAll { $0.id == placeCard.id }
+        deleteMediaIfUnreferenced(
+            placeCard.media.allItems.map(\.localPath), excluding: placeCard.id
+        )
         // 묘비를 남기지 않으면 다음 동기화가 이걸 그대로 되돌린다.
         recordPurge(placeCard.id)
         persistPlaceCards()

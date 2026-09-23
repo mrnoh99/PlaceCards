@@ -1000,7 +1000,6 @@ struct PlaceCardDetailView: View {
     /// a deleted photo never lingers as a dangling reference — the
     /// automatic fallback (`PlaceCard.coverPhoto`) takes back over.
     private func deletePhoto(_ item: MediaItem) {
-        MediaStore.delete(fileName: item.localPath)
         card.media.mapScreenshots.removeAll { $0.id == item.id }
         card.media.officialPhotos.removeAll { $0.id == item.id }
         card.media.onsitePhotos.removeAll { $0.id == item.id }
@@ -1009,6 +1008,13 @@ struct PlaceCardDetailView: View {
             card.coverPhotoID = nil
         }
         storageService.save(card)
+        // 파일은 **아무 카드도 안 가리킬 때만** 지운다. 게시판을 가져오면
+        // 가져온 카드가 원본과 같은 사진 파일을 가리키므로, 여기서 조건 없이
+        // 지우면 남은 쪽의 사진이 사라진다 —
+        // `StorageService.deleteMediaIfUnreferenced`에 전말이 있다.
+        // `save` 뒤에 부르는 것이 중요하다: 그래야 이 카드가 더 이상 그
+        // 사진을 가리키지 않는 상태로 세어진다.
+        storageService.deleteMediaIfUnreferenced([item.localPath], excluding: card.id)
 
         if card.media.allItems.isEmpty {
             isPresentingPhotoViewer = false
