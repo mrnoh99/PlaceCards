@@ -28,24 +28,30 @@ enum AutoBackupService {
     /// Writes a fresh backup to the chosen folder right now, regardless
     /// of the interval — used by both "지금 백업" (manual, in Settings)
     /// and `runIfDue` once it's decided a run is actually due.
-    /// `async` because `BackupService.exportData` reads and base64-encodes
-    /// every photo in the library off the main actor now (see its own doc
-    /// comment) — done inline on the main actor, a due backup froze the UI
-    /// for the whole encode at launch and on every foreground transition.
-    /// The security-scoped access has to be held across the write, so it's
-    /// opened only once the data is actually in hand rather than around
-    /// the export too.
+    ///
+    /// **폴더 형식으로 쓴다**(`BackupService.writeBundle`): 확장자 없는
+    /// 폴더 하나에 `metadata.json`과 `photos/`가 들어간다. 예전에는 사진을
+    /// base64로 인라인한 `.json` 파일 하나였는데, 그 인코딩이 사진 전체를
+    /// 두 벌로 메모리에 올려 라이브러리가 커지자 앱이 죽었다 —
+    /// `BackupService.bundleMetadataName`의 주석에 전말이 있다.
+    ///
+    /// `async`인 이유는 그대로다. 사진을 옮기는 일이 메인 액터에서
+    /// 돌면 시작할 때와 포그라운드로 올 때마다 화면이 멈춘다.
+    ///
+    /// 보안 스코프는 이제 **쓰는 일 전체를 감싼다.** 예전에는 데이터가
+    /// 손에 들어온 뒤에만 열었는데, 그때는 오래 걸리는 부분이 인코딩이고
+    /// 쓰기는 한 번이었다. 지금은 사진을 한 장씩 그 폴더 안으로 복사하는
+    /// 것이 오래 걸리는 부분이라 그 내내 열려 있어야 한다.
     @MainActor
     @discardableResult
     static func runNow(storageService: StorageService) async -> Bool {
         guard let folderURL = resolveFolderURL() else { return false }
-        guard let data = try? await BackupService.exportData(storageService: storageService) else { return false }
 
         let accessed = folderURL.startAccessingSecurityScopedResource()
         defer { if accessed { folderURL.stopAccessingSecurityScopedResource() } }
-        let fileURL = folderURL.appendingPathComponent(BackupService.filename() + ".json")
+        let bundleURL = folderURL.appendingPathComponent(BackupService.filename())
         do {
-            try data.write(to: fileURL, options: .atomic)
+            try await BackupService.writeBundle(to: bundleURL, storageService: storageService)
         } catch {
             BackupFolderSettings.shared.setNeedsReauthorization(true)
             return false

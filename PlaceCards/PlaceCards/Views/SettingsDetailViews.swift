@@ -344,13 +344,16 @@ struct FolderBackupSettingsView: View {
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
 
-                LabeledContent("파일 이름".localized, value: BackupService.filename() + ".json")
+                // 확장자를 붙이지 않는다. 폴더 자동 백업은 이제 파일 하나가
+                // 아니라 **폴더 하나**다(`metadata.json`과 `photos/`) —
+                // `BackupService.bundleMetadataName`의 주석에 왜인지 있다.
+                LabeledContent("폴더 이름".localized, value: BackupService.filename())
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } header: {
                 Text("기기 이름".localized)
             } footer: {
-                Text("백업 파일 이름에 들어가, 여러 기기가 같은 폴더에 백업할 때 어느 기기가 만든 파일인지 알 수 있게 합니다. 비워두면 iOS가 알려주는 이름을 쓰는데, iOS 16부터 그건 설정에서 지어준 이름이 아니라 기종 이름(“iPhone”)이라 같은 기종 둘은 구별되지 않습니다. 짧을수록 좋습니다. 설정의 “전체 백업” 파일에도 함께 적용됩니다.".localized)
+                Text("백업 이름에 들어가, 여러 기기가 같은 폴더에 백업할 때 어느 기기가 만든 것인지 알 수 있게 합니다. 비워두면 iOS가 알려주는 이름을 쓰는데, iOS 16부터 그건 설정에서 지어준 이름이 아니라 기종 이름(“iPhone”)이라 같은 기종 둘은 구별되지 않습니다. 짧을수록 좋습니다. 설정의 “전체 백업” 파일에도 함께 적용됩니다.".localized)
             }
         }
         .navigationTitle("폴더 자동 백업".localized)

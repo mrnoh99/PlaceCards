@@ -4,7 +4,7 @@ import Foundation
 /// Backup/Restore and folder-schedule features — ported from Peragra's own
 /// `CloudBackupService`. Not triggered by any button; `MainTabView` calls
 /// it on every foreground/background transition, and calls
-/// `loadRestorableBackups` once at cold launch (only when local storage is
+/// `restoreAll` once at cold launch (only when local storage is
 /// still empty, so a legitimately empty first run is never clobbered) —
 /// a last-resort safety net for "I reinstalled the app / got a new
 /// phone and never made a manual backup."
@@ -32,9 +32,17 @@ enum CloudBackupService {
     /// 데가 없어 사라진다 — 백업이 있는데도 잃는다.
     ///
     /// 나눠 두면 서로 덮지 않고, 복원은 **있는 파일을 전부 합친다**
-    /// (`loadRestorableBackups`). 카드마다 `updatedAt`으로 최신이
+    /// (`restoreAll`). 카드마다 `updatedAt`으로 최신이
     /// 이기므로(`StorageService.merge`) 합치는 것이 안전하다.
-    private static var filename: String { "placecards_auto_backup_\(deviceID).json" }
+    /// **이제 파일이 아니라 폴더다**(`BackupService`의 폴더 형식 —
+    /// `metadata.json` 하나와 `photos/`). 사진을 base64로 인라인하던 옛
+    /// 단일 파일은 인코딩할 때 사진 전체를 두 벌로 메모리에 올려,
+    /// 라이브러리가 커지자 앱이 `EXC_RESOURCE`로 죽었다. 옛 파일은 읽을
+    /// 때 아직 본다(`legacyDeviceFilename`).
+    private static var bundleName: String { "placecards_auto_backup_\(deviceID)" }
+
+    /// 이 기기가 폴더 형식 이전에 쓰던 단일 파일. 지울 때와 읽을 때만 쓴다.
+    private static var legacyDeviceFilename: String { "placecards_auto_backup_\(deviceID).json" }
 
     /// 기기를 나누기 전에 쓰던 이름. 읽을 때는 아직 본다 — 이 변경 전에
     /// 백업해 둔 사람이 새 기기에서 복원할 때 필요한 유일한 파일이다.
@@ -111,11 +119,15 @@ enum CloudBackupService {
     @MainActor
     static func deleteStoredBackup() async {
         guard let containerURL = await resolveContainerDocumentsURL() else { return }
-        let ownURL = containerURL.appendingPathComponent(filename)
-        let legacyURL = containerURL.appendingPathComponent(legacyFilename)
+        // 셋이다 — 이 기기의 폴더, 이 기기가 폴더 형식 이전에 쓰던 파일,
+        // 그리고 기기를 나누기 전의 공용 파일. 하나라도 남기면 "끄기"가
+        // 절반만 된다.
+        let ownURLs = [bundleName, legacyDeviceFilename, legacyFilename]
+            .map { containerURL.appendingPathComponent($0) }
         await Task.detached(priority: .utility) {
-            try? FileManager.default.removeItem(at: ownURL)
-            try? FileManager.default.removeItem(at: legacyURL)
+            for url in ownURLs {
+                try? FileManager.default.removeItem(at: url)
+            }
         }.value
         lastBackedUpFingerprint = nil
     }
@@ -173,70 +185,133 @@ enum CloudBackupService {
         let currentFingerprint = fingerprint(for: storageService)
         guard currentFingerprint != lastBackedUpFingerprint else { return }
         guard let containerURL = await resolveContainerDocumentsURL() else { return }
-        guard let data = try? await BackupService.exportData(storageService: storageService) else { return }
         await Task.detached(priority: .utility) {
             try? FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
-            try? data.write(to: containerURL.appendingPathComponent(filename), options: .atomic)
         }.value
+        do {
+            try await BackupService.writeBundle(
+                to: containerURL.appendingPathComponent(bundleName), storageService: storageService
+            )
+        } catch {
+            return
+        }
         lastBackedUpFingerprint = currentFingerprint
     }
 
-    /// The snapshot itself, decoded, or `nil` when there's nothing
-    /// restorable (no container, no file, undecodable, or an empty
-    /// backup). Returns the decoded payload rather than just a yes/no so
-    /// the caller can hand it straight to
-    /// `BackupService.restore(_:storageService:)` — this used to be a
-    /// `hasRestorableBackup()` bool that fully decoded the document (every
-    /// photo's base64 bytes included) only to check `boards.isEmpty`, and
-    /// then a separate `restoreIfAvailable` that read and decoded the exact
-    /// same document all over again, both at cold launch with the startup
-    /// intro screen held up behind them.
-    static func loadRestorableBackups() async -> [BackupService.BackupData] {
-        guard isEnabled else { return [] }
-        guard let containerURL = await resolveContainerDocumentsURL() else { return [] }
-        let candidates = await candidateFileURLs(in: containerURL)
-        guard !candidates.isEmpty else { return [] }
+    /// 있는 백업을 **오래된 것부터 한 벌씩** 이 기기에 합친다. 하나라도
+    /// 실제로 복원했으면 `true`.
+    ///
+    /// 예전에는 `loadRestorableBackups()`가 후보를 **전부 디코드해**
+    /// `[BackupData]`로 돌려줬다. 사진이 인라인이던 형식에서 그것은 기기
+    /// 수만큼의 사진 전체가 한꺼번에 메모리에 있다는 뜻이라, 쓰는 쪽과
+    /// 똑같은 이유로 터질 자리였다. 이제 위치만 받아 한 벌씩 처리하고,
+    /// 합치는 일도 여기서 한다 — 호출부(`MainTabView`)가 iCloud의 사정을
+    /// 알 필요가 없다.
+    @MainActor
+    static func restoreAll(into storageService: StorageService) async -> Bool {
+        guard isEnabled else { return false }
+        guard let containerURL = await resolveContainerDocumentsURL() else { return false }
+        let candidates = await candidateURLs(in: containerURL)
+        guard !candidates.isEmpty else { return false }
 
-        return await Task.detached(priority: .utility) { () -> [BackupService.BackupData] in
-            // 아직 안 내려온 것들의 내려받기를 **전부 먼저 걸고, 기다리는
-            // 것은 한 번만** 한다. 파일마다 따로 기다리면 기기 수만큼
-            // 시작 화면이 붙잡힌다 — 기기 셋이면 30초다.
-            let missing = candidates.filter { !FileManager.default.fileExists(atPath: $0.path) }
+        var restoredAny = false
+        for url in candidates {
+            // 이름으로 가른다. 폴더 형식에는 확장자가 없고, 옛 형식은
+            // `.json`이다. 아직 안 내려온 것은 어느 쪽도 디스크에 없으므로
+            // 내용을 봐서는 가릴 수 없다.
+            if url.pathExtension == "json" {
+                if await restoreLegacyFile(at: url, into: storageService) { restoredAny = true }
+            } else {
+                if await restoreBundle(at: url, into: storageService) { restoredAny = true }
+            }
+        }
+        return restoredAny
+    }
+
+    /// 폴더 형식 한 벌. `metadata.json`을 먼저 내려받아 읽고, **거기 적힌
+    /// 사진 이름으로** 사진을 내려받는다.
+    ///
+    /// 디렉터리 목록이 아니라 메타데이터에서 이름을 얻는 것이 중요하다.
+    /// 아직 안 내려온 파일은 목록에 플레이스홀더 이름으로 나오는데, 그
+    /// 이름 규칙을 추측해 되돌리는 것은 이 저장소가 하지 않는 일이다
+    /// (CLAUDE.md §4). 메타데이터에 적힌 `localPath`가 곧 진짜 이름이라
+    /// 그걸로 URL을 지으면 추측이 없다.
+    @MainActor
+    private static func restoreBundle(at bundleURL: URL, into storageService: StorageService) async -> Bool {
+        let metadataURL = bundleURL.appendingPathComponent(BackupService.bundleMetadataName)
+        await downloadIfNeeded([metadataURL], waitingUpTo: downloadWaitSeconds)
+
+        let photoNames = await Task.detached(priority: .utility) { () -> [String]? in
+            guard let decoded = try? BackupService.decodeBundle(at: bundleURL),
+                  !decoded.boards.isEmpty else { return nil }
+            return BackupService.referencedPhotoNames(in: decoded.placeCards)
+        }.value
+        guard let photoNames else { return false }
+
+        let photosURL = bundleURL.appendingPathComponent(BackupService.bundlePhotosDirectoryName)
+        await downloadIfNeeded(
+            photoNames.map { photosURL.appendingPathComponent($0) },
+            waitingUpTo: photoDownloadWaitSeconds
+        )
+
+        // 못 내려온 사진은 그냥 빠진다 — `BackupService.writePhotos`가
+        // 디스크에 실제로 있는 것만 옮긴다. 카드는 전부 돌아오고 사진만
+        // 일부 비는 편이, 기다리다 못해 아무것도 못 돌리는 것보다 낫다.
+        guard (try? await BackupService.restore(bundleAt: bundleURL, storageService: storageService)) != nil
+        else { return false }
+        return true
+    }
+
+    /// 폴더 형식 이전에 만들어진 단일 JSON. 사진이 base64로 박혀 있어
+    /// 읽는 것만으로도 무겁지만, **한 번에 한 벌씩만** 든다.
+    @MainActor
+    private static func restoreLegacyFile(at url: URL, into storageService: StorageService) async -> Bool {
+        await downloadIfNeeded([url], waitingUpTo: downloadWaitSeconds)
+        let decoded = await Task.detached(priority: .utility) { () -> BackupService.BackupData? in
+            guard let data = try? Data(contentsOf: url),
+                  let decoded = try? BackupService.decode(data),
+                  !decoded.boards.isEmpty else { return nil }
+            return decoded
+        }.value
+        guard let decoded else { return false }
+        guard (try? await BackupService.restore(decoded, storageService: storageService)) != nil
+        else { return false }
+        return true
+    }
+
+    /// 아직 안 내려온 것들의 내려받기를 **전부 먼저 걸고, 기다리는 것은 한
+    /// 번만** 한다. 파일마다 따로 기다리면 개수만큼 시작 화면이 붙잡힌다.
+    private static func downloadIfNeeded(_ urls: [URL], waitingUpTo seconds: TimeInterval) async {
+        await Task.detached(priority: .utility) {
+            let missing = urls.filter { !FileManager.default.fileExists(atPath: $0.path) }
+            guard !missing.isEmpty else { return }
             for url in missing {
                 try? FileManager.default.startDownloadingUbiquitousItem(at: url)
             }
-            if !missing.isEmpty {
-                for _ in 0..<Int(downloadWaitSeconds * 10) {
-                    if missing.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) { break }
-                    try? await Task.sleep(nanoseconds: 100_000_000)
-                }
-            }
-            // 내려오지 못한 것은 그냥 빠진다. 하나라도 읽히면 그만큼은
-            // 복원되고, 못 읽은 기기 것은 다음 실행에서 다시 시도된다.
-            return candidates.compactMap { (url: URL) -> BackupService.BackupData? in
-                guard let data = try? Data(contentsOf: url),
-                      let decoded = try? BackupService.decode(data),
-                      !decoded.boards.isEmpty else { return nil }
-                return decoded
+            for _ in 0..<Int(seconds * 10) {
+                if missing.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) { break }
+                try? await Task.sleep(nanoseconds: 100_000_000)
             }
         }.value
     }
 
-    /// 컨테이너 안의 백업 파일들, **오래된 것부터.**
+    /// 컨테이너 안의 백업들, **오래된 것부터.**
     ///
     /// 카드는 `updatedAt`으로 최신이 이기므로 순서를 안 타지만, 게시판에는
     /// `updatedAt`이 없어 같은 id가 겹치면 나중에 넘긴 쪽이 남는다.
     ///
-    /// 이 기기가 한 번도 열어 본 적 없는 파일은 iCloud가 자리만 잡아 두어
+    /// 이 기기가 한 번도 열어 본 적 없는 것은 iCloud가 자리만 잡아 두어
     /// 목록에 안 잡힐 수 있다. 새 기기·재설치가 바로 그 경우라, 이름을
-    /// 아는 둘(이 기기 것과 옛 공용 파일)은 목록에 없어도 끝에 붙여 둔다 —
-    /// 내려받기는 저쪽에서 건다. 날짜를 모르니 끝에 놓이는데, 위의 게시판
-    /// 규칙에서만 의미가 있는 차이라 그대로 둔다.
-    private static func candidateFileURLs(in containerURL: URL) async -> [URL] {
+    /// 아는 셋(이 기기의 폴더, 이 기기의 옛 파일, 기기를 나누기 전의 공용
+    /// 파일)은 목록에 없어도 끝에 붙여 둔다.
+    private static func candidateURLs(in containerURL: URL) async -> [URL] {
         await Task.detached(priority: .utility) { () -> [URL] in
             let names = (try? FileManager.default.contentsOfDirectory(atPath: containerURL.path)) ?? []
             let found = names
-                .filter { $0.hasPrefix(filenamePrefix) && $0.hasSuffix(".json") }
+                // 짓는 도중의 임시 폴더는 건너뛴다 — 반만 쓰인 것을 복원에
+                // 쓰면 안 된다(`BackupService.writeBundle`이 `.building`으로
+                // 짓고 마지막에 자리를 바꾼다).
+                .filter { $0.hasPrefix(filenamePrefix) && !$0.hasSuffix(".building") }
                 .map { containerURL.appendingPathComponent($0) }
                 .sorted { left, right in
                     let leftDate = modificationDate(of: left) ?? .distantPast
@@ -244,7 +319,7 @@ enum CloudBackupService {
                     return leftDate < rightDate
                 }
             var candidates = found
-            for known in [filename, legacyFilename] {
+            for known in [bundleName, legacyDeviceFilename, legacyFilename] {
                 let url = containerURL.appendingPathComponent(known)
                 if !candidates.contains(url) { candidates.append(url) }
             }
@@ -252,7 +327,13 @@ enum CloudBackupService {
         }.value
     }
 
-    /// How long `loadRestorableBackups()` waits for iCloud to materialize a
+    /// 사진을 기다리는 시간. `downloadWaitSeconds`보다 훨씬 길다 — 여기까지
+    /// 오는 것은 **로컬이 비어 있는 첫 실행**뿐이고(`MainTabView`), 화면에
+    /// 진행 표시가 떠 있으며, 사진 수백 장이 오는 데는 그만큼 걸린다.
+    /// 다 오지 않아도 온 만큼은 복원된다.
+    private static let photoDownloadWaitSeconds: TimeInterval = 60
+
+    /// How long a metadata/legacy file download waits for iCloud to materialize a
     /// placeholder file before giving up — long enough for a snapshot to
     /// come down on a normal connection, short enough that a device with
     /// no usable iCloud never holds the launch screen up for it.
