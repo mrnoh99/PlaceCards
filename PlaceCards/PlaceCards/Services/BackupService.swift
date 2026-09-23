@@ -197,6 +197,135 @@ enum BackupService {
         return files
     }
 
+    // MARK: - 폴더 형식 (사진을 파일로 따로 둔다)
+
+    /// 백업 폴더 안의 두 이름.
+    ///
+    /// 위의 `mediaFiles` 인라인 형식은 **사진 전체를 두 벌로 메모리에
+    /// 올린다** — 원본 바이트를 담은 사전 하나, `JSONEncoder`가 만드는
+    /// base64 문자열 하나, 그리고 직렬화된 출력 하나. 사진 400MB짜리
+    /// 라이브러리에서 최고점이 2GB에 닿아 `EXC_RESOURCE`로 앱이 죽었다
+    /// (328장/400MB에서 실제로 났다).
+    ///
+    /// 폴더 형식은 그 셋을 전부 없앤다. 메타데이터만 JSON이고 사진은
+    /// `FileManager.copyItem`으로 **한 장씩 파일에서 파일로** 옮긴다 —
+    /// 바이트가 메모리를 거치지 않으므로 라이브러리가 아무리 커도
+    /// 최고점이 자라지 않는다.
+    static let bundleMetadataName = "metadata.json"
+    static let bundlePhotosDirectoryName = "photos"
+
+    /// 이 위치가 폴더 형식 백업인가. 옛 단일 JSON과 가르는 데 쓴다 —
+    /// 둘 다 계속 읽어야 한다(이 변경 전에 만든 백업이 남아 있다).
+    static func isBundle(at url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(
+            atPath: url.appendingPathComponent(bundleMetadataName).path, isDirectory: &isDirectory
+        )
+        return exists && !isDirectory.boolValue
+    }
+
+    /// 폴더 하나로 백업한다 — `metadata.json` 하나와 `photos/` 아래 사진들.
+    @MainActor
+    static func writeBundle(to bundleURL: URL, storageService: StorageService) async throws {
+        try await writeBundle(
+            to: bundleURL, boards: storageService.boards, placeCards: storageService.placeCards
+        )
+    }
+
+    /// 짓는 동안에는 **옆에 임시 폴더로** 짓고 마지막에 자리를 바꾼다.
+    /// 도중에 멈춰도 이미 있던 백업이 반쯤 쓰인 것으로 바뀌지 않는다 —
+    /// 단일 파일일 때 `.atomic`이 해 주던 일이다.
+    private static func writeBundle(
+        to bundleURL: URL, boards: [Board], placeCards: [PlaceCard]
+    ) async throws {
+        try await Task.detached(priority: .utility) {
+            let fileManager = FileManager.default
+            let stagingURL = bundleURL.deletingLastPathComponent()
+                .appendingPathComponent(bundleURL.lastPathComponent + ".building")
+            try? fileManager.removeItem(at: stagingURL)
+            let photosURL = stagingURL.appendingPathComponent(bundlePhotosDirectoryName)
+            try fileManager.createDirectory(at: photosURL, withIntermediateDirectories: true)
+
+            // 메타데이터에는 `mediaFiles`를 싣지 않는다. 그 필드는 옵셔널이라
+            // 안 실으면 `nil`로 디코딩되고, 사진은 옆의 `photos/`에 있다.
+            let metadata = BackupData(boards: boards, placeCards: placeCards, mediaFiles: nil)
+            let encoded = try makeEncoder().encode(metadata)
+            try encoded.write(
+                to: stagingURL.appendingPathComponent(bundleMetadataName), options: .atomic
+            )
+
+            for fileName in referencedPhotoNames(in: placeCards) {
+                let source = MediaStore.fileURL(fileName: fileName)
+                guard fileManager.fileExists(atPath: source.path) else { continue }
+                try? fileManager.copyItem(at: source, to: photosURL.appendingPathComponent(fileName))
+            }
+
+            try? fileManager.removeItem(at: bundleURL)
+            try fileManager.moveItem(at: stagingURL, to: bundleURL)
+        }.value
+    }
+
+    /// 카드들이 가리키는 사진 이름, 중복 없이. `collectMediaFiles`와 같은
+    /// 것을 고르되 **바이트는 읽지 않는다.**
+    ///
+    /// `CloudBackupService`도 쓴다 — 아직 안 내려온 사진의 내려받기를
+    /// 걸려면 이름이 필요한데, 디렉터리 목록에는 플레이스홀더 이름으로
+    /// 나오기 때문에 메타데이터 쪽에서 얻어야 한다.
+    static func referencedPhotoNames(in placeCards: [PlaceCard]) -> [String] {
+        var seen: Set<String> = []
+        var names: [String] = []
+        for card in placeCards {
+            for item in card.media.allItems where seen.insert(item.localPath).inserted {
+                names.append(item.localPath)
+            }
+        }
+        return names
+    }
+
+    /// 폴더 백업의 **메타데이터만** 읽는다. 사진은 건드리지 않는다 —
+    /// 복원할 후보를 훑을 때 기기 수만큼의 사진을 한꺼번에 들고 있던 것이
+    /// `loadRestorableBackups`가 크래시하던 이유다.
+    static func decodeBundle(at bundleURL: URL) throws -> BackupData {
+        guard let data = try? Data(
+            contentsOf: bundleURL.appendingPathComponent(bundleMetadataName)
+        ) else { throw BackupError.invalidFile }
+        return try decode(data)
+    }
+
+    /// 폴더 백업의 사진을 `MediaStore`로 **한 장씩** 옮긴다.
+    /// `writeMediaFiles`가 인라인 형식에 하는 일과 같되 메모리를 안 쓴다.
+    private static func writePhotos(fromBundleAt bundleURL: URL) {
+        let fileManager = FileManager.default
+        let photosURL = bundleURL.appendingPathComponent(bundlePhotosDirectoryName)
+        let names = (try? fileManager.contentsOfDirectory(atPath: photosURL.path)) ?? []
+        // 점으로 시작하는 이름은 건너뛴다. iCloud가 아직 안 내려온 파일을
+        // `.<이름>.icloud` 플레이스홀더로 목록에 보여 주므로, 거르지 않으면
+        // 그 껍데기가 사진인 양 `MediaStore`에 복사된다. `.DS_Store` 같은
+        // 것도 같이 걸러진다. `MediaStore`가 짓는 이름은 `UUID().jpg`라
+        // 점으로 시작하는 일이 없다.
+        for name in names where !name.hasPrefix(".") {
+            let destination = MediaStore.fileURL(fileName: name)
+            try? fileManager.removeItem(at: destination)
+            try? fileManager.copyItem(at: photosURL.appendingPathComponent(name), to: destination)
+        }
+    }
+
+    /// 폴더 백업을 이 기기에 합친다. 규칙은 `restore(_:storageService:)`와
+    /// 똑같고(없으면 추가, `updatedAt`이 더 나중이면 교체), 사진을 어디서
+    /// 가져오는지만 다르다.
+    @MainActor
+    @discardableResult
+    static func restore(
+        bundleAt bundleURL: URL, storageService: StorageService
+    ) async throws -> (boards: Int, added: Int, updated: Int) {
+        let backup = try await Task.detached(priority: .utility) {
+            try decodeBundle(at: bundleURL)
+        }.value
+        let added = storageService.merge(boards: backup.boards, placeCards: backup.placeCards)
+        await Task.detached(priority: .utility) { writePhotos(fromBundleAt: bundleURL) }.value
+        return added
+    }
+
     /// Writes every embedded photo back to `MediaStore` under its original
     /// filename — a same-device restore just overwrites identical bytes
     /// (harmless), while a cross-device restore/import is exactly the case

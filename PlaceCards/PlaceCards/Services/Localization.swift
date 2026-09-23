@@ -547,9 +547,10 @@ enum Localization {
         "평점": "Rating",
         "평점 (0~5)": "Rating (0-5)",
         "폴더": "Folder",
+        "폴더 이름": "Folder Name",
         "폴더를 한 번 선택해두면, 앱을 열거나 닫을 때마다(위 주기당 최대 한 번) PinSpots가 그 폴더에 새 백업을 저장합니다.": "Pick a folder once and PinSpots writes a fresh backup into it whenever the app opens or closes — at most once per the interval above.",
-        "백업 파일 이름에 들어가, 여러 기기가 같은 폴더에 백업할 때 어느 기기가 만든 파일인지 알 수 있게 합니다. 비워두면 iOS가 알려주는 이름을 쓰는데, iOS 16부터 그건 설정에서 지어준 이름이 아니라 기종 이름(“iPhone”)이라 같은 기종 둘은 구별되지 않습니다. 짧을수록 좋습니다. 설정의 “전체 백업” 파일에도 함께 적용됩니다.":
-            "Goes into the backup's filename, so you can tell which device wrote which file when several back up to the same folder. Leave it blank and the name iOS reports is used — but since iOS 16 that is the model name (“iPhone”), not the name you gave the device, so two of the same model are indistinguishable. Shorter is better. It applies to the “Full Backup” file in Settings as well.",
+        "백업 이름에 들어가, 여러 기기가 같은 폴더에 백업할 때 어느 기기가 만든 것인지 알 수 있게 합니다. 비워두면 iOS가 알려주는 이름을 쓰는데, iOS 16부터 그건 설정에서 지어준 이름이 아니라 기종 이름(“iPhone”)이라 같은 기종 둘은 구별되지 않습니다. 짧을수록 좋습니다. 설정의 “전체 백업” 파일에도 함께 적용됩니다.":
+            "Goes into the backup's name, so you can tell which device wrote which when several back up to the same folder. Leave it blank and the name iOS reports is used — but since iOS 16 that is the model name (“iPhone”), not the name you gave the device, so two of the same model are indistinguishable. Shorter is better. It applies to the “Full Backup” file in Settings as well.",
         "폴더 변경…": "Change Folder…",
         "폴더에 쓰지 못했습니다 — 아래에서 폴더를 다시 선택해주세요.": "Couldn't write to the folder — please choose the folder again below.",
         "현장 촬영": "Taken on-site",
