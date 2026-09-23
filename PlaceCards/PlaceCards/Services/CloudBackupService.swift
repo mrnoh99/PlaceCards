@@ -239,7 +239,7 @@ enum CloudBackupService {
     @MainActor
     private static func restoreBundle(at bundleURL: URL, into storageService: StorageService) async -> Bool {
         let metadataURL = bundleURL.appendingPathComponent(BackupService.bundleMetadataName)
-        await downloadIfNeeded([metadataURL], waitingUpTo: downloadWaitSeconds)
+        await BackupService.downloadIfNeeded([metadataURL], waitingUpTo: BackupService.fileDownloadWaitSeconds)
 
         let photoNames = await Task.detached(priority: .utility) { () -> [String]? in
             guard let decoded = try? BackupService.decodeBundle(at: bundleURL),
@@ -249,9 +249,9 @@ enum CloudBackupService {
         guard let photoNames else { return false }
 
         let photosURL = bundleURL.appendingPathComponent(BackupService.bundlePhotosDirectoryName)
-        await downloadIfNeeded(
+        await BackupService.downloadIfNeeded(
             photoNames.map { photosURL.appendingPathComponent($0) },
-            waitingUpTo: photoDownloadWaitSeconds
+            waitingUpTo: BackupService.photoDownloadWaitSeconds
         )
 
         // 못 내려온 사진은 그냥 빠진다 — `BackupService.writePhotos`가
@@ -266,7 +266,7 @@ enum CloudBackupService {
     /// 읽는 것만으로도 무겁지만, **한 번에 한 벌씩만** 든다.
     @MainActor
     private static func restoreLegacyFile(at url: URL, into storageService: StorageService) async -> Bool {
-        await downloadIfNeeded([url], waitingUpTo: downloadWaitSeconds)
+        await BackupService.downloadIfNeeded([url], waitingUpTo: BackupService.fileDownloadWaitSeconds)
         // 임시 폴더로 옮겨 놓고 폴더 쪽 길을 탄다. 디코딩한 사진 사전을
         // 들고 있는 시간이 그만큼 짧아진다 — 여기까지 오는 것은 콜드
         // 런치이고, 그때 수백 MB를 쥐고 있을 이유가 없다.
@@ -277,22 +277,6 @@ enum CloudBackupService {
             bundleAt: staged.bundleURL, storageService: storageService
         )) != nil else { return false }
         return true
-    }
-
-    /// 아직 안 내려온 것들의 내려받기를 **전부 먼저 걸고, 기다리는 것은 한
-    /// 번만** 한다. 파일마다 따로 기다리면 개수만큼 시작 화면이 붙잡힌다.
-    private static func downloadIfNeeded(_ urls: [URL], waitingUpTo seconds: TimeInterval) async {
-        await Task.detached(priority: .utility) {
-            let missing = urls.filter { !FileManager.default.fileExists(atPath: $0.path) }
-            guard !missing.isEmpty else { return }
-            for url in missing {
-                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
-            }
-            for _ in 0..<Int(seconds * 10) {
-                if missing.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) { break }
-                try? await Task.sleep(nanoseconds: 100_000_000)
-            }
-        }.value
     }
 
     /// 컨테이너 안의 백업들, **오래된 것부터.**
@@ -327,17 +311,8 @@ enum CloudBackupService {
         }.value
     }
 
-    /// 사진을 기다리는 시간. `downloadWaitSeconds`보다 훨씬 길다 — 여기까지
-    /// 오는 것은 **로컬이 비어 있는 첫 실행**뿐이고(`MainTabView`), 화면에
-    /// 진행 표시가 떠 있으며, 사진 수백 장이 오는 데는 그만큼 걸린다.
-    /// 다 오지 않아도 온 만큼은 복원된다.
-    private static let photoDownloadWaitSeconds: TimeInterval = 60
-
-    /// How long a metadata/legacy file download waits for iCloud to materialize a
-    /// placeholder file before giving up — long enough for a snapshot to
-    /// come down on a normal connection, short enough that a device with
-    /// no usable iCloud never holds the launch screen up for it.
-    private static let downloadWaitSeconds: TimeInterval = 10
+    // 기다리는 시간 둘은 `BackupService`에 있다 — 사용자가 파일 선택기로
+    // 고른 것도 같은 사정이라 한 벌만 둔다.
 
     private static func modificationDate(of url: URL) -> Date? {
         (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date

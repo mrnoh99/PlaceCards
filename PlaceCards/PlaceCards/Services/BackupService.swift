@@ -190,6 +190,65 @@ enum BackupService {
         return exists && !isDirectory.boolValue
     }
 
+    /// 고른 것이 iCloud Drive에 있고 **아직 안 내려온** 것이면 내려받기를
+    /// 걸고 기다린다.
+    ///
+    /// 파일 선택기는 **안 내려온 파일도 고르게 해 준다.** 목록에는 보이지만
+    /// 이 기기에는 플레이스홀더만 있어서, 그대로 읽으면 조용히 실패한다 —
+    /// 사용자 신고: "icloud 폴더에 download 안된 파일을 선택한 경우 진행이
+    /// 안된다".
+    ///
+    /// 폴더 형식이면 `metadata.json`을 먼저 받아 읽고 **거기 적힌 이름으로**
+    /// 사진을 받는다. 디렉터리 목록을 쓰지 않는 이유는 안 내려온 파일이
+    /// 플레이스홀더 이름으로 나오고 그 이름 규칙을 되돌리는 것은 추측이기
+    /// 때문이다(CLAUDE.md §4). `CloudBackupService`가 같은 이유로 같은
+    /// 방식을 쓴다.
+    ///
+    /// iCloud에 있지 않은 파일에는 아무 일도 안 일어난다 —
+    /// `startDownloadingUbiquitousItem`이 던지고 그대로 넘어간다.
+    static func ensureDownloaded(at url: URL) async {
+        var isDirectory: ObjCBool = false
+        FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+
+        guard isDirectory.boolValue else {
+            await downloadIfNeeded([url], waitingUpTo: fileDownloadWaitSeconds)
+            return
+        }
+
+        await downloadIfNeeded(
+            [url.appendingPathComponent(bundleMetadataName)], waitingUpTo: fileDownloadWaitSeconds
+        )
+        guard let decoded = try? decodeBundle(at: url) else { return }
+        let photosURL = url.appendingPathComponent(bundlePhotosDirectoryName)
+        await downloadIfNeeded(
+            referencedPhotoNames(in: decoded.placeCards).map { photosURL.appendingPathComponent($0) },
+            waitingUpTo: photoDownloadWaitSeconds
+        )
+    }
+
+    /// 아직 안 내려온 것들의 내려받기를 **전부 먼저 걸고, 기다리는 것은 한
+    /// 번만** 한다. 파일마다 따로 기다리면 개수만큼 화면이 붙잡힌다.
+    static func downloadIfNeeded(_ urls: [URL], waitingUpTo seconds: TimeInterval) async {
+        await Task.detached(priority: .utility) {
+            let missing = urls.filter { !FileManager.default.fileExists(atPath: $0.path) }
+            guard !missing.isEmpty else { return }
+            for url in missing {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+            }
+            for _ in 0..<Int(seconds * 10) {
+                if missing.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) { break }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+        }.value
+    }
+
+    /// 파일 하나(또는 메타데이터 하나)를 기다리는 시간.
+    static let fileDownloadWaitSeconds: TimeInterval = 20
+
+    /// 사진을 기다리는 시간. 위보다 훨씬 길다 — 수백 장이 올 수 있고,
+    /// 부르는 쪽은 진행 표시를 띄워 둔다.
+    static let photoDownloadWaitSeconds: TimeInterval = 60
+
     /// 폴더 하나로 백업한다 — `metadata.json` 하나와 `photos/` 아래 사진들.
     @MainActor
     static func writeBundle(to bundleURL: URL, storageService: StorageService) async throws {
