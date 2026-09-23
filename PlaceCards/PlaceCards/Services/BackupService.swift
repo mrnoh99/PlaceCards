@@ -340,6 +340,30 @@ enum BackupService {
         return names
     }
 
+    /// 고른 폴더를 **통째로 임시 폴더에 복사해 두고** 메타데이터를 돌려준다.
+    ///
+    /// **보안 스코프를 함수 하나 건너 다시 잡지 않으려고** 있다. 예전에는
+    /// 고를 때 한 번 잡아 메타데이터만 읽고, 사용자가 "가져오기"를 누르면
+    /// 그 URL로 스코프를 **다시** 잡아 사진을 복사했다. 그 재획득이 안 되면
+    /// `contentsOfDirectory`가 nil을 돌려주고 사진이 **한 장도 안 복사된 채
+    /// 조용히** 끝난다 — 카드와 게시판은 이미 디코딩해 둔 메타데이터라
+    /// 멀쩡히 들어오므로, 사진만 통째로 빠진 것처럼 보인다.
+    ///
+    /// 이제 고르는 그 순간, 스코프가 확실히 열려 있는 동안 전부 복사한다.
+    /// 그 뒤로는 우리 임시 폴더라 스코프가 필요 없다.
+    ///
+    /// `stageLegacyBackup`과 같은 모양을 돌려주므로 호출부는 둘을 구별할
+    /// 필요가 없고, 다 쓰면 똑같이 `discardStagedBundle(at:)`로 치운다.
+    static func stageBundle(at bundleURL: URL) async throws -> (backup: BackupData, bundleURL: URL) {
+        try await Task.detached(priority: .utility) { () -> (backup: BackupData, bundleURL: URL) in
+            let stagingURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("PinSpotsImport-\(UUID().uuidString)")
+            // 디렉터리째 복사한다 — `metadata.json`과 `photos/`가 함께 온다.
+            try FileManager.default.copyItem(at: bundleURL, to: stagingURL)
+            return (try decodeBundle(at: stagingURL), stagingURL)
+        }.value
+    }
+
     /// 옛 단일 파일을 **임시 폴더 형식으로 옮겨 놓고** 메타데이터만 돌려준다.
     ///
     /// 옛 형식은 사진이 base64로 JSON 안에 박혀 있어, 읽는 것만으로도
@@ -509,6 +533,9 @@ enum BackupService {
         } else {
             writeMediaFiles(backup.mediaFiles)
         }
+        // 사진은 게시판·카드를 넣기 **전에** 전부 디스크에 와 있다. 그러니
+        // 아래에서 "파일이 있나"를 물으면 답이 확정이다 — 나중에 더 올 것이
+        // 없다. `restore(bundleAt:)`와 달리 여기는 병합 순서가 반대다.
 
         // 보드 id를 먼저 전부 새로 매긴 뒤, 카드는 그 다음에 한 번만
         // 돈다. 예전에는 보드마다 그 안의 카드를 돌며 새 id를 붙였는데,
@@ -519,6 +546,18 @@ enum BackupService {
         for board in backup.boards {
             var newBoard = board
             newBoard.id = UUID().uuidString
+            // 표지 사진이 **이 꾸러미에 안 들어 있으면** 표지를 기호로
+            // 되돌린다. 빌드 56 이전에 내보낸 꾸러미에는 표지 사진이라는
+            // 개념 자체가 없어서 `coverPhotoPath`도 사진 파일도 없다 —
+            // 그런 꾸러미에서도 카드 사진은 멀쩡히 오므로 "사진은 오는데
+            // 게시판 표지만 안 온다"로 보인다(사용자 신고).
+            //
+            // 경로만 남겨 두면 이 기기 어디에도 없는 파일을 영영 가리키는
+            // 게시판이 하나 생기고, 그 경로가 동기화로 다른 기기까지 간다.
+            // 가져오기는 id를 새로 매기므로 원본이 고쳐 줄 길도 없다.
+            if let path = newBoard.coverPhotoPath, !MediaStore.exists(fileName: path) {
+                newBoard.coverPhotoPath = nil
+            }
             // 같은 이름이 이미 있으면 "(2)"를 붙인다. 이름이 겹치면 목록에서
             // 어느 쪽이 방금 가져온 것인지 알 수 없다 — id는 새로 매기므로
             // 둘은 분명히 다른 게시판인데 보기에는 같다.
@@ -554,6 +593,10 @@ enum BackupService {
             // `continue`다. 그러니 여기까지 온 카드는 반드시 게시판이 있다.
             storageService.save(newCard)
         }
+        // 사진은 모델보다 **먼저** 디스크에 왔지만, 이 화면 말고 이미 그려져
+        // 있던 곳(갤러리·휴지통)은 그 사실을 모른다. `restore(bundleAt:)`은
+        // 이걸 알려 주는데 여기만 빠져 있었다.
+        storageService.mediaDidChange()
         return importedBoards
     }
 }

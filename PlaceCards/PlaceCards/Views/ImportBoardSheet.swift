@@ -166,16 +166,18 @@ struct ImportBoardSheet: View {
             return
         }
 
-        // 폴더 형식이면 메타데이터만 읽는다. 사진은 가져오기를 누를 때
-        // 그 폴더에서 한 장씩 옮긴다 — 임시 폴더로 옮길 것도 없다.
+        // 폴더 형식이면 **여기서 통째로 임시 폴더에 복사해 둔다.** 스코프가
+        // 확실히 열려 있는 지금 해야 한다 — 예전에는 사진 복사를 "가져오기"를
+        // 누를 때로 미뤘고, 그때 스코프를 다시 잡는 데 실패하면 사진이 한 장도
+        // 안 온 채 조용히 끝났다(`BackupService.stageBundle`).
         if BackupService.isBundle(at: url) {
-            guard let backup = try? BackupService.decodeBundle(at: url) else {
+            guard let staged = try? await BackupService.stageBundle(at: url) else {
                 errorMessage = "파일을 읽지 못했습니다.".localized
                 return
             }
-            preview = backup
-            previewBundleURL = url
-            stagedBundleURL = nil
+            preview = staged.backup
+            previewBundleURL = staged.bundleURL
+            stagedBundleURL = staged.bundleURL
             isTakeout = false
             errorMessage = nil
             return
@@ -231,19 +233,14 @@ struct ImportBoardSheet: View {
         errorMessage = "PinSpots 백업 파일도, Google Takeout 파일도 아닙니다.".localized
     }
 
-    /// 폴더에서 고른 경우 사진을 옮기는 내내 보안 스코프가 열려 있어야 한다 —
-    /// `handleFilePicked`에서 잡은 것은 그 함수가 끝나며 풀렸다.
+    /// **보안 스코프가 필요 없다.** 고를 때 이미 우리 임시 폴더로 복사해
+    /// 뒀기 때문이다(`load(from:)`). 예전에는 여기서 스코프를 다시 잡았고,
+    /// 그게 안 되면 사진이 한 장도 안 온 채 조용히 끝났다.
     private func performImport() {
         guard let preview else { return }
-        if let previewBundleURL {
-            let accessed = previewBundleURL.startAccessingSecurityScopedResource()
-            defer { if accessed { previewBundleURL.stopAccessingSecurityScopedResource() } }
-            BackupService.importBoard(
-                preview, photosFrom: previewBundleURL, storageService: storageService
-            )
-        } else {
-            BackupService.importBoard(preview, storageService: storageService)
-        }
+        BackupService.importBoard(
+            preview, photosFrom: previewBundleURL, storageService: storageService
+        )
         discardStagedBundleIfNeeded()
         didImport = true
     }
