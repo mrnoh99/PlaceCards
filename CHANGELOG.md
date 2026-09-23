@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### 2026-09-23 (253차) — Team ID를 다시 넣는다 (252차 취소) — `Unknown Name`은 표시뿐이었다
+사용자 확인: "그것은 그대로 넘어간다" — `Unknown Name`이 떠도 **빌드는 통과한다.**
+
+252차는 성급했다. 212차 때는 `Unknown Name`과 함께 `No profiles for
+'com.mrnoh99.PinSpots' were found`가 떠서 **빌드가 실제로 막혔다.** 이번에는
+그 문구만 같고 빌드는 지나간다 — 같은 증상으로 보고 되돌린 것이 틀렸다.
+
+#### Added
+- `project.pbxproj`의 `DEVELOPMENT_TEAM` 네 줄 복원. **251차(`4635bb6`)와
+  바이트 단위로 동일함을 `cmp`로 확인했다.**
+
+#### 그래서 `Unknown Name`은 무엇인가
+Xcode가 **ID는 받아 서명에 쓰지만 그 팀의 표시 이름을 조회하지 못한** 상태다.
+이름 조회는 로그인된 Apple ID의 팀 목록에서 하는데, 서명 자체는 로컬 키체인의
+인증서(`Apple Development: Jaisung Noh (492X57LLB4)`)와 프로비저닝 프로파일로
+된다. **둘이 다른 경로라 하나가 비어도 다른 하나가 돌아간다.**
+
+그러므로 지금 상태에서 할 일은 없다. 건드려야 할 때는 `No profiles ... were
+found`가 **같이** 뜰 때다 — 그때는 이름이 아니라 서명이 막힌 것이다.
+
+#### 얻은 것
+`git pull` 때마다 Team을 다시 고르던 일이 없어진다. `project.pbxproj`에
+`DEVELOPMENT_TEAM` 줄이 없으면 Xcode에서 Team을 고를 때 생기는 그 줄이
+추적되는 파일의 로컬 수정이 되고, 빌드 번호를 올릴 때마다 같은 파일이 바뀌므로
+pull마다 충돌하거나 되돌려졌다.
+
 ### 2026-09-23 (252차) — Team ID 커밋을 다시 되돌림 (251차 취소)
 사용자 보고: 로그인 뒤에도 **`Unknown Name`이 그대로 나온다.**
 
