@@ -529,18 +529,15 @@ struct AddPlaceCardView: View {
                             ProgressView()
                         } else {
                             // Which backend this actually verifies against
-                            // isn't up to the user's choice here — a Naver
-                            // Map share always checks against Naver's own
-                            // listings (see `PlaceCardViewModel.search(rowID:)`)
-                            // — so the button's own label should say which
-                            // one it's really about to call rather than always
-                            // claiming Google, which was actively misleading
-                            // once this button could mean either.
-                            Text(
-                                row.wrappedValue.originSource == .naverMapShare
-                                    ? "Naver에서 검색".localized
-                                    : "Google에서 검색".localized
-                            )
+                            // isn't up to the user's choice here — a Naver/
+                            // Apple Maps share always checks against that
+                            // app's own listings (see `PlaceCardViewModel
+                            // .search(rowID:)`) — so the button's own label
+                            // should say which one it's really about to
+                            // call rather than always claiming Google,
+                            // which was actively misleading once this
+                            // button could mean any of three.
+                            Text(searchButtonLabel(for: row.wrappedValue))
                         }
                     }
                     .disabled(row.wrappedValue.name.trimmingCharacters(in: .whitespaces).isEmpty || row.wrappedValue.isSearching)
@@ -630,6 +627,17 @@ struct AddPlaceCardView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    /// "검색" 단추의 문구 — 실제로 어느 쪽을 부르는지는
+    /// `row.originSource`가 정하고, 이 함수는 그걸 그대로 말로 옮긴다
+    /// (`PlaceCardViewModel.search(rowID:)`와 짝을 맞춰 둔다).
+    private func searchButtonLabel(for row: PlaceCandidateRow) -> String {
+        switch row.originSource {
+        case .naverMapShare: return "Naver에서 검색".localized
+        case .appleMapShare: return "Apple에서 검색".localized
+        default: return "Google에서 검색".localized
         }
     }
 

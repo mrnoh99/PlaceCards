@@ -148,6 +148,9 @@ struct EditPlaceCardSheet: View {
     /// `card.naverVerified` and is written back to
     /// `updated.naverVerified` at `save()`.
     @State private var confirmedNaverVerified: Bool
+    /// Same reasoning as `confirmedNaverVerified`, for an Apple-origin
+    /// result chosen from `placeConfirmSection`.
+    @State private var confirmedAppleVerified: Bool
     @State private var isConfirmingPlace = false
     @State private var placeConfirmResults: [PlaceSearchResult] = []
     @State private var placeConfirmMessage: String?
@@ -200,6 +203,7 @@ struct EditPlaceCardSheet: View {
         _memoText = State(initialValue: card.memo ?? "")
         _confirmedGooglePlaceId = State(initialValue: card.googlePlaceId)
         _confirmedNaverVerified = State(initialValue: card.naverVerified ?? false)
+        _confirmedAppleVerified = State(initialValue: card.appleVerified ?? false)
     }
 
     /// Other categories already used in this card's board — offered as
@@ -780,7 +784,7 @@ struct EditPlaceCardSheet: View {
                     if isConfirmingPlace {
                         ProgressView()
                     } else {
-                        Label("Google/Naver에서 장소 확정".localized, systemImage: "checkmark.seal")
+                        Label("Google/Naver/Apple에서 장소 확정".localized, systemImage: "checkmark.seal")
                     }
                 }
                 .disabled(isConfirmingPlace || name.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -809,16 +813,19 @@ struct EditPlaceCardSheet: View {
             } header: {
                 Text("장소 확정".localized)
             } footer: {
-                Text("이 카드는 아직 Google/Naver로 확정되지 않았습니다. 이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google/Naver에서 새로고침\"도 쓸 수 있게 됩니다.".localized)
+                Text("이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google/Naver에서 새로고침\"도 쓸 수 있게 됩니다. Google → Naver → Apple 순으로 시도하고, 키가 없어도 Apple은 항상 됩니다.".localized)
             }
         }
     }
 
-    /// Tries Google Places first (when an API key is registered); only
-    /// falls back to Naver's local search when Google has no key set or
-    /// its own search came back with zero results — a real Google error
+    /// Tries Google Places first (when an API key is registered), then
+    /// Naver's local search (when its credentials are configured), then
+    /// Apple's own `MKLocalSearch` — Apple needs no key at all, so it's
+    /// always tried, last, as the one fallback that never depends on the
+    /// user having registered anything. A real error from Google or Naver
     /// (rate limit, bad key) is shown as-is rather than silently masked by
-    /// a Naver retry the user might not expect.
+    /// the next provider's retry the user might not expect — but a *empty*
+    /// result (as opposed to an error) does fall through, same as before.
     private func confirmPlace() async {
         isConfirmingPlace = true
         placeConfirmMessage = nil
@@ -842,23 +849,43 @@ struct EditPlaceCardSheet: View {
             }
         }
 
-        guard let credentials = SettingsViewModel.currentNaverSearchCredentials() else {
-            if placeConfirmMessage == nil {
-                placeConfirmMessage = PlaceCardsError.apiKeyMissing.localizedDescription
-            } else if placeConfirmResults.isEmpty {
-                placeConfirmMessage = PlaceCardsError.noResults.localizedDescription
+        if let credentials = SettingsViewModel.currentNaverSearchCredentials() {
+            do {
+                let results = try await NaverPlaceSearchService.search(
+                    query: query, clientId: credentials.clientId, clientSecret: credentials.clientSecret
+                )
+                if !results.isEmpty {
+                    placeConfirmResults = results
+                    placeConfirmMessage = nil
+                    return
+                }
+            } catch {
+                placeConfirmMessage = error.localizedDescription
             }
-            return
         }
+
+        // 애플은 키가 필요 없다 — Google/Naver 둘 다 자격 증명이 없거나
+        // 아무것도 못 찾았을 때의 마지막 보루로 늘 시도한다.
         do {
-            let results = try await NaverPlaceSearchService.search(
-                query: query, clientId: credentials.clientId, clientSecret: credentials.clientSecret
+            let results = try await AppleLocalSearchService.search(
+                query: query, coordinateHint: currentCoordinates
             )
             placeConfirmResults = results
             placeConfirmMessage = results.isEmpty ? PlaceCardsError.noResults.localizedDescription : nil
         } catch {
             placeConfirmMessage = error.localizedDescription
         }
+    }
+
+    /// 위/경도 입력 칸을 지금 값으로 읽는다 — 두 칸이 다 숫자로 채워져
+    /// 있을 때만. `AppleLocalSearchService`가 검색을 그 근처로 좁히는 데
+    /// 쓴다(없어도 되고, 있으면 더 정확하다).
+    private var currentCoordinates: Coordinates? {
+        guard let latitude = Double(latitudeText.trimmingCharacters(in: .whitespaces)),
+              let longitude = Double(longitudeText.trimmingCharacters(in: .whitespaces)) else {
+            return nil
+        }
+        return Coordinates(latitude: latitude, longitude: longitude)
     }
 
     /// Overwrites name/address (confirm semantics, same as `PlaceCardView
@@ -885,11 +912,14 @@ struct EditPlaceCardSheet: View {
             latitudeText = String(coordinates.latitude)
             longitudeText = String(coordinates.longitude)
         }
-        if result.isFromGooglePlaces {
+        switch result.provider {
+        case .google:
             confirmedGooglePlaceId = result.id
             Task { await refreshFromGooglePlaceDetails() }
-        } else {
+        case .naver:
             confirmedNaverVerified = true
+        case .apple:
+            confirmedAppleVerified = true
         }
         if ratingText.trimmingCharacters(in: .whitespaces).isEmpty, let rating = result.rating {
             ratingText = String(rating)
@@ -1441,6 +1471,7 @@ struct EditPlaceCardSheet: View {
         var updated = card
         updated.googlePlaceId = confirmedGooglePlaceId
         updated.naverVerified = confirmedNaverVerified
+        updated.appleVerified = confirmedAppleVerified
         updated.name = name.trimmingCharacters(in: .whitespaces)
         let trimmedCategory = category.trimmingCharacters(in: .whitespaces)
         updated.category = trimmedCategory.isEmpty ? nil : trimmedCategory

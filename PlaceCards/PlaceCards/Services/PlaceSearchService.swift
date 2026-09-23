@@ -1,5 +1,16 @@
 import Foundation
 
+/// Which search backend actually produced a `PlaceSearchResult` — decides
+/// which flag (`PlaceCard.googlePlaceId`/`naverVerified`/`appleVerified`)
+/// a chosen result stamps onto the saved card. Replaced the old
+/// `isFromGooglePlaces: Bool` once a third provider (Apple) made a plain
+/// boolean unable to say which of the two non-Google cases a result was.
+enum PlaceSearchProvider: Equatable {
+    case google
+    case naver
+    case apple
+}
+
 struct PlaceSearchResult: Identifiable {
     let id: String
     let name: String
@@ -27,15 +38,16 @@ struct PlaceSearchResult: Identifiable {
     /// The first of `photoNames`, for the callers that only ever wanted
     /// one.
     var photoName: String? { photoNames.first }
-    /// Whether `id` is an actual Google Places `placeId` — `true` only
-    /// for `GooglePlace.toSearchResult()`, `false` for a Naver-verified
-    /// result (`NaverLocalItem.toSearchResult()`'s own `id` is just its
-    /// share link or a random UUID). Callers use this to decide whether
-    /// it's safe to pass `id` to `GooglePlacesService.details(placeId:)`
-    /// — doing that with a Naver-origin `id` would just fail (it isn't a
-    /// Google place at all), not silently return wrong data, but it's
-    /// still wasted network traffic worth skipping outright.
-    let isFromGooglePlaces: Bool
+    /// Which backend this came from. Only `.google`'s `id` is an actual
+    /// Google Places `placeId` — `NaverLocalItem.toSearchResult()`'s `id`
+    /// is just its share link or a random UUID, and `MKMapItem` gives no
+    /// stable identifier at all (`AppleLocalSearchService` mints a random
+    /// one). Callers use this to decide whether it's safe to pass `id` to
+    /// `GooglePlacesService.details(placeId:)` — doing that with a
+    /// non-Google `id` would just fail (it isn't a Google place at all),
+    /// not silently return wrong data, but it's still wasted network
+    /// traffic worth skipping outright.
+    let provider: PlaceSearchProvider
     /// Day-label -> hours-text, as shown in the card's 영업시간 list.
     /// Google returns this in the same Text Search response as everything
     /// else above, because `search`'s field mask asks for
@@ -421,7 +433,7 @@ private struct GooglePlace: Decodable {
             category: primaryTypeDisplayName?.text.strippingInvisibleFormatCharacters(),
             priceLevel: priceLevel.flatMap(PriceLevel.init(rawValue:)),
             photoNames: photos?.map(\.name) ?? [],
-            isFromGooglePlaces: true,
+            provider: .google,
             hoursDetail: regularOpeningHours?.hoursDetail,
             openingPeriods: regularOpeningHours?.openingPeriods
         )

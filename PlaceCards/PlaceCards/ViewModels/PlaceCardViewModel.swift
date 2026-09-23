@@ -42,6 +42,14 @@ struct PlaceCandidateRow: Identifiable {
     /// handed over exactly, and getting nothing at all without one. That
     /// is what left a shared place unable to open back on a map later.
     var scannedCoordinates: Coordinates? = nil
+    /// `search(rowID:)`가 카카오맵 공유를 그 장소 전용 페이지에서 직접
+    /// 읽어 냈을 때 true — 검색해서 고른 게 아니라 이미 그 장소의 공식
+    /// 페이지이므로 저장할 때 `PlaceCard.kakaoVerified`로 확정 처리한다.
+    /// `chosenResult`(Google/Naver/Apple 검색에서 고른 것)와는 별개다.
+    var isKakaoMapConfirmed = false
+    /// 위와 같이 카카오맵 페이지에서 읽은 대표 사진. 저장할 때 받아서
+    /// `officialPhotos`에 붙인다.
+    var scannedPhotoURL: URL? = nil
     /// Phone/website/category/hours/amenities the AI scan could read off
     /// the screenshot itself, beyond name/address/note (e.g. a Google Maps
     /// info card's own "영업시간" section) — carried into the saved card
@@ -616,6 +624,15 @@ final class PlaceCardViewModel: ObservableObject {
         if candidateRows[filledIndex].originSource == nil {
             candidateRows[filledIndex].originSource = resolved.source
         }
+        // 한 번 확정됐으면(카카오맵 페이지를 직접 읽어 낸 것) 재검색해도
+        // 풀지 않는다 — 재검색이 실패한다고 이미 얻은 확정이 없어질 이유는
+        // 없다.
+        if resolved.isConfirmedByShare {
+            candidateRows[filledIndex].isKakaoMapConfirmed = true
+            if candidateRows[filledIndex].scannedPhotoURL == nil {
+                candidateRows[filledIndex].scannedPhotoURL = resolved.photoURL
+            }
+        }
         let originSource = candidateRows[filledIndex].originSource
 
         let combinedQuery = address.isEmpty ? resolved.name : "\(resolved.name) \(address)"
@@ -652,6 +669,16 @@ final class PlaceCardViewModel: ObservableObject {
                 let groundTruth = await resolveGroundTruth(coordinateHint: resolved.coordinates, address: address)
                 results = Self.filterByGroundTruth(results, groundTruth: groundTruth)
                 outcome = SearchOutcome(results: results, hadUnfilteredMatches: hadUnfilteredMatches)
+            } else if originSource == .appleMapShare {
+                // 애플 지도 공유는 애플 자체 검색으로 확정한다 — API 키가
+                // 필요 없어 Naver처럼 자격 증명이 있는지 먼저 볼 필요가
+                // 없다. `MKLocalSearch`는 이 검색 하나로 실패할 이유가
+                // 마땅치 않아(네트워크 오류 정도) Naver 쪽의 "빈 결과면
+                // 주소 없이 재시도" 같은 처리는 두지 않았다.
+                let results = try await AppleLocalSearchService.search(
+                    query: combinedQuery, coordinateHint: resolved.coordinates
+                )
+                outcome = SearchOutcome(results: results, hadUnfilteredMatches: !results.isEmpty)
             } else {
                 outcome = try await searchViaGoogle(query: combinedQuery, address: address, coordinateHint: resolved.coordinates)
             }
@@ -768,6 +795,16 @@ final class PlaceCardViewModel: ObservableObject {
         /// text or a business-homepage link (that one already becomes
         /// `website` instead).
         var mapURL: URL?
+        /// 그 장소의 카카오맵 페이지에서 곧장 읽었으면 true — 검색이 아니라
+        /// 이미 그 장소의 공식 페이지를 읽은 것이므로 확정으로 친다
+        /// (`PlaceCard.kakaoVerified`). `source == .kakaoMapShare`만으로는
+        /// 판단 못 한다 — 그 값은 호스트만 알아봤을 뿐 실제로 읽는 데
+        /// 실패했을 때도 그대로 남기 때문에(외부 링크는 살려 두려는
+        /// 것) 실제로 읽어 냈는지는 이 필드가 따로 말해 준다.
+        var isConfirmedByShare: Bool = false
+        /// `KakaoPlaceLinkResolver`가 찾은 대표 사진. 카카오 확정에서만
+        /// 채워진다.
+        var photoURL: URL? = nil
     }
 
     /// Turns whatever the user pasted (or a Share Extension handed over)
@@ -793,7 +830,10 @@ final class PlaceCardViewModel: ObservableObject {
                     return ResolvedSharedPlace(
                         name: resolved.name ?? trimmed, address: resolved.address,
                         coordinates: resolved.coordinates, note: resolved.note,
-                        website: nil, source: resolved.source, mapURL: resolved.url
+                        website: nil, source: resolved.source, mapURL: resolved.url,
+                        // 검색이 아니라 그 장소의 카카오맵 페이지를 곧장
+                        // 읽어 낸 것이므로 확정이다.
+                        isConfirmedByShare: true, photoURL: resolved.photoURL
                     )
                 }
                 return ResolvedSharedPlace(
@@ -945,7 +985,8 @@ final class PlaceCardViewModel: ObservableObject {
                                 name: row.name, address: row.address, images: images,
                                 photoCaptures: photoCaptures, source: source,
                                 note: row.scannedNote, website: row.scannedWebsite, details: row.scannedDetails,
-                                tags: row.tags, externalLinks: links, sharedCoordinates: row.scannedCoordinates
+                                tags: row.tags, externalLinks: links, sharedCoordinates: row.scannedCoordinates,
+                                isKakaoMapConfirmed: row.isKakaoMapConfirmed, kakaoPhotoURL: row.scannedPhotoURL
                             )
                             return (index, card)
                         }
@@ -1004,8 +1045,9 @@ final class PlaceCardViewModel: ObservableObject {
             category: result.category,
             address: result.address,
             coordinates: result.coordinates,
-            googlePlaceId: result.isFromGooglePlaces ? result.id : nil,
-            naverVerified: !result.isFromGooglePlaces,
+            googlePlaceId: result.provider == .google ? result.id : nil,
+            naverVerified: result.provider == .naver ? true : nil,
+            appleVerified: result.provider == .apple ? true : nil,
             rating: result.rating,
             reviewCount: result.reviewCount,
             priceLevel: result.priceLevel,
@@ -1074,7 +1116,7 @@ final class PlaceCardViewModel: ObservableObject {
         let officialPhotos = await fetchOfficialPhotos(googlePhotoNames: result.photoNames)
         if !officialPhotos.isEmpty {
             card.media.officialPhotos.append(contentsOf: officialPhotos)
-        } else if !result.isFromGooglePlaces {
+        } else if result.provider != .google {
             card.media.officialPhotos.append(contentsOf: await fetchGooglePhotoFallback(
                 name: result.name, address: result.address, coordinates: card.coordinates
             ))
@@ -1155,6 +1197,18 @@ final class PlaceCardViewModel: ObservableObject {
         return await fetchOfficialPhotos(googlePhotoNames: match.photoNames)
     }
 
+    /// `KakaoPlaceLinkResolver`가 찾은 그 장소의 대표 사진 URL을 받아
+    /// 저장한다. 구글 사진과 달리 API 호출이 아니라 그냥 공개 이미지
+    /// URL 하나를 받는 것뿐이라 키도, 검색도 필요 없다.
+    private func fetchKakaoPhoto(from url: URL, session: URLSession = .shared) async -> [MediaItem] {
+        guard let (data, response) = try? await session.data(from: url),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let fileName = try? MediaStore.saveImage(data: data) else {
+            return []
+        }
+        return [MediaItem(localPath: fileName, source: .kakaoMapShare)]
+    }
+
     /// A manually-entered place never went through `search(rowID:)`'s own
     /// Google/Naver verification, so unlike `createPlaceCard(from:)` it
     /// starts with no coordinates and no chance at an official photo —
@@ -1182,12 +1236,17 @@ final class PlaceCardViewModel: ObservableObject {
         name: String, address: String, images: [UIImage] = [],
         photoCaptures: [PhotoMetadata.Capture] = [], source: SourceType = .userManualInput,
         note: String? = nil, website: String? = nil, details: PlaceWebDetails? = nil, tags: [String] = [],
-        externalLinks: [ExternalLink] = [], sharedCoordinates: Coordinates? = nil
+        externalLinks: [ExternalLink] = [], sharedCoordinates: Coordinates? = nil,
+        // 카카오맵 공유가 그 장소 전용 페이지에서 직접 읽어 낸 것이면
+        // true — 검색해서 고른 게 아니라 이미 확정이다. `kakaoPhotoURL`은
+        // 그 페이지의 대표 사진.
+        isKakaoMapConfirmed: Bool = false, kakaoPhotoURL: URL? = nil
     ) async -> PlaceCard {
         var card = PlaceCard(
             boardId: boardId ?? "", name: name, address: address, website: website, externalLinks: externalLinks,
             tags: tags, memo: PlaceCard.combinedMemo(nil, appending: note)
         )
+        card.kakaoVerified = isKakaoMapConfirmed ? true : nil
         // 소속을 정하는 것은 `boardIDs`다. 위의 `boardId`는 카드가
         // 게시판 하나에만 속하던 시절의 필드이고, 게시판이 없으면 빈
         // 문자열로 남는다.
@@ -1241,6 +1300,11 @@ final class PlaceCardViewModel: ObservableObject {
                 name: name, address: address, coordinates: coordinates,
                 groundTruthRadius: coordinatesFromPhotoHint ? Self.maxPhotoLocationMatchDistanceMeters : Self.maxAddressMatchDistanceMeters
             ))
+        }
+        // 구글 폴백과 따로, 덧붙인다 — 카카오맵 자체 사진이라 구글이 준
+        // 것과 겹치지 않는다.
+        if let kakaoPhotoURL {
+            card.media.officialPhotos.append(contentsOf: await fetchKakaoPhoto(from: kakaoPhotoURL))
         }
 
         // 좌표가 정해진 **뒤에** 본다. 이 함수는 `createPlaceCard(from:)`와
