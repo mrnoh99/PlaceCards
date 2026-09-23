@@ -439,17 +439,20 @@ struct MapOpenMenu<MenuLabel: View>: View {
     }
 
     var body: some View {
+        // 차례는 지도 화면 탭의 Apple·Google·Naver와 맞추고, 그 탭에는
+        // 없는 한국 전용 둘(Kakao·Tmap)을 뒤에 잇는다 — 같은 앱들을 고르는
+        // 자리가 여럿인데 차례가 다르면 손이 기억한 자리를 잘못 누른다.
         Menu {
-            if GoogleMapsOpener.url(for: card) != nil {
-                Button("Google Maps") {
-                    MapOpenContext.recordMapOpen(cardID: card.id)
-                    GoogleMapsOpener.open(for: card, using: openURL)
-                }
-            }
             if AppleMapsOpener.canOpen(card) {
                 Button("Apple 지도".localized) {
                     MapOpenContext.recordMapOpen(cardID: card.id)
                     AppleMapsOpener.open(for: card, using: openURL)
+                }
+            }
+            if GoogleMapsOpener.url(for: card) != nil {
+                Button("Google Maps") {
+                    MapOpenContext.recordMapOpen(cardID: card.id)
+                    GoogleMapsOpener.open(for: card, using: openURL)
                 }
             }
             if let url = NaverMapOpener.url(for: card) ?? NaverMapOpener.searchURL(for: card) {
