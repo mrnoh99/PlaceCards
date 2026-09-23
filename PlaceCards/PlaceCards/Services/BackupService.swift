@@ -461,6 +461,22 @@ enum BackupService {
     // 옛 단일 파일은 이제 `stageLegacyBackup`이 임시 폴더로 옮긴 뒤
     // `restore(bundleAt:)`이 한 장씩 처리한다.
 
+    /// 겹치지 않는 게시판 이름 — 이미 있으면 `"이름 (2)"`, 그것도 있으면
+    /// `"이름 (3)"`.
+    ///
+    /// 이미 `(2)`로 끝나는 이름을 벗겨 내지는 않는다. `"제주 (2)"`를 두 번
+    /// 가져오면 `"제주 (2) (2)"`가 된다 — 보기에 좋지는 않지만, 사용자가
+    /// 일부러 `(2)`로 끝나게 지은 이름을 건드리는 것보다 낫다.
+    static func uniqueBoardName(_ name: String, existing: [String]) -> String {
+        let taken = Set(existing)
+        guard taken.contains(name) else { return name }
+        var suffix = 2
+        while taken.contains("\(name) (\(suffix))") {
+            suffix += 1
+        }
+        return "\(name) (\(suffix))"
+    }
+
     /// Adds a board (and its place cards) from a shared/exported file
     /// into the current data, without touching anything already there —
     /// mirrors Peragra's `importBoard(_:context:)`. Unlike `restore`,
@@ -492,6 +508,16 @@ enum BackupService {
         for board in backup.boards {
             var newBoard = board
             newBoard.id = UUID().uuidString
+            // 같은 이름이 이미 있으면 "(2)"를 붙인다. 이름이 겹치면 목록에서
+            // 어느 쪽이 방금 가져온 것인지 알 수 없다 — id는 새로 매기므로
+            // 둘은 분명히 다른 게시판인데 보기에는 같다.
+            //
+            // **목록을 그때그때 다시 본다.** 한 번에 여러 보드를 가져올 때
+            // 방금 추가한 것과도 겹치면 안 되는데, `saveBoard`가 바로
+            // `storageService.boards`에 넣으므로 이것만으로 맞는다.
+            newBoard.name = uniqueBoardName(
+                board.name, existing: storageService.boards.map(\.name)
+            )
             newBoardIDs[board.id] = newBoard.id
             storageService.saveBoard(newBoard)
             importedBoards.append(newBoard)
