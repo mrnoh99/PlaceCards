@@ -51,7 +51,8 @@ enum KakaoPlaceLinkResolver {
             coordinates: coordinates(fromTwitterImageIn: html),
             note: nil,
             url: placeURL,
-            source: .kakaoMapShare
+            source: .kakaoMapShare,
+            photoURL: photoURL(fromOGImageIn: html)
         )
     }
 
@@ -106,6 +107,20 @@ enum KakaoPlaceLinkResolver {
     /// `<meta name="twitter:image" content="…staticmap…&m=<경도>,<위도>">`의
     /// `m=` 값. 정적 지도 이미지 URL이 좌표를 그대로 들고 있는 게 이 페이지
     /// 에서 좌표를 얻을 수 있는 유일한 길이다 — `og:`에는 좌표가 없다.
+    /// `<meta property="og:image" content="…">`의 사진 URL. 그 장소의
+    /// 실제 대표 사진이다 — 확인해 보니 800×400 JPEG였다(2026-09-22).
+    /// 카카오 API가 아니라 공개 페이지가 공유 미리보기를 위해 내주는
+    /// 이미지 링크 하나를 받는 것뿐이라, 저장을 금지하는 약관에 걸리지
+    /// 않는다(`SourceType.kakaoDirectLookup`의 주석 참고).
+    ///
+    /// `//`로 시작하는 프로토콜 상대 URL로 오는 경우가 있어(실측) `https:`
+    /// 를 붙여 준다 — `URL(string:)`은 스킴이 없으면 nil을 준다.
+    private static func photoURL(fromOGImageIn html: String) -> URL? {
+        guard let raw = metaProperty("og:image", from: html), !raw.isEmpty else { return nil }
+        let absolute = raw.hasPrefix("//") ? "https:" + raw : raw
+        return URL(string: absolute)
+    }
+
     private static func coordinates(fromTwitterImageIn html: String) -> Coordinates? {
         guard let imageURLString = firstMatch(
             in: html,

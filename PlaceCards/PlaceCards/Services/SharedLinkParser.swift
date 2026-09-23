@@ -16,6 +16,10 @@ struct ParsedSharedPlace {
     var note: String?
     var url: URL?
     var source: SourceType
+    /// 그 장소의 대표 사진. 지금은 `KakaoPlaceLinkResolver`만 채운다 — 그
+    /// 장소 전용 페이지의 `og:image`가 실제 사진 URL을 들고 있어서다.
+    /// 다른 소스는 전부 nil로 남는다.
+    var photoURL: URL? = nil
 }
 
 /// Google Maps and Naver Map hand the share sheet very different data, so

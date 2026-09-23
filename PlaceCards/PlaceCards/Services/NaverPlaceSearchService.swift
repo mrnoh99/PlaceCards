@@ -134,7 +134,7 @@ private struct NaverLocalItem: Decodable {
             category: category?.strippingInvisibleFormatCharacters(),
             priceLevel: nil,
             photoNames: [],
-            isFromGooglePlaces: false,
+            provider: .naver,
             hoursDetail: nil,
             openingPeriods: nil
         )

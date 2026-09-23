@@ -106,15 +106,15 @@ struct PlaceCard: Identifiable, Codable {
     /// This place's Google Places `placeId`, set when the card was created
     /// from (or later confirmed against, via `EditPlaceCardSheet`'s "장소
     /// 확정" section) a verified Google Places search result
-    /// (`PlaceSearchResult.isFromGooglePlaces`) — `nil` for a
-    /// Naver-verified-only or manually-entered card. Lets
+    /// (`PlaceSearchResult.provider == .google`) — `nil` for a
+    /// Naver/Apple-verified-only or manually-entered card. Lets
     /// `EditPlaceCardSheet` re-fetch this place's own
     /// `GooglePlacesService.details(placeId:)` (hours, rating, phone,
     /// website) straight from Google with no AI involved at all — the
     /// one non-AI way to refresh a card's info after creation.
     var googlePlaceId: String?
     /// Whether this card was matched against a verified Naver local-search
-    /// result (`PlaceSearchResult` with `isFromGooglePlaces == false`) —
+    /// result (`PlaceSearchResult` with `provider == .naver`) —
     /// at creation, or later via `EditPlaceCardSheet`'s "장소 확정"
     /// section falling back to Naver. Naver's local search API has no
     /// stable place ID worth keeping (unlike `googlePlaceId`, there's
@@ -129,6 +129,23 @@ struct PlaceCard: Identifiable, Codable {
     /// default is only honored for a key present at the struct's original
     /// release, not one added later.
     var naverVerified: Bool?
+    /// Whether this card was matched against an Apple Maps local-search
+    /// result(`AppleLocalSearchService`, via `PlaceCardViewModel.search
+    /// (rowID:)` for an Apple Maps-origin share or `EditPlaceCardSheet`'s
+    /// "장소 확정" falling back to it) — same shape as `naverVerified`,
+    /// a flag rather than an ID: `MKLocalSearch` gives no stable
+    /// place identifier worth keeping for a later re-fetch.
+    var appleVerified: Bool?
+    /// Whether this card's name/address/coordinates were read straight off
+    /// **the specific place's own Kakao Map page** (`KakaoPlaceLinkResolver`,
+    /// set once at creation when the card came from a Kakao Map share that
+    /// actually resolved). Not from Kakao's search API — that's never
+    /// called at all (see `SourceType.kakaoDirectLookup`'s own comment) —
+    /// so there's no "장소 확정" search-and-pick flow for Kakao the way
+    /// there is for Google/Naver/Apple; the share resolving *is* the
+    /// confirmation, since it's already the one specific place's own
+    /// public listing, not a ranked guess among several candidates.
+    var kakaoVerified: Bool?
 
     var rating: Double?
     var reviewCount: Int?
@@ -274,11 +291,11 @@ extension PlaceCard: Hashable {
 
 extension PlaceCard {
     /// "장소확정" — whether this place has actually been matched against a
-    /// real map listing, on Google or Naver, rather than sitting as a
-    /// manually-entered or AI-guessed name/address. Drives the green
-    /// badge shown on the detail view, list row, and grid cell.
+    /// real map listing, on Google, Naver, Apple, or Kakao, rather than
+    /// sitting as a manually-entered or AI-guessed name/address. Drives the
+    /// green badge shown on the detail view, list row, and grid cell.
     var isPlaceConfirmed: Bool {
-        googlePlaceId != nil || (naverVerified ?? false)
+        googlePlaceId != nil || (naverVerified ?? false) || (appleVerified ?? false) || (kakaoVerified ?? false)
     }
 
     /// The card's representative photo — shown as the detail view's hero
@@ -492,6 +509,12 @@ extension PlaceCard {
         if googlePlaceId == nil { googlePlaceId = duplicates.compactMap(\.googlePlaceId).first }
         if naverVerified != true, duplicates.contains(where: { $0.naverVerified == true }) {
             naverVerified = true
+        }
+        if appleVerified != true, duplicates.contains(where: { $0.appleVerified == true }) {
+            appleVerified = true
+        }
+        if kakaoVerified != true, duplicates.contains(where: { $0.kakaoVerified == true }) {
+            kakaoVerified = true
         }
 
         if address.trimmingCharacters(in: .whitespaces).isEmpty {

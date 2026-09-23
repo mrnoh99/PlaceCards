@@ -144,7 +144,8 @@ enum Localization {
         "Google 지도, Naver 지도, Trip Advisor 등 이 장소의 페이지 링크를 추가해두면 상세보기에서 바로 열 수 있습니다.": "Add links to this place's page on Google Maps, Naver Map, Trip Advisor, and the like, and open them straight from the detail view.",
         "Google 지도를 불러오지 못했습니다 — 설정의 API 키를 확인해주세요.": "Couldn't load Google Maps — please check the API key in Settings.",
         "Google 지도에서 확인됨": "Confirmed on Google Maps",
-        "Google/Naver에서 장소 확정": "Confirm Place via Google/Naver",
+        "Google/Naver/Apple에서 장소 확정": "Confirm Place via Google/Naver/Apple",
+        "Apple에서 검색": "Search on Apple",
         "Google에서 검색": "Search on Google",
         "Google에서 새로 채울 정보를 찾지 못했습니다.": "Found nothing new to fill in from Google.",
         "Google에서 새로고침": "Refresh from Google",
@@ -373,8 +374,8 @@ enum Localization {
         "이 링크에서 장소 정보를 아직 찾지 못했습니다. 아래 검색을 다시 눌러보거나, 장소명을 직접 입력해주세요.": "No place info could be recovered from this link yet. Try the search below again, or type the place name yourself.",
         "이 사진을 삭제할까요?": "Delete this photo?",
         "이 기기 이름": "This Device's Name",
-        "이 카드는 아직 Google/Naver로 확정되지 않았습니다. 이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google/Naver에서 새로고침\"도 쓸 수 있게 됩니다.":
-            "This card hasn't been confirmed against Google/Naver yet. Search by name/address and pick the actual place to update it with verified info — and unlock \"Refresh from Google/Naver\" afterward.",
+        "이름·주소로 검색해 실제 장소를 찾아 고르면, 검증된 정보로 갱신하고 이후 \"Google/Naver에서 새로고침\"도 쓸 수 있게 됩니다. Google → Naver → Apple 순으로 시도하고, 키가 없어도 Apple은 항상 됩니다.":
+            "Search by name/address and pick the actual place to update it with verified info — and unlock \"Refresh from Google/Naver\" afterward. Tries Google, then Naver, then Apple — Apple always works even with no key registered.",
         "이 카드에 추가할까요?": "Add to this card?",
         "이 폴더에 대한 접근 권한이 끊어졌습니다. 아래에서 폴더를 다시 선택해주세요.": "Access to this folder was lost. Please choose the folder again below.",
         "이름": "Name",
