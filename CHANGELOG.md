@@ -2,6 +2,51 @@
 
 ## [Unreleased]
 
+### 2026-09-23 (251차) — Team ID를 다시 커밋한다 (212차 되돌림을 되돌림)
+사용자 확인: "team 로그인 했다". 211차가 넣었다가 212차에 되돌린 것을 원인이
+해소됐으므로 다시 넣는다.
+
+#### 무엇이 문제였나 — 값이 아니라 계정이었다
+211차가 커밋한 `DEVELOPMENT_TEAM = 492X57LLB4`에 Xcode가 이렇게 답했다:
+
+```
+Team: Unknown Name (492X57LLB4)
+❌ No Account for Team "492X57LLB4".
+```
+
+**"그런 ID가 없다"가 아니라 "로그인된 계정 중 그 팀에 속한 게 없다"는 뜻이다.**
+그 뒤 사용자의 `security find-identity -v -p codesigning`이
+`Apple Development: Jaisung Noh (492X57LLB4)` 하나를 유효한 것으로 내놓아
+**ID 자체는 맞다**는 것이 확인됐고, 남은 원인은 Xcode → Settings → Accounts에
+Apple ID가 로그인돼 있지 않은 것뿐이었다. 이번에 그것을 확인했다.
+
+#### Added
+- `project.pbxproj`의 빌드 구성 **네 곳**에 `DEVELOPMENT_TEAM = 492X57LLB4`
+  (앱 Debug/Release, 확장 Debug/Release). 확장도 같이 서명되므로 양쪽 다
+  필요하다. **211차와 같은 자리에 넣었음을 diff로 확인했다** — 주변 줄이
+  같고 빌드 번호만 13에서 46으로 다르다.
+
+이것이 고치는 것: `project.pbxproj`에 `CODE_SIGN_STYLE = Automatic`만 있고
+`DEVELOPMENT_TEAM` 줄이 없으면, Xcode에서 Team을 고를 때 생기는 그 줄이
+**추적되는 파일의 로컬 수정**이 된다. 빌드 번호를 올릴 때마다 같은 파일을
+건드리므로 `git pull`마다 충돌하거나 되돌려지면서 Team이 날아갔다.
+
+#### Changed
+- `00_다른_계정에서_이어받기.md` — §3이 "Team ID는 일부러 커밋하지 않았다"였다.
+  이제 반대이므로 다시 썼다: 커밋돼 있다는 것, 다른 팀이면 그 네 줄을 바꾼다는 것,
+  그리고 **PR #74 → #75 → 251차의 전말**(값이 아니라 계정이 원인이었다는 것).
+  "Signing이 빨갈 때" 순서도 그에 맞게 고쳤다 — 1번이 이번 원인이었다.
+- 같은 문서 §2에 **2.4 Team ID 4곳**을 더하고 확인 절을 2.5로 밀었다.
+  **이 네 줄은 `com.mrnoh99`를 포함하지 않아 기존 grep에 안 걸린다** —
+  다른 팀으로 옮기는 사람이 정확히 빠뜨릴 자리라 `grep -rn "492X57LLB4"`를
+  확인 항목에 같이 넣었다.
+- §1 식별자 표의 "커밋 안 되어 있음"도 고쳤다.
+
+#### CI
+영향 없다. `.github/workflows/ci.yml`이 `CODE_SIGNING_ALLOWED=NO`와
+`CODE_SIGNING_REQUIRED=NO`로 빌드하므로 이 값을 보지 않는다 — 이번에 워크플로
+파일에서 직접 확인했다.
+
 ### 2026-09-23 (250차) — 문서를 지금 상태에 맞춤
 사용자 요청 "문서 정리해라". **코드 변경 없음.**
 
