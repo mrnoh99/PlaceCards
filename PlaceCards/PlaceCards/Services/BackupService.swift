@@ -456,24 +456,3 @@ enum BackupService {
         return importedBoards
     }
 }
-
-/// The `FileDocument` wrapper `.fileExporter` needs to save a backup —
-/// mirrors Peragra's `BackupDocument` exactly (a plain `Data` passthrough,
-/// since the payload is already-encoded JSON by the time this is built).
-struct BackupDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.json] }
-
-    var data: Data
-
-    init(data: Data) {
-        self.data = data
-    }
-
-    init(configuration: ReadConfiguration) throws {
-        data = configuration.file.regularFileContents ?? Data()
-    }
-
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        FileWrapper(regularFileWithContents: data)
-    }
-}

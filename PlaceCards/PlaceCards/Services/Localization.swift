@@ -68,8 +68,8 @@ enum Localization {
         "이 백업에서 바뀐 것이 없습니다.": "Nothing in this backup changed anything here.",
         "곳 추가": " added",
         "곳 갱신": " updated",
-        "\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 파일로 저장하며, 복원하면 이 기기에 없는 장소는 추가하고 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.":
-            "\"Keep a copy in iCloud\" stores every board, place and photo in this app's own space inside your iCloud account, so you can recover them on a new device or after reinstalling. Turning it off also deletes the copy already stored. \"Full Backup\" saves the same contents to a file you choose; restoring one adds the places this device is missing and replaces the ones the backup edited more recently. Places the backup doesn't contain are left alone.",
+        "\"iCloud에 자동 보관\"은 게시판·장소·사진 전체의 사본을 본인의 iCloud 계정 안 이 앱 전용 공간에 저장해, 기기를 바꾸거나 앱을 다시 설치했을 때 복구할 수 있게 합니다. 끄면 이미 저장된 사본도 삭제됩니다. \"전체 백업\"은 같은 내용을 직접 고른 폴더 안에 백업 폴더 하나로 저장합니다. 복원할 때는 그 폴더를 고르면 되고, 이 기기에 없는 장소는 추가하고 백업 쪽이 더 나중에 수정된 장소는 그 내용으로 바꿉니다. 백업에 없는 장소는 그대로 둡니다.":
+            "\"Keep a copy in iCloud\" stores every board, place and photo in this app's own space inside your iCloud account, so you can recover them on a new device or after reinstalling. Turning it off also deletes the copy already stored. \"Full Backup\" saves the same contents as one backup folder inside a folder you choose; to restore, pick that folder. Restoring adds the places this device is missing and replaces the ones the backup edited more recently. Places the backup doesn't contain are left alone.",
         "iCloud에서 이전 백업을 찾아 게시판과 장소를 가져왔습니다.": "Found an earlier backup in iCloud and brought its boards and places in.",
         "Google 지도나 네이버 지도에서 장소를 공유하면 바로 카드가 됩니다. 별도 설정 없이 지금 바로 쓸 수 있어요.": "Share a place from Google Maps or Naver Map and it becomes a card right away — no setup needed to start.",
         "곧 영업 종료": "Closing soon",
