@@ -866,14 +866,19 @@ struct EditPlaceCardSheet: View {
 
         // 애플은 키가 필요 없다 — Google/Naver 둘 다 자격 증명이 없거나
         // 아무것도 못 찾았을 때의 마지막 보루로 늘 시도한다.
+        //
+        // 이름+주소로 먼저 찾고 빈 손이면 이름만으로 한 번 더 — 그 까닭은
+        // `AppleLocalSearchService.search`에 적혀 있다. 애플 쪽 오류는
+        // 원문 대신 사람이 읽을 수 있는 한 줄로 바꾼다.
         do {
             let results = try await AppleLocalSearchService.search(
-                query: query, coordinateHint: currentCoordinates
+                query: query, fallbackQuery: trimmedName, coordinateHint: currentCoordinates
             )
             placeConfirmResults = results
             placeConfirmMessage = results.isEmpty ? PlaceCardsError.noResults.localizedDescription : nil
         } catch {
-            placeConfirmMessage = error.localizedDescription
+            placeConfirmMessage = AppleLocalSearchService.message(for: error)
+                ?? PlaceCardsError.noResults.localizedDescription
         }
     }
 

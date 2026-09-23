@@ -2,13 +2,16 @@
 
 여행/나들이 중 여러 출처(지도 앱, SNS, 직접 촬영)에서 발견한 장소를 하나의 통일된 카드(PlaceCard)로 저장·관리·조회하는 iOS 앱입니다.
 
-현재 구현 상태와 남은 작업은 [`00_인수인계_현재상태.md`](./00_인수인계_현재상태.md)에 정리되어 있습니다 — 이어서 작업한다면 그 문서를 먼저 읽으세요. 기획 배경과 당시 의사결정 과정은 [`00_프로젝트종합가이드_새세션용.md`](./00_프로젝트종합가이드_새세션용.md)(기획 단계 기록이라 현재와 어긋나는 부분이 있습니다)와 `PLANNING/`, `RESEARCH/`, `IMPLEMENTATION/` 폴더에 있습니다. 이 문서는 실제 Xcode 프로젝트(`PlaceCards/`)의 현재 구현 상태와 빌드 방법을 설명합니다.
+이어서 작업한다면 [`CLAUDE.md`](./CLAUDE.md)(작업 규칙 — **반드시**)와 [`00_UI개편_기초.md`](./00_UI개편_기초.md)(지금 화면, 갈아엎어도 살아남아야 하는 동작, 실제로 밟은 SwiftUI 함정)를 먼저 읽으세요. 어떤 변경이 왜 그렇게 됐는지는 [`CHANGELOG.md`](./CHANGELOG.md)에 있고 이쪽이 가장 믿을 만합니다. [`00_인수인계_현재상태.md`](./00_인수인계_현재상태.md)는 254차까지 갱신되어 있습니다. 기획 배경과 당시 의사결정 과정은 [`00_프로젝트종합가이드_새세션용.md`](./00_프로젝트종합가이드_새세션용.md)(기획 단계 기록이라 현재와 어긋나는 부분이 있습니다)와 `PLANNING/`, `RESEARCH/`, `IMPLEMENTATION/` 폴더에 있습니다. 이 문서는 실제 Xcode 프로젝트(`PlaceCards/`)의 현재 구현 상태와 빌드 방법을 설명합니다.
 
 ## 현재 상태
 
 - 기획/설계: ✅ 완료 (`00_프로젝트종합가이드_새세션용.md` 참고)
-- iOS 코드: 🟢 Google Places, Naver(Local Search + Geocoding), Claude/OpenAI/Gemini/Gateway Vision이 모두 기기에서 직접 동작 — 백엔드 서버 없음 (Peragra 개발 경험을 반영해 프록시 방식을 폐기함, 아래 "아키텍처 개요" 참고)
-- Kakao 연동, Export, 오프라인 동기화: 미구현 (아래 "다음 단계" 참고)
+- iOS 코드: 🟢 Google Places, Naver(검색 오픈API - 지역), Apple(`MKLocalSearch`), Claude/OpenAI/Gemini/Gateway Vision이 모두 기기에서 직접 동작 — 백엔드 서버 없음 (Peragra 개발 경험을 반영해 프록시 방식을 폐기함, 아래 "아키텍처 개요" 참고)
+- Kakao: 🟢 공유 링크를 읽어 장소를 복구하고 그 자체를 "장소확정"으로 침 (카카오 로컬 API는 결과 저장이 약관에 걸려 쓰지 않음)
+- Export: 🟢 CSV(`CSVExport`), 게시판 내보내기·들여오기(`BackupService`), 장소 한둘을 건네는 축약 형식(`SharePlaces`)
+- 기기 간 동기화: 🟢 CloudKit (`CloudSyncService`). **자동이 아니라 손으로 누릅니다** — 설정 또는 갤러리 툴바
+- 남은 것: TestFlight 배포(Xcode 서명이 걸려 있음), `placecards://` 딥링크
 
 ## 빌드 방법 (macOS)
 
@@ -89,17 +92,19 @@ PlaceCards/
     Models/                    # Board, PlaceCard, MediaBundle, SourceRecord 등
     Services/                  # Keychain, 로컬 저장, Google/Naver/AI 클라이언트
     ViewModels/                # Settings/PlaceCard/Gallery/Map ViewModel
-    Views/                     # Onboarding, Home(게시판 목록), 게시판 상세, Gallery, Map, Settings
+    Views/                     # Onboarding, Home(두 칸 — 왼쪽 목록 + 오른쪽 갤러리), Map, Settings, Trash, Theme
     Assets.xcassets
     Preview Content/
 ```
 
 ### 아키텍처 개요
 
-- **홈 화면 = 게시판(Board) 목록**: Peragra의 "Trip(보드)" 구조를 반영해, 장소 카드를 바로 추가하는 게 아니라 먼저 **게시판**(이름 + 부제목 + 커버 아이콘)을 만들고, 그 게시판 안에서 장소 카드를 추가하는 흐름으로 변경됨. `PlaceCard`는 이제 항상 `boardId`를 가지며, 비어있는 게시판만 삭제할 수 있음(Peragra와 동일하게 장소가 있는 게시판은 스와이프 삭제가 나타나지 않음). 갤러리/지도 탭은 게시판과 무관하게 전체 장소 카드를 보여주는 뷰로 유지됨.
+- **첫 탭 = 두 칸**(Lightroom 스타일, `NavigationSplitView`): 왼쪽은 고르는 곳(모든 카드 · 가져오기 · 삭제됨 · 카테고리별 보기 · 사용자 게시판), 오른쪽은 고른 것이 펼쳐지는 갤러리. 탭은 갤러리·지도·설정 셋이다. 자세한 것은 `00_UI개편_기초.md` §1.
+- **카드는 게시판 여럿에 속할 수 있고, 아예 안 속할 수도 있다**: Lightroom에서 사진 한 장이 여러 앨범에 들어가듯 `PlaceCard.boardIds`가 배열이다(옛 `boardId`는 첫 칸과 발을 맞춰 남아 있다 — 필드를 지우면 저장된 카드가 디코딩에 실패한다). 어느 게시판에도 없는 카드는 "모든 카드"에서 보인다. 공유로 들어온 카드는 게시판을 묻지 않고 **"가져오기"**로 가고, 사용자 게시판으로 보내면 거기서 빠진다.
+- **삭제는 되돌릴 수 있다**: 삭제하면 "삭제됨"으로 옮겨지고 30일 뒤 앱이 뜰 때 정리된다. 되돌릴 수 없는 삭제는 `purge`이고, 그때 묘비를 남겨 다른 기기에서 되살아나지 않게 한다.
 - **UI**: SwiftUI + MVVM (`06_아키텍처_단순화.md`의 Service/ViewModel 계층 구조를 따름)
 - **저장**: 로컬 JSON 파일(`StorageService`) — SwiftData/CoreData 선택은 기획 문서에서 미결 항목(`07_미해결항목.md` 3.2)으로 남아 있어, iOS 버전 제약이 없고 스키마가 자주 바뀌는 현재 단계에 맞춰 단순한 방식을 선택함
-- **지도 API**: Google Places API (New)와 Naver(Local Search + Geocoding) 모두 **앱에서 직접 호출**(BYOK), 백엔드 서버 없음. 처음에는 "Naver Client Secret은 앱에 넣을 수 없다"는 전제로 프록시 서버를 계획했지만, 같은 팀의 다른 앱(Peragra)이 사용자 본인의 Client ID/Secret으로 NCP·Naver Developers API를 기기에서 직접 호출하고 있는 것을 확인하고 그 방식으로 교체함 — 네이티브 `URLSession` 요청은 웹처럼 CORS 제약이 없고, 이건 앱 공용 비밀키가 아니라 사용자가 스스로 발급받아 넣는 BYOK 키이기 때문에 안전한 절충. 자세한 내용은 `Services/NaverLocalSearchService.swift`, `Services/NaverGeocodingService.swift` 주석 참고.
+- **지도 API**: Google Places API (New)와 Naver(Local Search + Geocoding) 모두 **앱에서 직접 호출**(BYOK), 백엔드 서버 없음. 처음에는 "Naver Client Secret은 앱에 넣을 수 없다"는 전제로 프록시 서버를 계획했지만, 같은 팀의 다른 앱(Peragra)이 사용자 본인의 Client ID/Secret으로 NCP·Naver Developers API를 기기에서 직접 호출하고 있는 것을 확인하고 그 방식으로 교체함 — 네이티브 `URLSession` 요청은 웹처럼 CORS 제약이 없고, 이건 앱 공용 비밀키가 아니라 사용자가 스스로 발급받아 넣는 BYOK 키이기 때문에 안전한 절충. 자세한 내용은 `Services/NaverPlaceSearchService.swift` 주석 참고 — 특히 NAVER API HUB로 옮겨 가면서 엔드포인트와 헤더가 통째로 바뀐 경위가 적혀 있다(옛 `openapi.naver.com` 키는 2027-06-30에 멈춘다).
 - **AI 이미지 분석**: Claude, OpenAI(GPT-4o), Gemini, 그리고 Peragra가 기본으로 쓰는 서드파티 게이트웨이(factchat-cloud.mindlogic.ai)까지 네 가지 제공자를 각 사용자 API 키로 기기에서 직접 호출하도록 구현됨(Peragra의 멀티 프로바이더 접근 방식을 그대로 반영). 기본 선택값은 여전히 Claude이고, Gateway는 설정 화면에서 선택 가능한 추가 옵션임 — 그 게이트웨이는 Peragra 자체 계정에 종속된 서드파티 인프라이므로 실제 사용 여부는 사용자 판단.
 - **Kakao**: 기획 문서의 최종 결정(`00_프로젝트종합가이드_새세션용.md` §2️⃣)에 따라 저장 정책 리스크를 피하기 위해 이번 구현에서 제외함
 
@@ -111,7 +116,10 @@ PlaceCards/
 
 `07_미해결항목.md`의 액션 플랜을 기준으로, 이번 세션에서 다루지 않은 것들:
 
-1. **Export 기능** — JSON/CSV 내보내기, Notion/Google Sheets 연동
-2. **테스트** — 단위/통합 테스트 (기획 문서 `06_아키텍처_단순화.md` §10 참고)
+1. **TestFlight 배포** — Xcode 서명이 걸려 있다. `00_다른_계정에서_이어받기.md`와 CHANGELOG 212차 참고
+2. **테스트** — 테스트 타깃이 없다. `Tools/` 아래 검사들은 CI가 돌리지 않으므로 직접 돌린다 (`CLAUDE.md` §4)
 3. **앱 이름 상표 조사, App Store 심사 준비물** — `07_미해결항목.md` §7.1, §7.4
 4. **`placecards://` 딥링크** — 지도 앱에서 공유 시 바로 앱이 열리는 기능은 아직 미구현 (`IMPLEMENTATION/외부지도앱연동_가져오기기획.md` 참고)
+5. **동기화를 자동으로** — 지금은 설정이나 갤러리 툴바에서 손으로 누른다
+
+Export(1번)와 Kakao 연동은 들어갔다. 위 "현재 상태" 참고.
