@@ -14,7 +14,15 @@ enum CSVExport {
     /// One row per card, ordered board by board so a multi-board export
     /// reads as sections rather than a shuffle.
     static func csv(boards: [Board], placeCards: [PlaceCard]) -> Data {
-        let boardNames = Dictionary(uniqueKeysWithValues: boards.map { ($0.id, $0.name) })
+        // 보드 id는 겹치지 않아야 맞지만, **그것을 여기서 트랩으로 걸지는
+        // 않는다.** `boards`는 백업 파일에서 들어올 수 있고(`merge(boards:)`는
+        // 들어온 배열 **안에서** 겹치는 id를 걸러 내지 않는다), 그때
+        // `uniqueKeysWithValues`는 내보내기를 누른 순간 앱을 죽인다. 이름을
+        // 짓는 것뿐인 코드가 자료가 이상하다고 앱을 죽일 이유가 없다.
+        // (같은 트랩으로 실제로 죽은 적이 있다 — `TakeoutImport.parseCSV`.)
+        let boardNames = Dictionary(
+            boards.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first }
+        )
 
         // 카드가 여러 보드에 들어갈 수 있으므로 보드마다 한 줄씩 나온다.
         // 어느 보드 몫의 줄인지 알아야 보드 이름 칸을 채울 수 있어서,

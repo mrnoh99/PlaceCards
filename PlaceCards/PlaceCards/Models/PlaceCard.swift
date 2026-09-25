@@ -402,10 +402,23 @@ extension PlaceCard {
             )
         }
         if let hoursDetail {
+            // 같은 트랩이 여기에도 있었다(`TakeoutImport.parseCSV`의 주석).
+            // 키에서 보이지 않는 문자를 떼면 **서로 달랐던 키가 같아질 수
+            // 있다** — `"월요일"`과 `"월요일\u{200B}"`가 둘 다 `"월요일"`이
+            // 된다. 그러면 `uniqueKeysWithValues`가 앱을 죽인다.
+            //
+            // 이 사전은 AI 응답에서 온다. 보이지 않는 문자를 떼는 코드가
+            // 여기 있는 것 자체가 그런 문자가 온다는 뜻이다.
+            //
+            // 어느 쪽 값을 남기는지는 정하지 않는다 — `Dictionary`를 도는
+            // 순서가 실행마다 다르므로 "먼저"에 의미가 없다. 여기서 정하는
+            // 것은 **죽지 않는다**는 것뿐이고, 같은 요일의 두 값 중 어느
+            // 것이든 하나만 남으면 화면은 성립한다.
             card.hoursDetail = Dictionary(
-                uniqueKeysWithValues: hoursDetail.map {
+                hoursDetail.map {
                     ($0.key.strippingInvisibleFormatCharacters(), $0.value.strippingInvisibleFormatCharacters())
-                }
+                },
+                uniquingKeysWith: { first, _ in first }
             )
         }
         return card
