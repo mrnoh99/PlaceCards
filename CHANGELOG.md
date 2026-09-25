@@ -2,6 +2,75 @@
 
 ## [Unreleased]
 
+### 2026-09-25 (270차) — TestFlight 준비: **업로드를 막던 것 둘**
+사용자 요청: "testflight 준비해라". 계기는 269차의 결론이다 — 실행 직후 크래시는
+코드가 아니라 **개발 프로비저닝 프로파일 만료**이고, 그것을 없애는 길은
+TestFlight뿐이다.
+
+#### Added — `PrivacyInfo.xcprivacy`. **이게 없으면 업로드 자체가 거부된다**
+2024년 5월부터 "필수 이유 API"를 안 밝힌 빌드는 튕긴다(ITMS-91053). 이 저장소에는
+그 파일이 아예 없었다. 즉 **첫 업로드가 실패할 예정이었다.**
+
+코드베이스가 실제로 건드리는 것을 세어 둘이었다.
+
+| API | 어디서 | 이유 |
+|---|---|---|
+| `UserDefaults` | 열 개 파일. 전부 제 앱 것 | `CA92.1` |
+| 파일 수정 시각 | `CloudBackupService.modificationDate(of:)` 한 군데 | `C617.1` |
+
+안 쓰는 것도 확인했다 — 디스크 용량, 시스템 부팅 시각, 활성 키보드.
+`UserDefaults(suiteName:)`는 한 군데도 없다(앱 그룹은 공유 **폴더**로만 쓴다),
+그래서 앱 그룹 이유(`1C8F.1`)는 안 넣었다. 외부 패키지 의존성이 아예 없어
+제3자 SDK 몫도 없다.
+
+Xcode 프로젝트가 옛 형식이라(`objectVersion = 56`, 동기화 그룹 아님) 파일을
+넣는 것만으로는 번들에 안 들어간다. `project.pbxproj`에 네 자리를 손으로 이었다 —
+`PBXFileReference`, `PBXBuildFile`, 그룹의 children, 그리고 **앱 타깃의
+Resources 빌드 단계**.
+
+#### Added — `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO`
+없으면 올릴 때마다 App Store Connect가 수출 규정을 묻고, 답하기 전까지 빌드가
+"준수 정보 누락"으로 멈춰 있다. HTTPS만 쓰므로 답은 "아니오"다. 앱 타깃 두
+구성에만 넣었다 — 공유 확장은 Info.plist를 손으로 들고 있고(`GENERATE_INFOPLIST_FILE
+= NO`), 이 질문은 앱에만 온다.
+
+#### 확인만 하고 손대지 않은 것 — **Team ID가 어긋나 있다**
+`project.pbxproj`는 빌드 13부터 `492X57LLB4`인데, 실기기 빌드 50의 크래시 리포트는
+`codeSigningTeamID: 9AWEB9NYHH`다. `CODE_SIGN_STYLE = Automatic`이라 Xcode가 쓸 수
+있는 팀으로 갈아탄 것으로 보인다.
+
+**이게 맞지 않으면 업로드가 안 된다** — App Store Connect 레코드가 속한 팀과
+아카이브를 서명한 팀이 같아야 한다. 어느 쪽이 맞는지는 **계정 사정이라 코드에서
+알 수 없어** 아무것도 바꾸지 않았다. `00_TestFlight_배포.md` §1이 확인하는 법이다.
+
+#### Added — `00_TestFlight_배포.md`
+식별자 넷 등록(번들 ID는 `PinSpots`인데 **App Group과 iCloud 컨테이너는
+`PlaceCards` 이름 그대로다** — 헷갈려 새로 만들면 공유·동기화가 조용히 죽는다),
+앱 레코드, 아카이브, 앱 개인정보 설문, 테스터 안내, 매 업로드 절차.
+
+**§9에 "이 환경에서 확인하지 못한 것"을 따로 적었다.** 여기에는 Xcode도 Swift
+툴체인도 없고 CI는 **빌드만** 하고 아카이브를 만들지 않는다. 그래서 생성된
+Info.plist에 수출 규정 키가 실제로 들어가는지, 이유 코드 둘이 지금 Apple이 받는
+값인지, 서명이 통과하는지는 **첫 아카이브에서만 드러난다.** 확인된 것과 섞어
+적지 않았다.
+
+#### 확인만 한 것 (고칠 게 없었다)
+아이콘 1024×1024 RGB **알파 없음**(알파가 있으면 거부된다), `MARKETING_VERSION
+1.0`, 배포 타깃 17.0, `TARGETED_DEVICE_FAMILY "1,2"`, 사진·위치 사용 설명 문구 셋,
+entitlements의 식별자 넷.
+
+#### 검증
+`PrivacyInfo.xcprivacy`가 `plistlib`으로 파싱됨, `project.pbxproj` 중괄호·괄호
+균형 0이고 새 UUID 충돌 없음(참조 다섯 자리 확인), `Tools/localization/check.py`
+통과(610항목), `Tools/ocr-regression/check.py` 통과(50건). 빌드 62 → 63.
+
+**CI가 번들 투입까지 확인해 줬다.** 빌드 로그에
+`CopyPlistFile .../PlaceCards.app/PrivacyInfo.xcprivacy`가 찍혔다 — 앱 번들
+루트, Apple이 찾는 자리다. `project.pbxproj`를 손으로 이었으므로 이게 중요했다.
+같은 로그의 `-scanforprivacyfile ... PlaceCardsShare.appex`를 보고 공유 확장도
+확인했다 — 그 타깃의 소스는 둘뿐이고 필수 이유 API를 하나도 안 써서 manifest가
+필요 없다.
+
 ### 2026-09-25 (269차) — 크래시 리포트가 짚어 준 자리: **키가 겹치면 죽는 사전**
 사용자가 보내 준 `PlaceCards-2026-09-23-205854.ips`(빌드 50). 스택이 한 줄로 끝났다:
 
