@@ -203,10 +203,20 @@ GitHub Secrets에 넣어야 한다. 지금 CI는 서명을 끈 채 **빌드만**
 정직하게 적어 둔다. 개발 환경에는 Xcode도 Swift 툴체인도 없고, CI는 **빌드만**
 하고 아카이브를 만들지 않는다. 그래서 확인된 것과 안 된 것이 갈린다.
 
-**확인됨** — `PrivacyInfo.xcprivacy`가 plist로 파싱되고 앱 타깃의 Resources에
-들어갔다, 아이콘이 1024×1024 RGB에 알파가 없다, 식별자 넷이 entitlements와
-일치한다, 필수 이유 API가 저 둘뿐이다.
+**확인됨**
 
-**확인 안 됨** — 아카이브가 실제로 만들어지는지, 생성된 Info.plist에 수출 규정
-키가 들어가는지, 이유 코드 두 개가 지금 Apple이 받는 값인지, 서명이 통과하는지.
-전부 첫 아카이브에서 드러난다.
+- `PrivacyInfo.xcprivacy`가 plist로 파싱된다.
+- **번들에 실제로 들어간다.** CI 빌드 로그가 이 줄을 찍었다 —
+  `CopyPlistFile .../PlaceCards.app/PrivacyInfo.xcprivacy`. 앱 번들 루트, 즉
+  Apple이 찾는 자리다. `project.pbxproj`를 손으로 이었으므로 이게 중요했다.
+- **공유 확장에는 필요 없다.** 그 타깃의 소스는 둘뿐이고(`ShareViewController`,
+  `SharedImportStore`) 필수 이유 API를 하나도 안 쓴다. Xcode도 확장을 따로
+  훑는다(로그의 `-scanforprivacyfile ... PlaceCardsShare.appex`).
+- 아이콘이 1024×1024 RGB에 알파가 없다.
+- 식별자 넷이 entitlements와 일치한다.
+- 프로젝트가 여전히 열리고 빌드된다(손으로 고친 `project.pbxproj`).
+
+**확인 안 됨** — 아카이브가 실제로 만들어지는지, **생성된 Info.plist에 수출 규정
+키가 들어가는지**, 이유 코드 두 개가 지금 Apple이 받는 값인지, 서명이 통과하는지.
+CI는 시뮬레이터용 **빌드**만 하고 아카이브를 만들지 않으므로 전부 첫 아카이브에서
+드러난다. §6의 확인 방법을 그때 따를 것.

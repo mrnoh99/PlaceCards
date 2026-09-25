@@ -64,6 +64,13 @@ entitlements의 식별자 넷.
 균형 0이고 새 UUID 충돌 없음(참조 다섯 자리 확인), `Tools/localization/check.py`
 통과(610항목), `Tools/ocr-regression/check.py` 통과(50건). 빌드 62 → 63.
 
+**CI가 번들 투입까지 확인해 줬다.** 빌드 로그에
+`CopyPlistFile .../PlaceCards.app/PrivacyInfo.xcprivacy`가 찍혔다 — 앱 번들
+루트, Apple이 찾는 자리다. `project.pbxproj`를 손으로 이었으므로 이게 중요했다.
+같은 로그의 `-scanforprivacyfile ... PlaceCardsShare.appex`를 보고 공유 확장도
+확인했다 — 그 타깃의 소스는 둘뿐이고 필수 이유 API를 하나도 안 써서 manifest가
+필요 없다.
+
 ### 2026-09-25 (269차) — 크래시 리포트가 짚어 준 자리: **키가 겹치면 죽는 사전**
 사용자가 보내 준 `PlaceCards-2026-09-23-205854.ips`(빌드 50). 스택이 한 줄로 끝났다:
 
