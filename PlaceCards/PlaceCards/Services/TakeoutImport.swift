@@ -127,8 +127,25 @@ enum TakeoutImport {
         // Column order isn't guaranteed and Takeout's own set has changed
         // over time, so columns are found by name rather than position.
         // A file with no Title column isn't a Takeout list.
+        //
+        // **`Dictionary(uniqueKeysWithValues:)`를 쓰지 않는다.** 그것은 키가
+        // 겹치면 그 자리에서 앱을 죽인다. 실제로 죽였다 — 빌드 50 크래시
+        // 리포트의 스택이 `_NativeDictionary.merge(trappingOnDuplicates:)`
+        // 였고, 사용자 신고 "가져오기하면 파일을 가져오면 crash"가 이것이다.
+        //
+        // 헤더는 **남이 만든 파일에서 온다.** 겹치지 않는다는 보장이 없다 —
+        // 줄 끝에 쉼표가 하나 더 붙은 파일은 빈 이름이 둘이 되고, 같은 칸
+        // 이름이 두 번 적힌 파일도 있다. 바깥에서 온 자료로 트랩을 거는 것은
+        // 그 자체가 틀렸다. 못 읽는 파일은 "아니다"라고 말하고 돌아서야 하고,
+        // 이 함수에는 그 길이 이미 있다(`return nil`).
+        //
+        // 먼저 나온 칸이 이긴다 — 뒤의 빈 칸이나 중복이 앞의 진짜 칸을
+        // 밀어내면 안 된다. 이름이 빈 칸은 담지 않는다. 찾을 일이 없다.
         let index = Dictionary(
-            uniqueKeysWithValues: header.enumerated().map { ($1.lowercased().trimmingCharacters(in: .whitespaces), $0) }
+            header.enumerated()
+                .map { ($1.lowercased().trimmingCharacters(in: .whitespaces), $0) }
+                .filter { !$0.0.isEmpty },
+            uniquingKeysWith: { first, _ in first }
         )
         guard let titleColumn = index["title"] ?? index["name"] else { return nil }
 

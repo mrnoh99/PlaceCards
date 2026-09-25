@@ -2,6 +2,60 @@
 
 ## [Unreleased]
 
+### 2026-09-25 (269차) — 크래시 리포트가 짚어 준 자리: **키가 겹치면 죽는 사전**
+사용자가 보내 준 `PlaceCards-2026-09-23-205854.ips`(빌드 50). 스택이 한 줄로 끝났다:
+
+```
+EXC_BREAKPOINT (SIGTRAP)
+  _assertionFailure
+  _NativeDictionary.merge(trappingOnDuplicates:)
+  Dictionary.init(uniqueKeysWithValues:)
+  TakeoutImport.parseCSV(_:)
+  ImportBoardSheet.applyDecoded(_:listName:)
+  ImportBoardSheet.handleFilePicked(_:)
+```
+
+**이것이 그때의 "가져오기하면 파일을 가져오면 crash"였다.** 그 신고를 옛 백업
+형식 탓으로 보고 넘어갔는데, 실제로는 CSV 헤더였다. 리포트 없이는 못 찾을
+자리였다.
+
+#### `Dictionary(uniqueKeysWithValues:)`는 키가 겹치면 **앱을 죽인다**
+`parseCSV`는 헤더 이름을 키로 칸 번호를 찾는다. 그 헤더는 **남이 만든 파일에서
+온다.** 줄 끝에 쉼표가 하나 더 붙은 파일은 빈 이름이 둘이 되고, 같은 칸 이름이
+두 번 적힌 파일도 있다. 그러면 트랩이다.
+
+바깥에서 온 자료로 트랩을 거는 것은 그 자체가 틀렸다. 못 읽는 파일에는 "아니다"
+라고 말하고 돌아서야 하고, 이 함수에는 그 길이 이미 있었다(`return nil`).
+
+이제 `uniquingKeysWith:`로 짓는다. **먼저 나온 칸이 이긴다** — 뒤의 빈 칸이나
+중복이 앞의 진짜 칸을 밀어내면 안 된다. 이름이 빈 칸은 담지 않는다.
+
+#### 같은 트랩이 두 곳 더 있었다
+리포트가 한 곳을 짚어 준 김에 나머지를 전부 봤다. 다섯 곳 중 셋이 위험했다.
+
+- **`PlaceCard.applyingStrippedText`의 `hoursDetail`** — 키에서 보이지 않는
+  문자를 떼면 **서로 달랐던 키가 같아진다**(`"월요일"`과 `"월요일\u{200B}"`가 둘 다
+  `"월요일"`이 된다). 이 사전은 AI 응답에서 오고, 보이지 않는 문자를 떼는 코드가
+  거기 있는 것 자체가 그런 문자가 온다는 뜻이다.
+- **`CSVExport.csv`의 `boardNames`** — 보드 id는 겹치지 않아야 맞지만,
+  `boards`는 백업 파일에서 들어올 수 있고 `merge(boards:)`는 **들어온 배열 안에서**
+  겹치는 id를 걸러 내지 않는다. 이름을 짓는 것뿐인 코드가 자료가 이상하다고
+  내보내기 누른 순간 앱을 죽일 이유가 없다.
+- `APIUsageCounter`의 둘은 `Call.allCases`라 컴파일 시점에 유일하다. 그대로 둔다.
+
+#### 남은 것 — 실행 직후 크래시는 **이것이 아니다**
+받은 리포트는 빌드 50, 9월 23일, 그리고 가져오기 경로다. "앱을 열자마자"와는
+다른 건이다. 그쪽은 jetsam 세 건을 다 확인했고(앱의 생애 최대 107 MB, 어느
+이벤트에서도 안 죽음) **메모리는 배제했다.** 실행 직후 리포트가 아예 안 남는
+것이라면 개발 프로비저닝 프로파일 만료 쪽이 남는다 — 지우고 다시 설치하니
+됐다는 것과 맞는다. `PlaceCards-2026-09-2x-…`(앱 이름이 `PinSpots`가 아니라
+**`PlaceCards`**다 — 실행 파일 이름이 그대로다) 리포트가 더 오면 그때 잡는다.
+
+#### 검증
+괄호 균형 3파일 0, 남은 `uniqueKeysWithValues` 두 곳은 `allCases`로 안전함을
+확인, `Tools/localization/check.py` 통과(610항목),
+`Tools/ocr-regression/check.py` 통과(50건). 빌드 61 → 62.
+
 ### 2026-09-25 (268차) — 재설치한 기기가 iCloud 백업을 **한 번 보고 포기했다**
 사용자 신고: "앱을 열자마자 crash. 앱을 지우고 다시 설치하니 작동한다. 그러나
 sync data를 안가져 온다." (크래시 자체는 아직 원인 미상 — 아래 "남은 것".)
