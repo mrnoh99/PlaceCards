@@ -301,9 +301,51 @@ struct MainTabView: View {
         // 합치는 일 자체는 `CloudBackupService`가 한다. 예전에는 여기서
         // 받은 `[BackupData]`를 돌렸는데, 그 배열이 **모든 기기의 사진을
         // 한꺼번에** 들고 있었다.
-        guard await CloudBackupService.restoreAll(into: storageService) else { return }
+        guard await CloudBackupService.restoreAll(into: storageService) else {
+            // 한 번 보고 없으면 없는 것으로 끝내지 않는다.
+            retryCloudRestoreInBackground()
+            return
+        }
         showingCloudRestoreAlert = true
     }
+
+    /// 못 찾았으면 **뒤에서 몇 번 더 본다.**
+    ///
+    /// 콜드 런치 직후의 iCloud 컨테이너 목록은 아직 비어 있을 수 있다 —
+    /// `contentsOfDirectory`는 iCloud가 그 폴더를 훑어 자리를 잡아 둔 뒤에야
+    /// 다른 기기의 백업을 보여 준다. **재설치가 바로 그 경우다.** 게다가 앱을
+    /// 지우면 `UserDefaults`가 날아가 `CloudBackupService.deviceID`가 새로
+    /// 매겨지므로, 목록에 없어도 붙여 보는 "아는 이름 셋"에 **이 기기의 옛
+    /// 백업조차 없다.** 그래서 목록이 늦으면 복원할 것을 하나도 못 찾았다
+    /// (사용자 신고: 지우고 다시 설치했더니 자료가 안 온다).
+    ///
+    /// **화면은 붙잡지 않는다.** 처음 한 번은 그대로 기다리고(대개 그때
+    /// 온다), 못 찾았을 때만 뒤에서 더 본다. 자료가 늦게 도착해도
+    /// `@Published`가 화면을 다시 그리므로 보이는 데 문제가 없고, 백업이
+    /// 정말 없는 새 사용자는 시작 화면이 한 순간도 더 머물지 않는다.
+    ///
+    /// 자료가 들어오는 순간 멈춘다 — 사용자가 그 사이에 손으로 "지금
+    /// 맞추기"를 눌러 받아 왔을 수도 있고, 그때 또 합칠 이유가 없다.
+    @MainActor
+    private func retryCloudRestoreInBackground() {
+        // `@MainActor`를 명시해 둔다 — 그래야 이 안의 `Task { }`가 같은
+        // 액터를 물려받아, `storageService`(그쪽이 `@MainActor`다)와
+        // `@State`를 건드리는 것이 액터를 넘지 않는다.
+        Task {
+            for _ in 0..<Self.cloudRestoreRetries {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard storageService.boards.isEmpty else { return }
+                if await CloudBackupService.restoreAll(into: storageService) {
+                    showingCloudRestoreAlert = true
+                    return
+                }
+            }
+        }
+    }
+
+    /// 몇 번 더 볼지. 한 번이 그 자체로 오래 걸릴 수 있으므로
+    /// (`restoreAll`이 후보마다 `metadata.json`을 기다린다) 횟수로만 묶는다.
+    private static let cloudRestoreRetries = 10
 
     /// Opens the Settings tab once, for a user who just asked to set their
     /// AI key up straight away. Cleared as it's consumed so it never fires
