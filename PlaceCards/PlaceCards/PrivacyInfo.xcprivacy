@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 추적하지 않는다. 광고 식별자도, 분석 SDK도 없다. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<!-- 개발자가 모으는 자료가 없다. 이 앱에는 서버가 없고, 자료는 기기와
+	     사용자 제 iCloud에만 있다. OpenAI·Google Places로 나가는 것은
+	     사용자가 제 API 키로 그때그때 요청하는 것이고 우리에게 돌아오지
+	     않는다. App Store Connect의 "앱 개인정보 보호" 설문은 이 파일과
+	     별개이므로 거기서 그 흐름을 따로 밝힌다 — 00_TestFlight_배포.md §5. -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+
+	<!-- "필수 이유 API". 2024년 5월부터 이걸 안 밝힌 빌드는 업로드 자체가
+	     거부된다(ITMS-91053). 아래 둘이 이 코드베이스가 실제로 건드리는
+	     전부다. 디스크 용량·부팅 시각·활성 키보드는 안 쓴다(확인함). -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<!-- `UserDefaults` — 설정·백업 폴더·API 사용량·묘비 장부.
+			     열 개 파일에서 쓴다. 전부 이 앱 제 것을 읽고 쓴다.
+			     앱 그룹 defaults는 쓰지 않는다(`UserDefaults(suiteName:)`가
+			     한 군데도 없다) — 앱 그룹은 공유 폴더로만 쓴다
+			     (`SharedImportStore`). 그래서 이유는 "같은 앱" 하나다. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- 파일 수정 시각 — `CloudBackupService.modificationDate(of:)`
+			     한 군데뿐이다. iCloud 컨테이너 안의 백업들을 오래된 것부터
+			     세우는 데 쓴다(`candidateURLs`). 남의 파일이 아니라 이 앱이
+			     제 컨테이너에 쓴 것들이다. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

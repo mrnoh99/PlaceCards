@@ -11,6 +11,7 @@
 		6F39392A1005CCB7E7B9CD93 /* PlaceCardsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE01FEFE9A9B6E63A9E38677 /* PlaceCardsApp.swift */; };
 		6D9EF9A1518470F76DA6A792 /* PlaceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79768A1E8BB24A016C492201 /* PlaceCard.swift */; };
 		F31435B9A6398334A938BFF6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DED89A8130DBE7BEDB7515F4 /* Assets.xcassets */; };
+		B7C41A0E5D2F48A19E3C0072 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B7C41A0E5D2F48A19E3C0071 /* PrivacyInfo.xcprivacy */; };
 		678E62647DC63687E5F3D36E /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1FF32339845F11B69AE441B /* Preview Assets.xcassets */; };
 		DFCAC6BDCDC8BB0716E42C58 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC0798C7624D4EB0FCD7FF84 /* MediaModels.swift */; };
 		6053CAB58E1C97BA193319B3 /* SourceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73BB0719390F96903381BE05 /* SourceModels.swift */; };
@@ -95,6 +96,7 @@
 		0586095638A0F6A8D23A7F16 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		79768A1E8BB24A016C492201 /* PlaceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCard.swift; sourceTree = "<group>"; };
 		DED89A8130DBE7BEDB7515F4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B7C41A0E5D2F48A19E3C0071 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A1FF32339845F11B69AE441B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		FC0798C7624D4EB0FCD7FF84 /* MediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModels.swift; sourceTree = "<group>"; };
 		73BB0719390F96903381BE05 /* SourceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceModels.swift; sourceTree = "<group>"; };
@@ -217,6 +219,7 @@
 				AE01FEFE9A9B6E63A9E38677 /* PlaceCardsApp.swift */,
 				0586095638A0F6A8D23A7F16 /* ContentView.swift */,
 				AC18FD7F3A56464852EC1EC2 /* PlaceCards.entitlements */,
+				B7C41A0E5D2F48A19E3C0071 /* PrivacyInfo.xcprivacy */,
 				46CC8B32F254BDD252E6E91B /* Models */,
 				8CC3C94618BBA43C1ED738AF /* Services */,
 				7D0603F356C3436C6C25DCEA /* ViewModels */,
@@ -442,6 +445,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F31435B9A6398334A938BFF6 /* Assets.xcassets in Resources */,
+				B7C41A0E5D2F48A19E3C0072 /* PrivacyInfo.xcprivacy in Resources */,
 				678E62647DC63687E5F3D36E /* Preview Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -710,12 +714,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 62;
+				CURRENT_PROJECT_VERSION = 63;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				DEVELOPMENT_TEAM = 492X57LLB4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PinSpots;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "지도에 내 위치를 표시하고, 거리 기준으로 장소를 정렬할 때 사용합니다.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "카드의 사진을 사진 앱의 PinSpots 앨범에 담을 때 사용합니다.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "카드의 사진을 사진 앱의 PinSpots 앨범에 담을 때 사용합니다. 앨범이 이미 있는지 확인하는 데에만 읽기가 쓰입니다.";
@@ -744,12 +749,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PlaceCards/PlaceCards.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 62;
+				CURRENT_PROJECT_VERSION = 63;
 				DEVELOPMENT_ASSET_PATHS = "\"PlaceCards/Preview Content\"";
 				DEVELOPMENT_TEAM = 492X57LLB4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PinSpots;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "지도에 내 위치를 표시하고, 거리 기준으로 장소를 정렬할 때 사용합니다.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "카드의 사진을 사진 앱의 PinSpots 앨범에 담을 때 사용합니다.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "카드의 사진을 사진 앱의 PinSpots 앨범에 담을 때 사용합니다. 앨범이 이미 있는지 확인하는 데에만 읽기가 쓰입니다.";
@@ -776,7 +782,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 62;
+				CURRENT_PROJECT_VERSION = 63;
 				DEVELOPMENT_TEAM = 492X57LLB4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
@@ -801,7 +807,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PlaceCardsShare/PlaceCardsShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 62;
+				CURRENT_PROJECT_VERSION = 63;
 				DEVELOPMENT_TEAM = 492X57LLB4;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PlaceCardsShare/Info.plist;
