@@ -382,11 +382,39 @@ struct EditPlaceCardSheet: View {
             }
 
             Toggle("위치정보에 사진 GPS 사용".localized, isOn: $usePhotoGPSForLocation)
+
+            if cardForMapQuery.hasAnyMapLink {
+                MapOpenMenu(card: cardForMapQuery, beforeOpen: { save() }) {
+                    Label("저장하고 지도에서 확인".localized, systemImage: "mappin.and.ellipse")
+                }
+            }
         } header: {
             Text("좌표".localized)
         } footer: {
-            Text("둘 다 비우면 좌표가 삭제됩니다. 하나만 채워지면 원래 값이 그대로 유지됩니다. \"주소로 좌표 확인\"은 AI 없이 Google Places로 위 주소를 좌표로 바꿔줍니다 — 상세보기의 \"지도에서 열기\"로 정확한 주소를 먼저 확인한 뒤 여기 채우고 눌러보세요. \"위치정보에 사진 GPS 사용\"을 켜두면, 위도·경도가 비어 있을 때 새로 추가하는 사진의 GPS를 좌표로 저장합니다(주소와 100m 이상 차이 나면 저장하지 않고 알려드립니다). 이미 채워져 있으면 새 사진이 그 위치에서 찍힌 게 맞는지만 확인합니다.".localized)
+            Text("둘 다 비우면 좌표가 삭제됩니다. 하나만 채워지면 원래 값이 그대로 유지됩니다. \"주소로 좌표 확인\"은 AI 없이 Google Places로 위 주소를 좌표로 바꿔줍니다. \"저장하고 지도에서 확인\"은 지금까지 고친 것을 먼저 저장하고 지도 앱을 엽니다 — 거기서 장소를 공유하거나 화면을 찍어 보내면 새 카드를 만들지 않고 이 카드에 합쳐집니다. \"위치정보에 사진 GPS 사용\"을 켜두면, 위도·경도가 비어 있을 때 새로 추가하는 사진의 GPS를 좌표로 저장합니다(주소와 100m 이상 차이 나면 저장하지 않고 알려드립니다). 이미 채워져 있으면 새 사진이 그 위치에서 찍힌 게 맞는지만 확인합니다.".localized)
         }
+    }
+
+    /// 지도에 **물어볼 질의**를 짓는 데 필요한 것만 지금 화면 값으로 바꿔 둔
+    /// 사본. 저장은 `save()`가 그대로 한다.
+    ///
+    /// `card`를 그냥 넘기면 안 된다. 사용자가 이름이나 주소를 방금 고쳐 놓고
+    /// "지도에서 확인"을 누르는 것이 바로 이 기능을 쓰는 이유인데, `card`는
+    /// 시트를 열 때의 값이라 **고치기 전 이름으로** 지도를 열게 된다.
+    ///
+    /// `save()`를 먼저 부르므로 지도에 나가는 시점에는 이 값들이 이미
+    /// 디스크에 있다. 그래도 저장 결과를 다시 읽지 않고 여기서 따로 짓는
+    /// 것은, `save()`가 `dismiss()`까지 하고 끝나 돌려주는 것이 없기
+    /// 때문이다 — id는 안 바뀌므로 `MapOpenContext`가 가리킬 카드는 같다.
+    private var cardForMapQuery: PlaceCard {
+        var probe = card
+        probe.name = name.trimmingCharacters(in: .whitespaces)
+        probe.address = address.trimmingCharacters(in: .whitespaces)
+        if let latitude = Double(latitudeText.trimmingCharacters(in: .whitespaces)),
+           let longitude = Double(longitudeText.trimmingCharacters(in: .whitespaces)) {
+            probe.coordinates = Coordinates(latitude: latitude, longitude: longitude)
+        }
+        return probe
     }
 
     @ViewBuilder
