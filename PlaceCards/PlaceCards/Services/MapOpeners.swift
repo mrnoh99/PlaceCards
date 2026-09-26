@@ -464,12 +464,34 @@ enum TmapOpener {
 /// shadow SwiftUI's own `Label` for the whole type.)
 struct MapOpenMenu<MenuLabel: View>: View {
     let card: PlaceCard
+    /// 지도 앱으로 나가기 **직전에** 할 일. 기본은 아무것도 안 함.
+    ///
+    /// `EditPlaceCardSheet`가 여기에 저장을 건다. 편집 중인 카드로 지도에
+    /// 다녀오려면 먼저 저장해야 하는 이유가 둘이다 — 돌아온 공유가 지금 뜬
+    /// 시트를 닫으므로(`00_UI개편_기초.md` §2.2) 저장 안 하고 나가면 편집한
+    /// 것이 사라지고, `MapOpenContext`가 가리킬 카드는 **저장된** 카드다.
+    ///
+    /// **모든 항목에서 부른다. Tmap도 포함이다.** Tmap만 `recordMapOpen`을
+    /// 빼는 것은 "돌아온 공유가 이 카드 것일 리 없다"는 판단이고, "저장하지
+    /// 말라"는 뜻이 아니다. 어느 지도를 눌렀느냐에 따라 저장이 되거나 안
+    /// 되면 그게 더 이상하다.
+    ///
+    /// **`label`보다 앞에 선언한다.** 기본값 있는 클로저를 `label` 뒤에
+    /// 두면 기존 호출부 넷의 라벨 없는 트레일링 클로저가 이쪽에 붙는다 —
+    /// 트레일링 클로저는 **선언상 마지막** 클로저를 찾는다(CLAUDE.md §1의
+    /// 그 표에 실제로 낸 사례로 적혀 있다).
+    let beforeOpen: () -> Void
     let label: () -> MenuLabel
 
     @Environment(\.openURL) private var openURL
 
-    init(card: PlaceCard, @ViewBuilder label: @escaping () -> MenuLabel) {
+    init(
+        card: PlaceCard,
+        beforeOpen: @escaping () -> Void = {},
+        @ViewBuilder label: @escaping () -> MenuLabel
+    ) {
         self.card = card
+        self.beforeOpen = beforeOpen
         self.label = label
     }
 
@@ -480,24 +502,28 @@ struct MapOpenMenu<MenuLabel: View>: View {
         Menu {
             if AppleMapsOpener.canOpen(card) {
                 Button("Apple 지도".localized) {
+                    beforeOpen()
                     MapOpenContext.recordMapOpen(cardID: card.id)
                     AppleMapsOpener.open(for: card, using: openURL)
                 }
             }
             if GoogleMapsOpener.url(for: card) != nil {
                 Button("Google Maps") {
+                    beforeOpen()
                     MapOpenContext.recordMapOpen(cardID: card.id)
                     GoogleMapsOpener.open(for: card, using: openURL)
                 }
             }
             if let url = NaverMapOpener.url(for: card) ?? NaverMapOpener.searchURL(for: card) {
                 Button("Naver Map") {
+                    beforeOpen()
                     MapOpenContext.recordMapOpen(cardID: card.id)
                     openURL(url)
                 }
             }
             if let url = KakaoMapOpener.url(for: card) ?? KakaoMapOpener.searchURL(for: card) {
                 Button("Kakao Map") {
+                    beforeOpen()
                     MapOpenContext.recordMapOpen(cardID: card.id)
                     openURL(url)
                 }
@@ -507,7 +533,10 @@ struct MapOpenMenu<MenuLabel: View>: View {
             // "take me there", not "let me look this place up and share
             // something back". See `MapOpenContext`'s own doc comment.
             if let url = TmapOpener.url(for: card) {
-                Button("Tmap") { openURL(url) }
+                Button("Tmap") {
+                    beforeOpen()
+                    openURL(url)
+                }
             }
         } label: {
             label()
