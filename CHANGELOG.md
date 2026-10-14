@@ -2,6 +2,48 @@
 
 ## [Unreleased]
 
+### 2026-10-14 (272차) — Google 오류를 **JSON 덩어리째** 보여주던 것
+사용자 스크린샷: "장소 추가" 화면 아래에 빨간 글씨로
+
+```
+API 오류 (403): {
+  "error": { "code": 403, "message": "The caller does not have permission",
+             "status": "PERMISSION_DENIED" } }
+```
+
+#### 응답 바이트를 그대로 올리고 있었다
+`PlaceSearchService.validate(response:data:)`가 `String(data:encoding:)` 한 줄로
+본문 전체를 메시지에 실었다. 중괄호와 따옴표가 그대로 화면에 찍혔고, 거기 적힌
+"The caller does not have permission"은 **무엇을 어떻게 고치라는 말이 아니다.**
+
+#### Fixed — 한 줄만 꺼내고, 403은 고칠 자리를 적어 준다
+- 보통 오류는 `{"error":{"message":"…"}}`에서 **그 한 줄만** 꺼낸다. 모양이
+  다르면 nil을 주고 예전처럼 본문 전체로 되돌아간다 — 모르는 모양을 감추는
+  것보다 날것이라도 보여 주는 편이 낫다.
+- **403은 따로 본다.** Places API (New)에서 이것은 거의 언제나 키 설정이고
+  고칠 곳이 정해져 있다: ① "Places API (New)" 사용 설정(옛 "Places API"만
+  켜면 모자람), ② 키의 API 제한에 그것이 들어 있는지, ③ 키의 앱 제한이
+  "iOS 앱"이면 번들 ID가 맞는지. 결제가 꺼져 있어도 같은 오류다.
+
+#### 번들 ID를 **박지 않고 읽어서** 넣는다
+이 앱은 번들 식별자를 `com.mrnoh99.PlaceCards`에서 `com.mrnoh99.PinSpots`로
+바꾼 적이 있다(PR #17). 키에 "iOS 앱" 제한이 **옛 이름으로** 걸려 있으면
+`authorize(_:)`가 보내는 `X-Ios-Bundle-Identifier`와 안 맞아 매번 403이 난다 —
+이번 스크린샷의 가장 유력한 원인이 그것이다.
+
+그래서 안내 문구에 번들 ID를 글자로 박지 않고 `Bundle.main.bundleIdentifier`를
+읽어 붙인다. 다음에 또 바뀌어도 안내가 낡지 않고, 사용자는 화면에 찍힌 그 값을
+콘솔에 그대로 옮겨 적으면 된다.
+
+#### 고친 것이 아닌 것
+403 자체는 **이 저장소에서 고칠 수 없다.** Google Cloud 쪽 키 설정이다. 이
+변경이 하는 일은 그 사실을 사용자가 알아볼 수 있게 적어 주는 것뿐이다.
+
+#### 검증
+괄호 균형 — `Localization` 0, `PlaceSearchService`는 HEAD와 **같음**(그 파일의
+`(` 차이 3은 이 변경 전에도 같았다), `Tools/localization/check.py` 통과(612항목 —
+새 문구 하나), `Tools/ocr-regression/check.py` 통과(50건). 빌드 64 → 65.
+
 ### 2026-09-26 (271차) — 편집 중에 지도에 다녀온 것이 **새 카드가 되던** 것
 사용자 요청: "저장후 edit mode에서 지도의 장소를 보내거나 사진을 보내면 통합하게
 만들어라".

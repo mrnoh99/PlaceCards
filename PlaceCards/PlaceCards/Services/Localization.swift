@@ -133,6 +133,8 @@ enum Localization {
         "AI로 장소 분석하기 (": "Analyze photos with AI (",
         "AI로 정보 읽어오기": "Read info with AI",
         "API 오류 (": "API error (",
+        "Google이 이 키의 요청을 거부했습니다. Cloud 콘솔에서 \"Places API (New)\"가 사용 설정됐는지(옛 \"Places API\"만 켜면 모자랍니다), 키의 API 제한에 그것이 들어 있는지, 키의 앱 제한이 \"iOS 앱\"이면 번들 ID가 맞는지 확인하세요. 결제가 꺼져 있어도 같은 오류가 납니다. 이 앱의 번들 ID: ":
+            "Google refused this key's request. In the Cloud console, check that \"Places API (New)\" is enabled (enabling only the older \"Places API\" is not enough), that the key's API restriction includes it, and — if the key's application restriction is \"iOS apps\" — that the bundle ID matches. Billing being off gives the same error. This app's bundle ID: ",
         "API 키": "API Key",
         "API 키 저장 방식": "How API keys are stored",
         "Apple 지도": "Apple Maps",
