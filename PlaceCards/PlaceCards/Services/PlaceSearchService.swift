@@ -311,9 +311,48 @@ final class GooglePlacesService: PlaceSearchService {
     private static func validate(response: URLResponse, data: Data) throws {
         guard let http = response as? HTTPURLResponse else { return }
         guard (200..<300).contains(http.statusCode) else {
-            let message = String(data: data, encoding: .utf8) ?? "알 수 없는 오류".localized
-            throw PlaceCardsError.apiError(message, statusCode: http.statusCode)
+            throw apiError(statusCode: http.statusCode, body: data)
         }
+    }
+
+    /// 응답 바이트를 **그대로** 올리지 않는다.
+    ///
+    /// 예전에는 `String(data:encoding:)` 한 줄이 전부여서, 화면에 Google의
+    /// 오류 JSON이 중괄호째 찍혔다(사용자 스크린샷: `API 오류 (403): { "error":
+    /// { "code": 403, "message": "The caller does not have permission" … }`).
+    /// 거기 적힌 문장은 **무엇을 어떻게 고치라는 말이 아니다.**
+    ///
+    /// 403은 따로 본다. Places API (New)에서 이것은 거의 언제나 키 설정이고
+    /// 고칠 곳이 정해져 있어서, 그 자리들을 적어 준다. 특히 이 앱은 번들
+    /// 식별자를 `com.mrnoh99.PlaceCards`에서 `com.mrnoh99.PinSpots`로 바꾼
+    /// 적이 있다(PR #17). 키에 "iOS 앱" 제한이 **옛 이름으로** 걸려 있으면
+    /// `authorize(_:)`가 보내는 `X-Ios-Bundle-Identifier`와 안 맞아 매번
+    /// 403이 난다 — 그래서 지금 번들 ID를 문구에 박지 않고 **읽어서** 넣는다.
+    /// 다음에 또 바뀌어도 안내가 낡지 않는다.
+    private static func apiError(statusCode: Int, body: Data) -> PlaceCardsError {
+        if statusCode == 403 {
+            let bundleIdentifier = Bundle.main.bundleIdentifier ?? ""
+            return .apiError(
+                "Google이 이 키의 요청을 거부했습니다. Cloud 콘솔에서 \"Places API (New)\"가 사용 설정됐는지(옛 \"Places API\"만 켜면 모자랍니다), 키의 API 제한에 그것이 들어 있는지, 키의 앱 제한이 \"iOS 앱\"이면 번들 ID가 맞는지 확인하세요. 결제가 꺼져 있어도 같은 오류가 납니다. 이 앱의 번들 ID: ".localized
+                    + bundleIdentifier,
+                statusCode: statusCode
+            )
+        }
+        let message = googleErrorMessage(in: body)
+            ?? String(data: body, encoding: .utf8)
+            ?? "알 수 없는 오류".localized
+        return .apiError(message, statusCode: statusCode)
+    }
+
+    /// `{"error":{"message":"…"}}`에서 그 한 줄만. 모양이 다르면 nil을 주고,
+    /// 부르는 쪽이 예전처럼 본문 전체로 되돌아간다 — 모르는 모양을 감추는
+    /// 것보다 날것이라도 보여 주는 편이 낫다.
+    private static func googleErrorMessage(in data: Data) -> String? {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let error = root["error"] as? [String: Any],
+              let message = error["message"] as? String,
+              !message.isEmpty else { return nil }
+        return message
     }
 }
 
