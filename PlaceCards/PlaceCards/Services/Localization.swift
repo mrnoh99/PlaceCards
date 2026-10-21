@@ -148,6 +148,9 @@ enum Localization {
         "Google 지도, Naver 지도, Trip Advisor 등 이 장소의 페이지 링크를 추가해두면 상세보기에서 바로 열 수 있습니다.": "Add links to this place's page on Google Maps, Naver Map, Trip Advisor, and the like, and open them straight from the detail view.",
         "Google 지도를 불러오지 못했습니다 — 설정의 API 키를 확인해주세요.": "Couldn't load Google Maps — please check the API key in Settings.",
         "Google 지도에서 확인됨": "Confirmed on Google Maps",
+        "Google이 보고한 원인: ": "Reason reported by Google: ",
+        "Cloud Console에서 Maps JavaScript API가 켜져 있는지, 키의 API 제한에 그것이 들어 있는지, 애플리케이션 제한이 이 앱을 막고 있지 않은지 확인해주세요.":
+            "In the Cloud console, check that the Maps JavaScript API is enabled, that the key's API restriction includes it, and that no application restriction is blocking this app.",
         "Google/Naver/Apple에서 장소 확정": "Confirm Place via Google/Naver/Apple",
         "Apple에서 검색": "Search on Apple",
         "Google에서 검색": "Search on Google",
