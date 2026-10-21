@@ -110,6 +110,10 @@ struct GoogleMapWebView: UIViewRepresentable {
     /// JS template below has no access to the app's own language setting.
     private struct LocalizedStrings: Encodable {
         let loadError: String
+        /// Google이 콘솔에만 적는 원인 코드 앞에 붙는 말.
+        let loadErrorReason: String
+        /// 그 코드가 무엇이든 고칠 자리는 같은 셋이다.
+        let loadErrorHint: String
         let viewCard: String
         let openGoogleMaps: String
         let openAppleMaps: String
@@ -132,6 +136,8 @@ struct GoogleMapWebView: UIViewRepresentable {
         // that suited a stacked list of links.
         let strings = LocalizedStrings(
             loadError: "Google 지도를 불러오지 못했습니다 — 설정의 API 키를 확인해주세요.".localized,
+            loadErrorReason: "Google이 보고한 원인: ".localized,
+            loadErrorHint: "Cloud Console에서 Maps JavaScript API가 켜져 있는지, 키의 API 제한에 그것이 들어 있는지, 애플리케이션 제한이 이 앱을 막고 있지 않은지 확인해주세요.".localized,
             viewCard: "카드 보기".localized,
             openGoogleMaps: "Google Maps",
             openAppleMaps: "Apple 지도".localized,
@@ -186,18 +192,75 @@ struct GoogleMapWebView: UIViewRepresentable {
             const places = \(placesJSON);
             const L = \(stringsJSON);
             let mapReady = false;
+            let capturedCode = null;
+            let errorBox = null;
 
-            // A bad/restricted API key never calls initMap and doesn't
-            // surface any error either (Google just logs to the console),
-            // so a WKWebView showing this would otherwise stay blank
-            // forever with no feedback.
+            // Google은 구체적인 원인을 **콘솔에만** 적는다 ("Google Maps
+            // JavaScript API error: ApiTargetBlockedMapError" 같은 한 줄).
+            // 화면에 내놓는 것은 "죄송합니다. 문제가 발생했습니다 …
+            // 자바스크립트 콘솔에서 자세한 기술 정보를 확인하세요"뿐인데,
+            // **iOS 사용자에게는 그 콘솔을 볼 방법이 없다**(사용자 스크린샷).
+            // 그래서 여기서 가로채 화면에 옮겨 적는다 — 그 한 단어가 어디를
+            // 고쳐야 하는지 정한다(API 미사용 설정 / 키의 API 제한 /
+            // 애플리케이션 제한 / 결제).
+            function render() {
+              const box = document.createElement("div");
+              box.style.cssText = "display:flex;flex-direction:column;align-items:center;" +
+                "justify-content:center;gap:10px;height:100%;padding:24px;text-align:center;" +
+                "font:14px -apple-system,sans-serif;color:#a3a3a3;";
+              const headline = document.createElement("div");
+              headline.textContent = L.loadError;
+              box.appendChild(headline);
+              if (capturedCode) {
+                const reason = document.createElement("div");
+                reason.style.cssText = "font-size:12px;color:#8a8a8a;";
+                reason.textContent = L.loadErrorReason + capturedCode;
+                box.appendChild(reason);
+              }
+              const hint = document.createElement("div");
+              hint.style.cssText = "font-size:12px;color:#8a8a8a;";
+              hint.textContent = L.loadErrorHint;
+              box.appendChild(hint);
+              // 코드가 뒤늦게 잡히면 이미 띄운 것을 **다시 그린다.**
+              // `gm_authFailure`와 콘솔 중 어느 쪽이 먼저 올지 정해져 있지
+              // 않아, 먼저 온 쪽으로 닫아 버리면 코드를 잃는다.
+              if (errorBox) {
+                errorBox.replaceWith(box);
+              } else {
+                const target = document.getElementById("map");
+                if (!target) return;
+                target.replaceWith(box);
+              }
+              errorBox = box;
+            }
+
+            // 이 스크립트가 지도 SDK(`async`)보다 먼저 돌아서 가로채기가 선다.
+            const passThroughConsoleError = console.error
+              ? console.error.bind(console) : function () {};
+            console.error = function () {
+              passThroughConsoleError.apply(null, arguments);
+              let joined = "";
+              for (let i = 0; i < arguments.length; i += 1) {
+                joined += String(arguments[i]) + " ";
+              }
+              // 이 모양은 지도를 못 쓰게 만드는 오류에만 찍힌다. 그래서
+              // `mapReady`로 막지 않는다 — 지도가 한 번 떴더라도 이 줄이
+              // 나왔다면 그 지도는 쓸 수 없는 상태다.
+              const found = joined.match(/Google Maps JavaScript API [a-z]+: ([A-Za-z]+)/);
+              if (found) {
+                capturedCode = found[1];
+                render();
+              }
+            };
+
+            // 문서에 있는 인증 실패 훅. 원인 코드를 주지는 않는다.
+            window.gm_authFailure = function () { render(); };
+
+            // 위의 둘이 아무것도 못 잡는 경우의 마지막 그물. 키가 잘못되면
+            // `initMap`이 영영 안 불리고 화면이 빈 채로 남는다.
             setTimeout(() => {
-              if (mapReady) return;
-              const errorDiv = document.createElement("div");
-              errorDiv.style.cssText = "display:flex;align-items:center;justify-content:center;" +
-                "height:100%;padding:24px;text-align:center;font:14px -apple-system,sans-serif;color:#a3a3a3;";
-              errorDiv.textContent = L.loadError;
-              document.getElementById("map").replaceWith(errorDiv);
+              if (mapReady || errorBox) return;
+              render();
             }, 10000);
 
             function initMap() {
